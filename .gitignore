@@ -2,3 +2,4 @@
 node_modules/
 dist/
 .bmo-state.json
+.claude/
