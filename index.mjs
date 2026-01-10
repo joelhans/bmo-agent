@@ -1,0 +1,210 @@
+import OpenAI from "openai";
+import "dotenv/config";
+import * as readline from "readline";
+import * as fs from "fs";
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+const conversationHistory = [];
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.NGROKAI,
+});
+
+const tools = [
+  {
+    type: "function",
+    function: {
+      name: "list_cwd",
+      description: "List all files and directories in the current working directory.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_file",
+      description: "Read a specific file from the current working directory or a subfolder.",
+      parameters: {
+        type: "object",
+        properties: {
+          filename: {
+            type: "string",
+            description: "The name of the file to read."
+          }
+        },
+        required: ["filename"],
+      },
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "write_file",
+      description: "Write content to a file (creates or overwrites)",
+      parameters: {
+        type: "object",
+        properties: {
+          filename: {
+            type: "string",
+            description: "The name of the file to write",
+          },
+          content: {
+            type: "string",
+            description: "The content to write to the file",
+          },
+        },
+        required: ["filename", "content"],
+      },
+    },
+  },
+];
+
+function listFiles() {
+  const files = fs.readdirSync(".");
+  return JSON.stringify({ files: files });
+}
+
+function readFile(filename) {
+  const content = fs.readFileSync(filename, "utf-8");
+  return JSON.stringify({ content });
+}
+
+function writeFile(filename, content) {
+  fs.writeFileSync(filename, content, "utf-8");
+  return JSON.stringify({ success: true, message: `File ${filename} written successfully` });
+}
+
+function executeTool(toolCall) {
+  const { name, arguments: args } = toolCall.function;
+  const parsedArgs = JSON.parse(args);
+
+  console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m`);
+
+  switch (name) {
+    case "list_cwd":
+      return listFiles();
+    case "read_file":
+      return readFile(parsedArgs.filename);
+    case "write_file":
+      return writeFile(parsedArgs.filename, parsedArgs.content);
+    default:
+      return JSON.stringify({ error: "Unknown tool" });
+  }
+}
+
+function getUserInput(prompt) {
+  return new Promise((resolve) => {
+    rl.question(prompt, (answer) => {
+      resolve(answer);
+    });
+  });
+}
+
+async function runPrompt(prompt) {
+  conversationHistory.push({
+    role: "user",
+    content: prompt,
+  });
+
+  while (true) {
+    const stream = await client.chat.completions.create({
+      model: "gpt-5",
+      messages: conversationHistory,
+      tools: tools,
+      stream: true,
+    });
+
+    let fullContent = "";
+    let toolCalls = [];
+
+    const fullMessage = {
+      role: "assistant",
+      content: "",
+      tool_calls: undefined
+    };
+
+    process.stdout.write(`\x1b[31mAgent\x1b[0m: `);
+
+    for await (const part of stream) {
+      const delta = part.choices[0]?.delta || {};
+
+      if (delta.content) {
+        fullContent += delta.content;
+        process.stdout.write(delta.content);
+      }
+
+      if (delta.tool_calls) {
+        for (const toolDelta of delta.tool_calls) {
+          const idx = toolDelta.index;
+
+          if (!toolCalls[idx]) {
+            toolCalls[idx] = {
+              id: toolDelta.id,
+              type: "function",
+              function: { name: "", arguments: "" }
+            };
+          }
+
+          if (toolDelta.function?.name) {
+            toolCalls[idx].function.name += toolDelta.function.name;
+          }
+          if (toolDelta.function?.arguments) {
+            toolCalls[idx].function.arguments += toolDelta.function.arguments;
+          }
+        }
+      }
+    }
+
+    process.stdout.write("\n");
+
+    fullMessage.content = fullContent;
+    if (toolCalls.length > 0) {
+      fullMessage.tool_calls = toolCalls;
+    }
+
+    conversationHistory.push(fullMessage);
+    
+    if (fullMessage.tool_calls && fullMessage.tool_calls.length > 0) {
+      for (const toolCall of fullMessage.tool_calls) {
+        const result = executeTool(toolCall);
+      
+        conversationHistory.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: result,
+        });
+      }
+
+      continue;
+    }
+
+    break;
+  }
+}
+
+async function main() {
+  console.log("Chat with your agent (type 'exit' to quit)");
+  
+  while (true) {
+    const input = await getUserInput("\n\x1b[32mYou\x1b[0m: ");
+    
+    if (input.toLowerCase() === "exit") {
+      console.log("Goodbye!");
+      rl.close();
+      break;
+    }
+
+    await runPrompt(input);
+  }
+}
+
+main();
