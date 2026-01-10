@@ -1,105 +1,25 @@
 import OpenAI from "openai";
-import "dotenv/config";
 import * as readline from "readline";
-import * as fs from "fs";
+import { loadEnv } from "./lib/env.mjs";
+
+// Load environment variables from .env
+loadEnv();
+import { loadTools, getTools, executeTool } from "./lib/tool-loader.mjs";
+import { saveState, loadState, clearState, hasState } from "./lib/state.mjs";
+import { getSystemPrompt } from "./lib/system-prompt.mjs";
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-const conversationHistory = [];
+let conversationHistory = [];
+let pendingTask = null;
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.NGROKAI,
+  baseURL: process.env.OPENAI_BASE_URL,
 });
-
-const tools = [
-  {
-    type: "function",
-    function: {
-      name: "list_cwd",
-      description: "List all files and directories in the current working directory.",
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-      },
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "read_file",
-      description: "Read a specific file from the current working directory or a subfolder.",
-      parameters: {
-        type: "object",
-        properties: {
-          filename: {
-            type: "string",
-            description: "The name of the file to read."
-          }
-        },
-        required: ["filename"],
-      },
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "write_file",
-      description: "Write content to a file (creates or overwrites)",
-      parameters: {
-        type: "object",
-        properties: {
-          filename: {
-            type: "string",
-            description: "The name of the file to write",
-          },
-          content: {
-            type: "string",
-            description: "The content to write to the file",
-          },
-        },
-        required: ["filename", "content"],
-      },
-    },
-  },
-];
-
-function listFiles() {
-  const files = fs.readdirSync(".");
-  return JSON.stringify({ files: files });
-}
-
-function readFile(filename) {
-  const content = fs.readFileSync(filename, "utf-8");
-  return JSON.stringify({ content });
-}
-
-function writeFile(filename, content) {
-  fs.writeFileSync(filename, content, "utf-8");
-  return JSON.stringify({ success: true, message: `File ${filename} written successfully` });
-}
-
-function executeTool(toolCall) {
-  const { name, arguments: args } = toolCall.function;
-  const parsedArgs = JSON.parse(args);
-
-  console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m`);
-
-  switch (name) {
-    case "list_cwd":
-      return listFiles();
-    case "read_file":
-      return readFile(parsedArgs.filename);
-    case "write_file":
-      return writeFile(parsedArgs.filename, parsedArgs.content);
-    default:
-      return JSON.stringify({ error: "Unknown tool" });
-  }
-}
 
 function getUserInput(prompt) {
   return new Promise((resolve) => {
@@ -109,17 +29,28 @@ function getUserInput(prompt) {
   });
 }
 
-async function runPrompt(prompt) {
-  conversationHistory.push({
-    role: "user",
-    content: prompt,
-  });
+async function runAgentLoop() {
+  let tools = getTools();
+  let needsReload = false;
 
   while (true) {
+    // Check if tools need reloading
+    if (needsReload) {
+      await loadTools();
+      tools = getTools();
+      needsReload = false;
+
+      // Update system prompt with new tools
+      conversationHistory[0] = {
+        role: "system",
+        content: getSystemPrompt(tools)
+      };
+    }
+
     const stream = await client.chat.completions.create({
-      model: "gpt-5",
+      model: process.env.OPENAI_MODEL || "gpt-4o",
       messages: conversationHistory,
-      tools: tools,
+      tools: tools.length > 0 ? tools : undefined,
       stream: true,
     });
 
@@ -132,7 +63,7 @@ async function runPrompt(prompt) {
       tool_calls: undefined
     };
 
-    process.stdout.write(`\x1b[31mAgent\x1b[0m: `);
+    process.stdout.write(`\x1b[31mBMO\x1b[0m: `);
 
     for await (const part of stream) {
       const delta = part.choices[0]?.delta || {};
@@ -172,11 +103,29 @@ async function runPrompt(prompt) {
     }
 
     conversationHistory.push(fullMessage);
-    
+
+    // Process tool calls if any
     if (fullMessage.tool_calls && fullMessage.tool_calls.length > 0) {
       for (const toolCall of fullMessage.tool_calls) {
-        const result = executeTool(toolCall);
-      
+        const toolName = toolCall.function.name;
+
+        // Silent indicator for self-improvement tools
+        if (!toolName.startsWith("_")) {
+          console.log(`\x1b[33m[${toolName}]\x1b[0m`);
+        }
+
+        const result = await executeTool(toolCall);
+
+        // Check if reload is requested
+        try {
+          const parsed = JSON.parse(result);
+          if (parsed._action === "reload_tools") {
+            needsReload = true;
+          }
+        } catch (e) {
+          // Not JSON or no action, ignore
+        }
+
         conversationHistory.push({
           role: "tool",
           tool_call_id: toolCall.id,
@@ -184,27 +133,86 @@ async function runPrompt(prompt) {
         });
       }
 
+      // Save state after tool execution for recovery
+      saveState({
+        conversationHistory,
+        timestamp: Date.now()
+      });
+
       continue;
     }
 
+    // No tool calls, response is complete
     break;
   }
 }
 
+async function runPrompt(prompt) {
+  conversationHistory.push({
+    role: "user",
+    content: prompt,
+  });
+
+  await runAgentLoop();
+}
+
 async function main() {
-  console.log("Chat with your agent (type 'exit' to quit)");
-  
+  // Load tools dynamically
+  await loadTools();
+  const tools = getTools();
+
+  // Check for saved state (recovery from restart)
+  if (hasState()) {
+    const state = loadState();
+    if (state && state.conversationHistory) {
+      const timeSince = Date.now() - (state.timestamp || 0);
+      // Only restore if state is less than 5 minutes old
+      if (timeSince < 5 * 60 * 1000) {
+        console.log("\x1b[33m[Resuming previous session...]\x1b[0m\n");
+        conversationHistory = state.conversationHistory;
+        clearState();
+
+        // Continue the agent loop if there were pending tool calls
+        const lastMsg = conversationHistory[conversationHistory.length - 1];
+        if (lastMsg.role === "tool") {
+          await runAgentLoop();
+        }
+      } else {
+        clearState();
+      }
+    }
+  }
+
+  // Initialize with system prompt if starting fresh
+  if (conversationHistory.length === 0) {
+    conversationHistory.push({
+      role: "system",
+      content: getSystemPrompt(tools)
+    });
+  }
+
+  console.log("BMO - Self-improving coding agent");
+  console.log("Type 'exit' to quit\n");
+
   while (true) {
-    const input = await getUserInput("\n\x1b[32mYou\x1b[0m: ");
-    
+    const input = await getUserInput("\x1b[32mYou\x1b[0m: ");
+
     if (input.toLowerCase() === "exit") {
       console.log("Goodbye!");
+      clearState();
       rl.close();
       break;
+    }
+
+    if (input.trim() === "") {
+      continue;
     }
 
     await runPrompt(input);
   }
 }
 
-main();
+main().catch(err => {
+  console.error("Fatal error:", err);
+  process.exit(1);
+});

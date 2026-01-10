@@ -1,17 +1,15 @@
 {
-  "name": "node-starter",
-  "version": "0.0.0",
+  "name": "bmo-agent",
+  "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "start": "node index.mjs",
-    "build": "esbuild index.mjs --bundle --platform=node --outfile=dist/bmo.cjs --format=cjs && sed -i '1i#!/usr/bin/env node' dist/bmo.cjs",
-    "install-cli": "npm run build && cp dist/bmo.cjs ~/.local/bin/bmo && chmod +x ~/.local/bin/bmo",
+    "build": "esbuild index.mjs --bundle --platform=node --outfile=dist/bmo.mjs --format=esm --banner:js='#!/usr/bin/env node'",
+    "install-cli": "npm run build && cp dist/bmo.mjs ~/.local/bin/bmo && chmod +x ~/.local/bin/bmo",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@inquirer/editor": "^5.0.2",
-    "dotenv": "^17.2.3",
-    "openai": "^6.1.0",
-    "typescript": "^4.4.4"
+    "openai": "^6.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.5",
