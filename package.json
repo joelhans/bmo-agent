@@ -2,8 +2,9 @@
   "name": "node-starter",
   "version": "0.0.0",
   "scripts": {
-    "start": "ts-node .",
-    "start:watch": "ts-node-dev .",
+    "start": "node index.mjs",
+    "build": "esbuild index.mjs --bundle --platform=node --outfile=dist/bmo.cjs --format=cjs && sed -i '1i#!/usr/bin/env node' dist/bmo.cjs",
+    "install-cli": "npm run build && cp dist/bmo.cjs ~/.local/bin/bmo && chmod +x ~/.local/bin/bmo",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -13,7 +14,8 @@
     "typescript": "^4.4.4"
   },
   "devDependencies": {
-    "@types/node": "^16.11.6"
+    "@types/node": "^22.19.5",
+    "esbuild": "^0.27.2"
   },
-  "packageManager": "pnpm@9.14.2+sha512.6e2baf77d06b9362294152c851c4f278ede37ab1eba3a55fda317a4a17b209f4dbb973fb250a77abc463a341fcb1f17f17cfa24091c4eb319cda0d9b84278387"
+  "packageManager": "pnpm@10.28.0+sha512.05df71d1421f21399e053fde567cea34d446fa02c76571441bfc1c7956e98e363088982d940465fd34480d4d90a0668bc12362f8aa88000a64e83d0b0e47be48"
 }

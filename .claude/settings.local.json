@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx esbuild:*)",
+      "Bash(printf:*)",
+      "Bash(~/.local/bin/bmo)",
+      "Bash(chmod:*)",
+      "Bash({ echo '#!/usr/bin/env node')",
+      "Bash(})",
+      "Bash(timeout 2 bmo:*)"
+    ]
+  }
+}
