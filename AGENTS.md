@@ -68,3 +68,10 @@ Potential/optional folders that could be introduced later
 - Tighten path safety (restrict tool access to within repo; consider allowlists).
 - Optional: Persist conversation transcripts to reports/ with timestamps.
 - Optional: Provide a small deduplication pass when appending bullets to avoid near-duplicate entries in PREFERENCES.md and AGENTS.md.
+- Ensure that whenever an existing tool accomplishes a task sub-optimally, an optimized tool is developed and integrated, followed by direct addition and commit to GitHub.
+
+## Best Practices for Building New Tools
+- Name all functions explicitly to avoid syntax errors and improve readability.
+- Use consistent error handling; wrap operations in try/catch blocks and return informative JSON error messages.
+- When designing tools, ensure they only have access to necessary resources to minimize security risks.
+- Construct asynchronous operations thoughtfully to avoid blocking the event loop.
