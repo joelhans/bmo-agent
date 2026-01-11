@@ -12,3 +12,8 @@ Each entry includes why, a sterilized prompt summary, and a concise implementati
 - Why: Prefer human-readable log and eliminate remaining "invalid or unexpected token" errors from tools
 - Prompt summary: User requested markdown log and noted loader token errors persisted
 - Implementation: Replaced .bmo/autonomy_log.jsonl with AUTONOMY_LOG.md; strengthened guidelines to explicitly ban ESM exports/imports, module.exports, top-level await, and nested function declarations in tool implementations; added a preflight validation step in my workflow to check tool bodies for disallowed tokens before creation
+
+## 2026-01-11 – Scrub PII and add strict privacy rules
+- Why: Prevent accidental exposure of API keys and other sensitive info in docs and prompts
+- Prompt summary: User requested removal of PII from guidelines and explicit instructions not to reveal secrets
+- Implementation: Sanitized BMO_TOOL_GUIDELINES.md to remove PII; added Privacy/Secret Handling section; updated system prompt with no-PII/secrets rule
