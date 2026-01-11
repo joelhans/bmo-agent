@@ -257,6 +257,12 @@ async function main() {
   await loadTools();
   const tools = getTools();
 
+  // Ensure API key exists, otherwise guide the user clearly
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("No OpenAI API key found.\n\nSet one of the following:\n  1) bmo api-key set <OPENAI_API_KEY>   # stores it in ~/.config/bmo/.env\n  2) export OPENAI_API_KEY=your_key     # set it in your shell\n\nGet a key: https://platform.openai.com/api-keys\n");
+    process.exit(1);
+  }
+
   // Initialize OpenAI client after any CLI handling
   client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
