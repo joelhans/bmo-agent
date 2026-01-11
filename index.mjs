@@ -204,6 +204,13 @@ async function main() {
       break;
     }
 
+    if (input.toLowerCase() === "state clear") {
+      console.log("Clearing state...");
+      clearState();
+      console.log("State cleared successfully.");
+      continue;
+    }
+
     if (input.trim() === "") {
       continue;
     }

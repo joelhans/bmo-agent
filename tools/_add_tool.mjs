@@ -50,6 +50,8 @@ export async function execute(args) {
     return JSON.stringify({ error: "Cannot create tools starting with underscore" });
   }
 
+  const parametersCode = parameters ? JSON.stringify(parameters, null, 2).split('\n').join('\n    ') : '{}';
+
   const toolCode = `import * as fs from "fs";
 import * as path from "path";
 import * as cp from "child_process";
@@ -61,7 +63,7 @@ export const definition = {
   function: {
     name: "${name}",
     description: ${JSON.stringify(description)},
-    parameters: ${JSON.stringify(parameters, null, 2).split('\n').join('\n    ')},
+    parameters: ${parametersCode},
   }
 };
 
