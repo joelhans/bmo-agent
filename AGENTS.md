@@ -68,3 +68,4 @@ Potential/optional folders that could be introduced later
 - Tighten path safety (restrict tool access to within repo; consider allowlists).
 - Optional: Persist conversation transcripts to reports/ with timestamps.
 - Optional: Provide a small deduplication pass when appending bullets to avoid near-duplicate entries in PREFERENCES.md and AGENTS.md.
+- Ensure that whenever an existing tool accomplishes a task sub-optimally, an optimized tool is developed and integrated, followed by direct addition and commit to GitHub.
