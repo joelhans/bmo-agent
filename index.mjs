@@ -47,8 +47,11 @@ async function runAgentLoop() {
       };
     }
 
+    const modelName = process.env.OPENAI_MODEL || "gpt-5";
+    console.log(`Using model: ${modelName}`);
+    
     const stream = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o",
+      model: modelName,
       messages: conversationHistory,
       tools: tools.length > 0 ? tools : undefined,
       stream: true,
