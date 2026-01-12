@@ -17,3 +17,8 @@ Each entry includes why, a sterilized prompt summary, and a concise implementati
 - Why: Prevent accidental exposure of API keys and other sensitive info in docs and prompts
 - Prompt summary: User requested removal of PII from guidelines and explicit instructions not to reveal secrets
 - Implementation: Sanitized BMO_TOOL_GUIDELINES.md to remove PII; added Privacy/Secret Handling section; updated system prompt with no-PII/secrets rule
+## 2026-01-12 – fix_write_repo_file
+- Why: Existing write_repo_file.mjs had invalid parameters schema and embedded backslash-n escapes that caused invalid token errors at load time.
+- Prompt summary: User reported errors related to write_repo_file.mjs and invalid or unexpected tokens.
+- Implementation: Rewrote tools/write_repo_file.mjs with a proper JSON schema for parameters, clean execute implementation without escape sequences, robust validation, directory creation, and JSON-string returns.
+
