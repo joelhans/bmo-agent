@@ -19,3 +19,10 @@ where improvements should happen. It adds new files to `cwd` without thinking,
 pushes them to the wrong repo, and claims the work is done. I had to press
 multiple times to convince it to update its own guidance and improve its
 behavior.
+
+## leaking pii is an inevitability
+
+It didn't take long for the agent to push a doc that details how to properly
+create new tools that told it to *not* use a bunch of `declare` statements, many
+of which contained details I felt like were too personal... including my OpenAI
+API key.
