@@ -1,19 +1,9 @@
 {
   "name": "bmo-agent",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "start": "node index.mjs",
-    "build": "esbuild index.mjs --bundle --platform=node --outfile=dist/bmo.mjs --format=esm --banner:js='#!/usr/bin/env node'",
-    "install-cli": "npm run build && cp dist/bmo.mjs ~/.local/bin/bmo && chmod +x ~/.local/bin/bmo",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "validate:tools": "node scripts/validate-tools.mjs"
   },
-  "dependencies": {
-    "openai": "^6.1.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.19.5",
-    "esbuild": "^0.27.2"
-  },
-  "packageManager": "pnpm@10.28.0+sha512.05df71d1421f21399e053fde567cea34d446fa02c76571441bfc1c7956e98e363088982d940465fd34480d4d90a0668bc12362f8aa88000a64e83d0b0e47be48"
+  "dependencies": {}
 }

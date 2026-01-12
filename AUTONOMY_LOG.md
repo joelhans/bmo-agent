@@ -27,3 +27,8 @@ Each entry includes why, a sterilized prompt summary, and a concise implementati
 - Prompt summary: User asked to fix errors and double-check strategy for implementing new tools.
 - Implementation: Strengthened tools/_add_tool.mjs to validate schema, sanitize implementation body, auto-wrap with try/catch, and return structured JSON errors.
 
+## 2026-01-12 – add_tool_ci_validation
+- Why: Ensure tool integrity continuously and prioritize self-improvement autonomy without relying on user prompting.
+- Prompt summary: User emphasized that decisions should be what BMO thinks is best for BMO’s self-improving abilities.
+- Implementation: Added scripts/validate-tools.mjs and npm script validate:tools. Ran it to validate all tools and fixed delete_file schema. Updated _add_tool to enforce stricter standards.
+
