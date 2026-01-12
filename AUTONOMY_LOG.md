@@ -22,3 +22,8 @@ Each entry includes why, a sterilized prompt summary, and a concise implementati
 - Prompt summary: User reported errors related to write_repo_file.mjs and invalid or unexpected tokens.
 - Implementation: Rewrote tools/write_repo_file.mjs with a proper JSON schema for parameters, clean execute implementation without escape sequences, robust validation, directory creation, and JSON-string returns.
 
+## 2026-01-12 – harden_add_tool
+- Why: Prevent future invalid token issues by enforcing schema validation and wrapping body with try/catch automatically.
+- Prompt summary: User asked to fix errors and double-check strategy for implementing new tools.
+- Implementation: Strengthened tools/_add_tool.mjs to validate schema, sanitize implementation body, auto-wrap with try/catch, and return structured JSON errors.
+

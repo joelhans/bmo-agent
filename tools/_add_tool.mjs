@@ -25,11 +25,11 @@ Common tools you might need: run_command (shell commands), http_request (API cal
         },
         parameters: {
           type: "object",
-          description: "JSON Schema for the tool's parameters"
+          description: "JSON Schema for the tool's parameters. Must include: type: 'object', properties: { ... }, required: []"
         },
         implementation: {
           type: "string",
-          description: "The JavaScript implementation as an async function body. Has access to 'args' object containing the parameters. Must return a JSON string. Can use: fs, path, child_process (as cp), https, http modules."
+          description: "The JavaScript implementation as an async function body. Provide only the function body for execute(args). Must return a JSON string. Can use: fs, path, child_process (as cp), https, http modules."
         }
       },
       required: ["name", "description", "parameters", "implementation"],
@@ -38,21 +38,46 @@ Common tools you might need: run_command (shell commands), http_request (API cal
 };
 
 export async function execute(args) {
-  const { name, description, parameters, implementation } = args;
+  try {
+    const { name, description, parameters, implementation } = args;
 
-  // Validate tool name
-  if (!/^[a-z][a-z0-9_]*$/.test(name)) {
-    return JSON.stringify({ error: "Tool name must be snake_case starting with a letter" });
-  }
+    // Validate tool name
+    if (typeof name !== "string" || !/^[a-z][a-z0-9_]*$/.test(name)) {
+      return JSON.stringify({ success: false, error: "Tool name must be snake_case starting with a letter" });
+    }
 
-  // Don't allow overwriting meta-tools
-  if (name.startsWith("_")) {
-    return JSON.stringify({ error: "Cannot create tools starting with underscore" });
-  }
+    // Don't allow overwriting meta-tools
+    if (name.startsWith("_")) {
+      return JSON.stringify({ success: false, error: "Cannot create tools starting with underscore" });
+    }
 
-  const parametersCode = parameters ? JSON.stringify(parameters, null, 2).split('\n').join('\n    ') : '{}';
+    // Validate description
+    if (typeof description !== "string" || !description.trim()) {
+      return JSON.stringify({ success: false, error: "Description is required and must be a non-empty string" });
+    }
 
-  const toolCode = `import * as fs from "fs";
+    // Validate parameters schema
+    if (typeof parameters !== "object" || parameters === null) {
+      return JSON.stringify({ success: false, error: "parameters must be an object with JSON Schema" });
+    }
+    if (parameters.type !== "object" || typeof parameters.properties !== "object" || !Array.isArray(parameters.required)) {
+      return JSON.stringify({ success: false, error: "parameters schema must include: type: 'object', properties: { ... }, required: []" });
+    }
+
+    // Validate implementation body
+    if (typeof implementation !== "string" || !implementation.trim()) {
+      return JSON.stringify({ success: false, error: "implementation must be a non-empty string containing the execute body" });
+    }
+
+    // Prevent accidental module wrappers inside implementation
+    if (/\bexport\b|\bimport\b/.test(implementation)) {
+      return JSON.stringify({ success: false, error: "implementation must not include import/export/module wrappers" });
+    }
+
+    const parametersCode = JSON.stringify(parameters, null, 2).split('\n').join('\n    ');
+
+    // Always wrap implementation with try/catch to enforce error handling and JSON-string returns on error
+    const toolCode = `import * as fs from "fs";
 import * as path from "path";
 import * as cp from "child_process";
 import * as https from "https";
@@ -68,13 +93,16 @@ export const definition = {
 };
 
 export async function execute(args) {
-  ${implementation}
+  try {
+${implementation.split('\n').map(l => "    " + l).join('\n')}
+  } catch (error) {
+    return JSON.stringify({ success: false, error: error.message });
+  }
 }
 `;
 
-  const toolPath = path.join(TOOLS_DIR, `${name}.mjs`);
+    const toolPath = path.join(TOOLS_DIR, `${name}.mjs`);
 
-  try {
     fs.writeFileSync(toolPath, toolCode, "utf-8");
     return JSON.stringify({
       success: true,
@@ -82,6 +110,6 @@ export async function execute(args) {
       path: toolPath
     });
   } catch (err) {
-    return JSON.stringify({ error: `Failed to create tool: ${err.message}` });
+    return JSON.stringify({ success: false, error: `Failed to create tool: ${err.message}` });
   }
 }
