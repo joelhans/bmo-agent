@@ -100,9 +100,29 @@ function handleApiKeyCLI(argv) {
   }
 }
 
+function handleSetHomeCLI(argv) {
+  const action = argv[2];
+  if (action !== "set-home") return false;
+
+  const target = argv[3];
+  if (!target) {
+    console.log("Usage:\n  bmo set-home /absolute/path/to/bmo-home-repo");
+    process.exit(1);
+  }
+  const abs = path.isAbsolute(target) ? target : path.resolve(process.cwd(), target);
+  const map = readConfigEnv();
+  map.HOME_REPO_PATH = abs;
+  writeConfigEnv(map);
+  console.log(`Saved HOME_REPO_PATH to ${CONFIG_ENV} -> ${abs}`);
+  process.exit(0);
+}
+
 // Early CLI handling for simple admin commands
 if (process.argv[2] === "api-key") {
   handleApiKeyCLI(process.argv);
+}
+if (process.argv[2] === "set-home") {
+  handleSetHomeCLI(process.argv);
 }
 
 const rl = readline.createInterface({

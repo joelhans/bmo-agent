@@ -19,6 +19,10 @@ export const definition = {
         content: {
           type: "string",
           description: "The content to write to the file."
+        },
+        purpose: {
+          type: "string",
+          description: "Purpose of the write. If 'bmo-self-improvement', this operation is allowed only within BMO's home repo (marked by .bmo-home)."
         }
       },
       required: ["filepath", "content"],
@@ -28,10 +32,17 @@ export const definition = {
 
 export async function execute(args) {
   try {
-    const { filepath, content } = args;
+    const { filepath, content, purpose } = args;
 
     if (!filepath || typeof filepath !== "string") {
       return JSON.stringify({ success: false, error: "filepath is required and must be a string" });
+    }
+
+    // Enforce home-repo guard if writing BMO self-improvement files
+    if (purpose === "bmo-self-improvement") {
+      if (!fs.existsSync(".bmo-home")) {
+        return JSON.stringify({ success: false, error: "BMO self-improvement writes are only allowed in the BMO home repo (.bmo-home missing)" });
+      }
     }
 
     const abs = path.isAbsolute(filepath) ? filepath : path.join(process.cwd(), filepath);

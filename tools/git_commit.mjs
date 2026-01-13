@@ -8,7 +8,7 @@ export const definition = {
   type: "function",
   function: {
     name: "git_commit",
-    description: "Stage files, create a commit with a message, and optionally push. Never uses a temporary commit message file and cleans up any leftover commit_message.txt. Also sets upstream on first push if needed.",
+    description: "Stage files, create a commit with a message, and optionally push. Enforces that commits for BMO self-improvement occur only in the BMO home repo (.bmo-home). Never uses a temporary commit message file and cleans up any leftover commit_message.txt. Also sets upstream on first push if needed.",
     parameters: {
       type: "object",
       properties: {
@@ -17,7 +17,8 @@ export const definition = {
         files: { type: "array", items: { type: "string" }, description: "Specific files to add; ignored if add_all is true." },
         push: { type: "boolean", description: "If true, push after committing." },
         remote: { type: "string", description: "Remote name to push to (default 'origin')." },
-        branch: { type: "string", description: "Branch name to push (default: current branch)." }
+        branch: { type: "string", description: "Branch name to push (default: current branch)." },
+        purpose: { type: "string", description: "Purpose of the commit. If 'bmo-self-improvement', commit is allowed only in BMO home repo." }
       },
       required: ["message"]
     }
@@ -26,7 +27,11 @@ export const definition = {
 
 export async function execute(args) {
   try {
-    const { message, add_all, files, push, remote, branch } = args;
+    const { message, add_all, files, push, remote, branch, purpose } = args;
+
+    if (purpose === "bmo-self-improvement" && !fs.existsSync(".bmo-home")) {
+      return JSON.stringify({ success: false, error: "BMO self-improvement commits are only allowed in the BMO home repo (.bmo-home missing)" });
+    }
 
     // Clean up any stray commit_message.txt from previous operations
     try {
