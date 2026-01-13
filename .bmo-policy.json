@@ -1,0 +1,6 @@
+{
+  "role": "project",
+  "allow_self_improvement_here": false,
+  "notes": "This repo is a project repo. Fundamental BMO self-improvements must not be applied here. They should be implemented in BMO's home repository instead.",
+  "home_repo_hint": "Set BMO home repo in your agent runtime config. If unknown, BMO must ask the user for the home repo when a fundamental change is requested."
+}

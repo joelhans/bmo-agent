@@ -20,6 +20,10 @@ pushes them to the wrong repo, and claims the work is done. I had to press
 multiple times to convince it to update its own guidance and improve its
 behavior.
 
+### 01-13: Still having trouble with this
+
+>  I'm still having so much trouble getting this coding agent to understand that when I want to start off the self-improvement loop, I want changed to be made **IN THIS REPOSITORY**, not at whatever current working directory I might be in at the time. There needs to be a strict separation between using bmo to improve a codebase and bmo **IMPROVING ITSELF IN ITS OWN REPOSITORY**. What can we do to improve this?
+
 ## leaking pii is an inevitability
 
 It didn't take long for the agent to push a doc that details how to properly
