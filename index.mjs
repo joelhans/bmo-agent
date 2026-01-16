@@ -83,6 +83,39 @@ process.on("exit", () => logSessionEnd("ended (exit)"));
 
 const conversationHistory = [];
 
+// Build a clear system prompt that establishes bmo's identity and behavior.
+function buildSystemPrompt() {
+  const parts = [];
+  parts.push([
+    "You are bmo — a fast, pragmatic coding agent.",
+    "Your job is to take the user's input and complete tasks using the available tools.",
+    "Default to action: when a task involves files, call tools to inspect or modify them rather than only suggesting steps.",
+    "Tools you can call:",
+    "- list_cwd(): list files/directories in the current working directory.",
+    "- read_file(filename): read a file's contents.",
+    "- write_file(filename, content): write or overwrite a file.",
+    "Behavioral rules:",
+    "- Prefer doing over suggesting. If a file must be read/edited to proceed, call the tool immediately.",
+    "- Keep replies concise. Summarize actions and show results. Ask brief clarifying questions only when needed to avoid wrong changes.",
+    "- Do not assume file contents or structure — discover using list_cwd/read_file.",
+    "- All edits must go through write_file with the full desired content.",
+    "- After writing, briefly note what changed (filename and a one-line summary).",
+    "- If a task requires capabilities beyond your tools, state the limitation and propose the smallest viable next step."
+  ].join("\n"));
+
+  // Inline project notes if present to give bmo extra context.
+  try {
+    if (fs.existsSync("AGENTS.md")) {
+      const notes = fs.readFileSync("AGENTS.md", "utf-8");
+      parts.push("Project notes (AGENTS.md):\n" + notes);
+    }
+  } catch (_) {
+    // Ignore failures to read notes
+  }
+
+  return parts.join("\n\n");
+}
+
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   baseURL: process.env.NGROKAI,
@@ -142,23 +175,40 @@ const tools = [
 ];
 
 function listFiles() {
-  const files = fs.readdirSync(".");
-  return JSON.stringify({ files: files });
+  try {
+    const files = fs.readdirSync(".");
+    return JSON.stringify({ ok: true, files });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: String(e) });
+  }
 }
 
 function readFile(filename) {
-  const content = fs.readFileSync(filename, "utf-8");
-  return JSON.stringify({ content });
+  try {
+    const content = fs.readFileSync(filename, "utf-8");
+    return JSON.stringify({ ok: true, content });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: String(e), filename });
+  }
 }
 
 function writeFile(filename, content) {
-  fs.writeFileSync(filename, content, "utf-8");
-  return JSON.stringify({ success: true, message: `File ${filename} written successfully` });
+  try {
+    fs.writeFileSync(filename, content, "utf-8");
+    return JSON.stringify({ ok: true, message: `File ${filename} written successfully` });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: String(e), filename });
+  }
 }
 
 function executeTool(toolCall) {
   const { name, arguments: args } = toolCall.function;
-  const parsedArgs = JSON.parse(args);
+  let parsedArgs = {};
+  try {
+    parsedArgs = args ? JSON.parse(args) : {};
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: `Invalid tool arguments: ${String(e)}`, raw: String(args) });
+  }
 
   console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m`);
 
@@ -170,7 +220,7 @@ function executeTool(toolCall) {
     case "write_file":
       return writeFile(parsedArgs.filename, parsedArgs.content);
     default:
-      return JSON.stringify({ error: "Unknown tool" });
+      return JSON.stringify({ ok: false, error: "Unknown tool" });
   }
 }
 
@@ -182,7 +232,16 @@ function getUserInput(prompt) {
   });
 }
 
+let systemPromptInitialized = false;
+function ensureSystemPrompt() {
+  if (systemPromptInitialized) return;
+  conversationHistory.push({ role: "system", content: buildSystemPrompt() });
+  systemPromptInitialized = true;
+}
+
 async function runPrompt(prompt) {
+  ensureSystemPrompt();
+
   conversationHistory.push({
     role: "user",
     content: prompt,
@@ -205,7 +264,7 @@ async function runPrompt(prompt) {
       tool_calls: undefined
     };
 
-    process.stdout.write(`\x1b[31mAgent\x1b[0m: `);
+    process.stdout.write(`\x1b[31mbmo\x1b[0m: `);
 
     for await (const part of stream) {
       const delta = part.choices[0]?.delta || {};
@@ -261,14 +320,14 @@ async function runPrompt(prompt) {
     }
 
     // Final assistant message for this user prompt; log it
-    logToFile(`Agent: ${fullContent}\n`);
+    logToFile(`bmo: ${fullContent}\n`);
 
     break;
   }
 }
 
 async function main() {
-  console.log("Chat with your agent (type 'exit' to quit)");
+  console.log("Chat with bmo (type 'exit' to quit)");
   
   while (true) {
     const input = await getUserInput("\n\x1b[32mYou\x1b[0m: ");
