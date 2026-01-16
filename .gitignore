@@ -1,1 +1,13 @@
+# Environment
 .env
+
+# Build artifacts
+/dist
+
+# Bun compile/cache
+.bun
+.bun-build
+bun.lockb
+
+# Node
+node_modules
