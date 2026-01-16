@@ -6,7 +6,7 @@
 
 # Bun compile/cache
 .bun
-.bun-build
+*.bun-build
 bun.lockb
 
 # Node
