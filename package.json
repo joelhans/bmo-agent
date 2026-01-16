@@ -5,8 +5,8 @@
     "start": "ts-node .",
     "start:watch": "ts-node-dev .",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:cli": "bun build index.mjs --compile --outfile dist/agent",
-    "install-cli": "pnpm run build:cli && mkdir -p ~/.local/bin && cp dist/agent ~/.local/bin/agent && chmod +x ~/.local/bin/agent && echo 'Installed agent to ~/.local/bin/agent'"
+    "build:cli": "bun build index.mjs --compile --outfile dist/bmo",
+    "install-cli": "pnpm run build:cli && mkdir -p ~/.local/bin && cp dist/bmo ~/.local/bin/bmo && chmod +x ~/.local/bin/agent && echo 'Installed bmo to ~/.local/bin/bmo'"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
