@@ -1,6 +1,6 @@
 AGENTS.md — Project Context and Working Notes
 
-Use this file to capture an evolving understanding of the project. It is loaded into the agent’s system prompt on startup.
+Use this file to capture an evolving understanding of the project. It is inlined into the agent’s system prompt when running inside this repo by default, or when BMO_INLINE_NOTES=1 or BMO_NOTES_FILE is set. Set BMO_DISABLE_NOTES=1 to prevent inlining.
 
 Sections
 - Project Overview
@@ -20,7 +20,7 @@ Sections
 
 ## File Structure
 - .env: Environment variables (OPENAI_API_KEY required; NGROKAI optional baseURL override; BMO_DATA_DIR optional for logs).
-- AGENTS.md: This file (project memory/context) loaded into the system prompt at startup.
+- AGENTS.md: This file (project memory/context) optionally loaded into the system prompt per environment flags and defaults.
 - index.mjs: Main CLI. Implements streaming, tool calls, and a clear system prompt establishing bmo’s identity and action-first behavior.
 - package.json: Dependencies and scripts (runs with node index.mjs; optional Bun compile to dist/bmo; install-cli helper).
 - pnpm-lock.yaml: Locked dependency versions.
@@ -32,7 +32,7 @@ Potential/optional folders that could be introduced later
 
 ## Key Components
 - Conversation state: conversationHistory accumulates user, assistant, and tool messages.
-- System prompt: Built at startup to assert bmo’s identity and behavior, and to inline AGENTS.md for extra context.
+- System prompt: Built at startup to assert bmo’s identity and behavior, and can inline AGENTS.md for extra context.
 - OpenAI client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, baseURL: process.env.NGROKAI })
 - Streaming loop (runPrompt):
   1) Ensure system message is present.
@@ -52,6 +52,11 @@ Potential/optional folders that could be introduced later
 - All edits occur via write_file with full-file content.
 - Brief, results-focused replies: after actions, summarize what was done and the outcome.
 - Session log is written to ~/.local/share/bmo (or BMO_DATA_DIR), with secure permissions when possible.
+- Project notes inclusion controls:
+  - Default: inline AGENTS.md only when running inside the bmo repo.
+  - BMO_INLINE_NOTES=1: inline AGENTS.md even in other repos.
+  - BMO_NOTES_FILE=/path/to/notes.md: inline a specific notes file.
+  - BMO_DISABLE_NOTES=1: never inline notes.
 
 ## Tooling Opportunities (incl. “tools that would have helped”)
 - Recursive/filtered file listing (glob, include/exclude) to navigate larger repos.

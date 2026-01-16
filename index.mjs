@@ -83,6 +83,16 @@ process.on("exit", () => logSessionEnd("ended (exit)"));
 
 const conversationHistory = [];
 
+function isBmoRepo() {
+  try {
+    const pkgRaw = fs.readFileSync("package.json", "utf-8");
+    const pkg = JSON.parse(pkgRaw);
+    return pkg && typeof pkg.name === "string" && pkg.name === "bmo-agent";
+  } catch (_) {
+    return false;
+  }
+}
+
 // Build a clear system prompt that establishes bmo's identity and behavior.
 function buildSystemPrompt() {
   const parts = [];
@@ -103,11 +113,26 @@ function buildSystemPrompt() {
     "- If a task requires capabilities beyond your tools, state the limitation and propose the smallest viable next step."
   ].join("\n"));
 
-  // Inline project notes if present to give bmo extra context.
+  // Inline project notes optionally to give bmo extra context.
   try {
-    if (fs.existsSync("AGENTS.md")) {
-      const notes = fs.readFileSync("AGENTS.md", "utf-8");
-      parts.push("Project notes (AGENTS.md):\n" + notes);
+    const disableNotes = process.env.BMO_DISABLE_NOTES === "1";
+    const notesFileEnv = (process.env.BMO_NOTES_FILE || "").trim();
+    const inlineFlag = process.env.BMO_INLINE_NOTES === "1" || isBmoRepo();
+
+    if (!disableNotes) {
+      let notesPath = "";
+      if (notesFileEnv) {
+        // Respect explicit override
+        notesPath = path.resolve(notesFileEnv);
+      } else if (inlineFlag && fs.existsSync("AGENTS.md")) {
+        // Backward-compatible: only auto-inline AGENTS.md when in the bmo repo
+        notesPath = path.resolve("AGENTS.md");
+      }
+
+      if (notesPath && fs.existsSync(notesPath)) {
+        const notes = fs.readFileSync(notesPath, "utf-8");
+        parts.push(`Project notes (${path.basename(notesPath)}):\n` + notes);
+      }
     }
   } catch (_) {
     // Ignore failures to read notes
