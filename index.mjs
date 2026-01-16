@@ -2,11 +2,84 @@ import OpenAI from "openai";
 import "dotenv/config";
 import * as readline from "readline";
 import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
+
+// Session logging setup: ensure ~/.local/share/bmo (or override) exists and create a timestamped log file.
+const homeDir = (os.homedir && os.homedir()) || process.env.HOME || process.env.USERPROFILE || ".";
+
+function resolveDataDir() {
+  const override = process.env.BMO_DATA_DIR;
+  if (override && override.trim()) {
+    return path.resolve(override.trim());
+  }
+  // Default per request: ~/.local/share/bmo
+  return path.join(homeDir, ".local", "share", "bmo");
+}
+
+function ensureDir(dir) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    // Lock down permissions on POSIX systems (no-op on Windows)
+    if (process.platform !== "win32") {
+      try {
+        fs.chmodSync(dir, 0o700);
+      } catch (_) {
+        // ignore chmod failures
+      }
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+const desiredLogDir = resolveDataDir();
+let logBaseDir = desiredLogDir;
+if (!ensureDir(logBaseDir)) {
+  const fallback = path.join(os.tmpdir(), "bmo");
+  if (ensureDir(fallback)) {
+    console.warn(`Warning: failed to create ${desiredLogDir}. Falling back to ${fallback}`);
+    logBaseDir = fallback;
+  } else {
+    console.warn(`Warning: failed to create ${desiredLogDir} and ${fallback}. Falling back to current directory.`);
+    logBaseDir = ".";
+  }
+}
+
+const sessionTimestamp = new Date().toISOString().replace(/[:.]/g, "-");
+const logFilePath = path.join(logBaseDir, `agent-${sessionTimestamp}.log`);
+let sessionEndLogged = false;
+function logToFile(text) {
+  try {
+    fs.appendFileSync(logFilePath, text);
+  } catch (e) {
+    // If logging fails, do not crash the agent
+  }
+}
+function logSessionEnd(reason = "ended") {
+  if (sessionEndLogged) return;
+  sessionEndLogged = true;
+  logToFile(`=== Agent session ${reason} at ${new Date().toISOString()} ===\n`);
+}
+logToFile(`=== Agent session started at ${new Date().toISOString()} ===\n`);
+console.log(`Session log: ${logFilePath}`);
+
+process.on("SIGINT", () => {
+  console.log("\nGoodbye!");
+  logSessionEnd("ended (SIGINT)");
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  logSessionEnd("ended (SIGTERM)");
+  process.exit(0);
+});
+process.on("exit", () => logSessionEnd("ended (exit)"));
 
 const conversationHistory = [];
 
@@ -187,6 +260,9 @@ async function runPrompt(prompt) {
       continue;
     }
 
+    // Final assistant message for this user prompt; log it
+    logToFile(`Agent: ${fullContent}\n`);
+
     break;
   }
 }
@@ -199,9 +275,13 @@ async function main() {
     
     if (input.toLowerCase() === "exit") {
       console.log("Goodbye!");
+      logSessionEnd("ended (command)");
       rl.close();
       break;
     }
+
+    // Log user prompt
+    logToFile(`You: ${input}\n`);
 
     await runPrompt(input);
   }
