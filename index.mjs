@@ -110,7 +110,9 @@ function buildSystemPrompt() {
     "- Do not assume file contents or structure — discover using list_cwd/read_file.",
     "- All edits must go through write_file with the full desired content.",
     "- After writing, briefly note what changed (filename and a one-line summary).",
-    "- If a task requires capabilities beyond your tools, state the limitation and propose the smallest viable next step."
+    "- If a task requires capabilities beyond your tools, state the limitation and propose the smallest viable next step.",
+    "Tool call metadata:",
+    "- When calling any tool, include a short reason string in the 'reason' argument explaining why you're using it and, when applicable, the target filename(s)."
   ].join("\n"));
 
   // Inline project notes optionally to give bmo extra context.
@@ -154,7 +156,9 @@ const tools = [
       description: "List all files and directories in the current working directory.",
       parameters: {
         type: "object",
-        properties: {},
+        properties: {
+          reason: { type: "string", description: "Why a listing is needed right now." }
+        },
         required: [],
       },
     }
@@ -170,6 +174,10 @@ const tools = [
           filename: {
             type: "string",
             description: "The name of the file to read."
+          },
+          reason: {
+            type: "string",
+            description: "Explain why this file needs to be read."
           }
         },
         required: ["filename"],
@@ -192,6 +200,10 @@ const tools = [
             type: "string",
             description: "The content to write to the file",
           },
+          reason: {
+            type: "string",
+            description: "Explain why this write is necessary."
+          }
         },
         required: ["filename", "content"],
       },
@@ -199,30 +211,31 @@ const tools = [
   },
 ];
 
-function listFiles() {
+function listFiles(reason) {
   try {
     const files = fs.readdirSync(".");
-    return JSON.stringify({ ok: true, files });
+    return JSON.stringify({ ok: true, files, reason });
   } catch (e) {
-    return JSON.stringify({ ok: false, error: String(e) });
+    return JSON.stringify({ ok: false, error: String(e), reason });
   }
 }
 
-function readFile(filename) {
+function readFile(filename, reason) {
   try {
     const content = fs.readFileSync(filename, "utf-8");
-    return JSON.stringify({ ok: true, content });
+    return JSON.stringify({ ok: true, content, filename, reason });
   } catch (e) {
-    return JSON.stringify({ ok: false, error: String(e), filename });
+    return JSON.stringify({ ok: false, error: String(e), filename, reason });
   }
 }
 
-function writeFile(filename, content) {
+function writeFile(filename, content, reason) {
   try {
     fs.writeFileSync(filename, content, "utf-8");
-    return JSON.stringify({ ok: true, message: `File ${filename} written successfully` });
+    const bytes = Buffer.byteLength(content, "utf-8");
+    return JSON.stringify({ ok: true, message: `File ${filename} written successfully`, filename, bytes, reason });
   } catch (e) {
-    return JSON.stringify({ ok: false, error: String(e), filename });
+    return JSON.stringify({ ok: false, error: String(e), filename, reason });
   }
 }
 
@@ -235,15 +248,22 @@ function executeTool(toolCall) {
     return JSON.stringify({ ok: false, error: `Invalid tool arguments: ${String(e)}`, raw: String(args) });
   }
 
-  console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m`);
+  const reason = parsedArgs.reason;
+  const filename = parsedArgs.filename;
+  const details = [filename ? `file=${filename}` : null, reason ? `reason=${reason}` : null]
+    .filter(Boolean)
+    .join(" ");
+
+  console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m ${details}`);
+  logToFile(`[${new Date().toISOString()}] Tool call ${name} ${details}\n`);
 
   switch (name) {
     case "list_cwd":
-      return listFiles();
+      return listFiles(reason);
     case "read_file":
-      return readFile(parsedArgs.filename);
+      return readFile(parsedArgs.filename, reason);
     case "write_file":
-      return writeFile(parsedArgs.filename, parsedArgs.content);
+      return writeFile(parsedArgs.filename, parsedArgs.content, reason);
     default:
       return JSON.stringify({ ok: false, error: "Unknown tool" });
   }
