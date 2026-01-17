@@ -188,7 +188,7 @@ const tools = [
     type: "function",
     function: {
       name: "write_file",
-      description: "Write content to a file (creates or overwrites)",
+      description: "Write content to a file (creates or overwrites). If parent directories don't exist, they are created.",
       parameters: {
         type: "object",
         properties: {
@@ -231,6 +231,12 @@ function readFile(filename, reason) {
 
 function writeFile(filename, content, reason) {
   try {
+    const dir = path.dirname(filename);
+    if (dir && dir !== "." && dir !== "") {
+      if (!ensureDir(dir)) {
+        return JSON.stringify({ ok: false, error: `Failed to create directory: ${dir}`, filename, reason });
+      }
+    }
     fs.writeFileSync(filename, content, "utf-8");
     const bytes = Buffer.byteLength(content, "utf-8");
     return JSON.stringify({ ok: true, message: `File ${filename} written successfully`, filename, bytes, reason });
