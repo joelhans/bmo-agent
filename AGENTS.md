@@ -1,132 +1,39 @@
-AGENTS.md — Project Context and Working Notes
+# AGENTS.md — bmo codebase guide
 
-Use this file to capture an evolving understanding of the project. It is inlined into the agent's system prompt when running inside this repo by default, or when BMO_INLINE_NOTES=1 or BMO_NOTES_FILE is set. Set BMO_DISABLE_NOTES=1 to prevent inlining.
+This file documents the bmo repository itself: how the runtime is structured, where things live, and how to work on bmo when you are inside this repo. The Golden Path for creating new tools now lives with the installed tools at tools/BMO_AGENTS.md and ships with the binary.
 
-Sections
-- Project Overview
-- File Structure
-- Key Components
-- Self-Improvement Architecture
-- Patterns and Conventions
-- Tooling Opportunities
+What lives where
+- index.mjs — the core runtime (system prompt builder, tool loader, REPL, logging). Modify carefully.
+- tools/ — source tools used when running from the repo. The installed/binary layout mirrors to bmo-tools/ at runtime.
+  - tools/lib.mjs — shared helpers for tools (path resolving, reload callback registration, etc.).
+  - tools/*.mjs — one file per tool (schema + execute returning a JSON string).
+  - tools/BMO_AGENTS.md — Golden Path for adding tools (bundled with binaries). Use this when creating/editing tools.
+- dist/ — build artifacts (e.g., compiled binaries).
+- CAPTAINS_LOG.md — running notes/changelog for development sessions.
+- STARTING_PROMPT.md — base prompt used historically; superseded by the system prompt in index.mjs.
 
-## Project Overview
+Notes inlining behavior (how docs get into the model)
+- Precedence at runtime:
+  1) BMO_NOTES_FILE — absolute path; if set, that file is inlined.
+  2) If running in this repo (isBmoRepo) and AGENTS.md exists here, this file is inlined.
+  3) Otherwise, tools/BMO_AGENTS.md (from the active tools dir) is inlined so binaries always have guidance.
+  4) Set BMO_DISABLE_NOTES=1 to disable inlining.
+- BMO_INLINE_NOTES=1 enables inlining when not running in this repo (useful for generic directories).
 
-bmo is a self-improving Node.js CLI coding agent that streams responses from OpenAI and can act on the local workspace via tools. bmo can also modify its own codebase to add new capabilities while running.
+Conventions when hacking on tools in this repo
+- Schema + execute: every tool exports schema (OpenAI tool definition) and execute(args) that returns JSON.stringify(...).
+- Import helpers from ./tools/lib.mjs inside tools (not from index.mjs).
+- File paths: use bmo:// prefix to target the active runtime home (installed tools or repo tools).
+- After adding/modifying a tool, call reload_tools so the runtime hot-reloads it.
+- Keep tools minimal and focused; prefer building a small tool over complex inline logic.
 
-Core principles:
-- Action over suggestion: complete tasks using tools rather than explaining steps
-- Self-improvement: when lacking a capability, build a new tool and reload
-- Pragmatism: err on the side of building tools that improve future experiences
+Creating a new tool
+- Follow tools/BMO_AGENTS.md (the Golden Path). It covers discovery, scaffolding, hot‑reload, verification, and common pitfalls.
 
-## File Structure
+Testing locally
+- Run the REPL via node index.mjs (or the built binary). The session log path prints on startup.
+- Use list_files/read_file/write_file tools for file changes; don’t assume file contents.
 
-```
-bmo/                              # BMO_HOME
-├── index.mjs                     # Core loop with path resolution and dynamic tool loader
-├── AGENTS.md                     # This file (bmo's understanding of itself)
-├── .env                          # OPENAI_API_KEY, optional NGROKAI, BMO_DATA_DIR
-├── package.json                  # Dependencies and scripts
-└── tools/                        # One file per tool, loaded dynamically at startup
-    ├── list_files.mjs            # List files/directories (supports bmo:// prefix)
-    ├── read_file.mjs             # Read file contents (supports bmo:// prefix)
-    ├── write_file.mjs            # Write/create files (supports bmo:// prefix)
-    └── reload_tools.mjs          # Hot-reload tools without restart
-```
-
-## Key Components
-
-### Path Resolution
-
-The `bmo://` prefix routes file operations to BMO_HOME:
-- Regular paths like `src/config.ts` → current working directory
-- `bmo://tools/grep.mjs` → BMO_HOME/tools/grep.mjs
-
-BMO_HOME is determined by:
-1. The BMO_HOME environment variable if set
-2. Otherwise, the directory containing index.mjs (works for compiled binaries too)
-
-### Dynamic Tool Loader
-
-At startup, bmo scans BMO_HOME/tools/ and imports all .mjs files. Each tool exports:
-- `schema`: OpenAI function tool definition
-- `execute(args)`: async function returning JSON string
-
-Cache-busting ensures hot reload works even in compiled binaries: imports use `?update=${Date.now()}` query strings.
-
-### Tool File Format
-
-```js
-import { resolvePath } from "../index.mjs";
-
-export const schema = {
-  type: "function",
-  function: {
-    name: "tool_name",
-    description: "What this tool does",
-    parameters: {
-      type: "object",
-      properties: { /* ... */ },
-      required: [],
-    },
-  },
-};
-
-export async function execute(args) {
-  // implementation
-  return JSON.stringify({ ok: true, result: "..." });
-}
-```
-
-### Core Loop
-
-1. Load tools from BMO_HOME/tools/ at startup
-2. Build system prompt with self-improvement instructions
-3. Stream chat completions with tool schemas
-4. Execute tool calls, push results to history
-5. Loop until assistant responds without tool calls
-
-## Self-Improvement Architecture
-
-When a task requires capabilities beyond current tools:
-1. Investigate the smallest viable solution as a new tool
-2. Write the tool to bmo://tools/{name}.mjs
-3. Call reload_tools to load it immediately
-4. Verify it works by calling it
-5. Continue with the original task
-
-This works when bmo runs as:
-- Direct node execution: `node index.mjs`
-- Compiled binary: tools directory remains external, not bundled
-
-## Patterns and Conventions
-
-- Tools return JSON-serialized strings for safe inclusion in conversationHistory
-- All file edits use write_file with full content (no partial updates)
-- Session logs go to ~/.local/share/bmo (or BMO_DATA_DIR)
-- Brief, results-focused replies after actions
-
-### Environment Variables
-
-- `OPENAI_API_KEY`: Required
-- `NGROKAI`: Optional baseURL override for OpenAI client
-- `BMO_HOME`: Override bmo's runtime codebase location (where tools are loaded from)
-- `BMO_SOURCE`: Source codebase for persisting new tools (writes go here AND to BMO_HOME)
-- `BMO_DATA_DIR`: Override session log directory
-- `BMO_INLINE_NOTES=1`: Inline AGENTS.md in any repo
-- `BMO_NOTES_FILE=/path/to/notes.md`: Inline specific notes file
-- `BMO_DISABLE_NOTES=1`: Never inline notes
-
-When running the compiled binary, set `BMO_SOURCE` to the source repo so new tools persist:
-```bash
-export BMO_SOURCE=~/src/bmo-agent
-```
-
-## Tooling Opportunities
-
-Ideas for future tools bmo might build for itself:
-- grep/search: Find patterns across files
-- glob: List files matching patterns recursively
-- patch: Apply partial edits without full file rewrites
-- shell: Execute commands with user confirmation
-- summarize: Generate project overview from file structure
+Release/deploy notes
+- Binaries place installed tools under BMO_HOME/bmo-tools/. tools/BMO_AGENTS.md ships alongside them.
+- To ensure consistent notes in binaries, prefer setting BMO_NOTES_FILE to the absolute path of BMO_AGENTS.md.

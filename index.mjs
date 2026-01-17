@@ -239,7 +239,7 @@ Err on the side of building new tools. It's okay to make the user wait once whil
 Your codebase structure:
 - bmo://index.mjs — core loop (modify carefully)
 - bmo://tools/ — your tools, one per file
-- bmo://AGENTS.md — your understanding of yourself
+- bmo://tools/BMO_AGENTS.md — self-guidance (Golden Path). In this repo, AGENTS.md documents the bmo codebase.
 
 ## Available tools
 
@@ -285,14 +285,23 @@ export async function execute(args) {
   try {
     const disableNotes = process.env.BMO_DISABLE_NOTES === "1";
     const notesFileEnv = (process.env.BMO_NOTES_FILE || "").trim();
-    const inlineFlag = process.env.BMO_INLINE_NOTES === "1" || isBmoRepo();
 
     if (!disableNotes) {
       let notesPath = "";
+
+      // Highest precedence: explicit override
       if (notesFileEnv) {
         notesPath = path.resolve(notesFileEnv);
-      } else if (inlineFlag && fs.existsSync("AGENTS.md")) {
+      } else if (isBmoRepo() && fs.existsSync("AGENTS.md")) {
+        // In repo: prefer the repo's AGENTS.md (repo-specific docs)
         notesPath = path.resolve("AGENTS.md");
+      } else {
+        // Fallback for binaries and non-repo contexts: shipped Golden Path next to tools
+        const toolsDir = getToolsDir();
+        const bundled = path.join(toolsDir, "BMO_AGENTS.md");
+        if (fs.existsSync(bundled)) {
+          notesPath = bundled;
+        }
       }
 
       if (notesPath && fs.existsSync(notesPath)) {
