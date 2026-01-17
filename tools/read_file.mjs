@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { resolvePath } from "../index.mjs";
+import { resolvePath } from "./lib.mjs";
 
 export const schema = {
   type: "function",

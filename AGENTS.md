@@ -110,11 +110,17 @@ This works when bmo runs as:
 
 - `OPENAI_API_KEY`: Required
 - `NGROKAI`: Optional baseURL override for OpenAI client
-- `BMO_HOME`: Override bmo's codebase location
+- `BMO_HOME`: Override bmo's runtime codebase location (where tools are loaded from)
+- `BMO_SOURCE`: Source codebase for persisting new tools (writes go here AND to BMO_HOME)
 - `BMO_DATA_DIR`: Override session log directory
 - `BMO_INLINE_NOTES=1`: Inline AGENTS.md in any repo
 - `BMO_NOTES_FILE=/path/to/notes.md`: Inline specific notes file
 - `BMO_DISABLE_NOTES=1`: Never inline notes
+
+When running the compiled binary, set `BMO_SOURCE` to the source repo so new tools persist:
+```bash
+export BMO_SOURCE=~/src/bmo-agent
+```
 
 ## Tooling Opportunities
 

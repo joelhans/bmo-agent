@@ -1,4 +1,4 @@
-import { reloadTools } from "../index.mjs";
+import { triggerReload } from "./lib.mjs";
 
 export const schema = {
   type: "function",
@@ -21,7 +21,7 @@ export const schema = {
 export async function execute(args) {
   const reason = args.reason;
   try {
-    const result = await reloadTools();
+    const result = await triggerReload();
     return JSON.stringify({ ok: true, ...result, reason });
   } catch (e) {
     return JSON.stringify({ ok: false, error: String(e), reason });

@@ -14,4 +14,11 @@ When I ask `How many words are there in STARTING_PROMPT.md?`, `bmo` knows
 well enough to create a new `word_count` tool, hot-reload the toolset, and
 then use that to complete the task. Neato.
 
+For an even more real test: from my dotfiles directory, can I give it a prompt
+to suggest creating a new tool, create the tool, hot-reload it, add it to
+`bmo`'s source directory, *and* execute it?
 
+`agent-2026-01-17T15-07-11-138Z.log`: `Read the number of characters in
+init.lua`
+
+The answer is... yes.

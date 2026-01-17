@@ -13,8 +13,15 @@ function getBmoHome() {
   if (process.env.BMO_HOME) {
     return path.resolve(process.env.BMO_HOME);
   }
-  // Derive from import.meta.url (works for both source and compiled binary)
+  
+  // Check if running as a Bun-compiled binary
+  // In compiled binaries, import.meta.url points to /$bunfs/root which doesn't exist
   const currentFile = fileURLToPath(import.meta.url);
+  if (currentFile.startsWith("/$bunfs/")) {
+    // Use the directory containing the executable
+    return path.dirname(process.execPath);
+  }
+  
   return path.dirname(currentFile);
 }
 
@@ -95,6 +102,7 @@ function logSessionEnd(reason = "ended") {
 logToFile(`=== Agent session started at ${new Date().toISOString()} ===\n`);
 console.log(`Session log: ${logFilePath}`);
 console.log(`BMO_HOME: ${BMO_HOME}`);
+console.log(`BMO_SOURCE: ${process.env.BMO_SOURCE || "(not set - new tools won't persist)"}`)
 
 process.on("SIGINT", () => {
   console.log("\nGoodbye!");
@@ -113,14 +121,23 @@ process.on("exit", () => logSessionEnd("ended (exit)"));
 let toolSchemas = [];
 const toolExecutors = new Map();
 
+// Resolve tools directory: prefer bmo-tools/ (installed), fall back to tools/ (source)
+function getToolsDir() {
+  const bmoToolsDir = path.join(BMO_HOME, "bmo-tools");
+  if (fs.existsSync(bmoToolsDir)) {
+    return bmoToolsDir;
+  }
+  return path.join(BMO_HOME, "tools");
+}
+
 export async function reloadTools() {
-  const toolsDir = path.join(BMO_HOME, "tools");
+  const toolsDir = getToolsDir();
   
   if (!fs.existsSync(toolsDir)) {
     return { loaded: [], error: "tools directory not found" };
   }
   
-  const files = fs.readdirSync(toolsDir).filter(f => f.endsWith(".mjs"));
+  const files = fs.readdirSync(toolsDir).filter(f => f.endsWith(".mjs") && f !== "lib.mjs");
   const loaded = [];
   const errors = [];
   
@@ -409,6 +426,16 @@ async function runPrompt(prompt) {
 async function main() {
   // Load tools before starting
   await reloadTools();
+  
+  // Register reload callback so reload_tools can call back into us
+  try {
+    const libPath = path.join(getToolsDir(), "lib.mjs");
+    const libUrl = pathToFileURL(libPath).href + `?t=${Date.now()}`;
+    const lib = await import(libUrl);
+    lib.registerReloadCallback(reloadTools);
+  } catch (e) {
+    console.warn("Warning: could not register reload callback:", e.message);
+  }
   
   console.log("Chat with bmo (type 'exit' to quit)");
   
