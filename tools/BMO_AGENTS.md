@@ -13,6 +13,7 @@ Quickstart (TL;DR)
   3) Hot‑reload: call reload_tools
   4) Verify: call the new tool once with a simple input; ensure ok:true
   5) Use: continue with the original task using the new tool
+  6) Commit: create a git commit to record the change (use git_commit)
 
 Environment specifics (this install)
 - Tools directory: use the prefix bmo://tools/ (it routes to the active tools dir; currently bmo-tools/)
@@ -69,6 +70,11 @@ Step-by-step (expanded)
 5) Continue
    - Use the new tool to finish the user’s task
 
+6) Commit your changes
+   - Call git_commit with a descriptive message (e.g., "feat(tool): add <name>" or "chore(tools): tweak <name>")
+   - Defaults stage all changes; allow_empty should be false unless you need a marker commit
+   - This runs in the current working directory; if you need to commit in another repo, build a minimal path-aware commit tool
+
 Common pitfalls (avoid these)
 - Forgetting to call reload_tools after creating/modifying a tool
 - Returning a plain object instead of JSON-serialized string from execute
@@ -116,3 +122,4 @@ Tool Registry (append entries below)
 - write_file — write a file (supports bmo://). Mirrors to BMO_SOURCE if set
 - reload_tools — hot-reload tools
 - move_file — rename/move files (supports bmo://). Mirrors to BMO_SOURCE if set
+- git_commit — stage and commit changes in the current working directory

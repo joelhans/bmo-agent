@@ -54,15 +54,25 @@ referenced during tool creation.
 ### Improvement 2: Version control everything with git
 
 I don't want something bmo does to itself to take the whole thing off the
-rails.
+rails. It needs to know how to version-control itself.
 
-`agent-2026-01-17T15-59-43-211Z.log`
+agent-2026-01-17T17-09-13-627Z.log
+
 
 **New tool alert: `git_commit`**
 
 bmo successfully created a `git_commit` tool, but struggled to understand that
 in this case, the commit needs to happen within bmo's codebase, not at the
 location where we've installed the current suite of tools.
+
+
+I would like every iteration of the self-improvement loop to end with a git
+commit in $BMO_SOURCE that includes *just* the new changes (leave all other
+unstaged changes uncommitted) so that we can roll-back unexpected behavior
+after. Implement the process now, add it to the instructions, and then finish
+this loop with a git commit.
+
+### Improvement 3: re-roll `bmo`
 
 ### Future exploration: Count tool usage
 
