@@ -62,6 +62,10 @@ agent-2026-01-17T17-09-13-627Z.log
 
 Done. Easy peasy.
 
+Later, when trying to install bmo on my Fedora machine, I ran into an issue
+where `codesign` was missing. bmo was smart enough to fix the problem
+automatically and then commit the change. Neato.
+
 ### Improvement 3: re-roll `bmo`
 
 ### Future exploration: Count tool usage
