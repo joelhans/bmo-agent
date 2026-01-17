@@ -26,7 +26,6 @@ prefix and resolve paths accordingly.
     ├── list_files.mjs
     ├── read_file.mjs
     ├── write_file.mjs
-    ├── execute_command.mjs      # For testing and verification
     └── reload_tools.mjs
 ```
 
@@ -78,35 +77,6 @@ immediately without restarting.
 
 This must work when bmo is running as a compiled binary—test this explicitly.
 
-## execute_command
-
-A tool that runs shell commands and returns the output. This is essential for 
-bmo to test its own work:
-```js
-export const schema = {
-  type: "function", 
-  function: {
-    name: "execute_command",
-    description: "Execute a shell command and return the output",
-    parameters: {
-      type: "object",
-      properties: {
-        command: {
-          type: "string",
-          description: "The command to execute",
-        },
-      },
-      required: ["command"],
-    },
-  },
-};
-
-export async function execute({ command }) {
-  // Use child_process.execSync or spawn
-  // Return stdout, stderr, and exit code
-}
-```
-
 ## System prompt
 
 Update the system prompt to include:
@@ -121,7 +91,7 @@ When a task requires capabilities beyond your current tools:
 1. Investigate the smallest viable solution as a new tool
 2. Write the tool to bmo://tools/{name}.mjs
 3. Call reload_tools to load it
-4. Use execute_command to verify it works
+4. Verify it works by calling it to complete part of the task
 5. Continue with the original task
 
 Err on the side of building new tools. It's okay to make the user wait once 
@@ -146,7 +116,6 @@ Your codebase structure:
 4. Move existing tools into separate files following the schema/execute format
 5. Implement the dynamic tool loader with cache-busting for binary compatibility
 6. Implement reload_tools
-7. Implement execute_command
 8. Update the system prompt
 9. Update AGENTS.md
 
