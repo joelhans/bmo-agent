@@ -21,6 +21,8 @@ bmo's source directory, *and* execute it?
 `agent-2026-01-17T15-07-11-138Z.log`: `Read the number of characters in
 init.lua`
 
+**New tool alert: `file_stats_simple`**
+
 The answer is... yes! bmo created `file_stats_simple` and used it automously,
 which is remarkably cool.
 
@@ -28,16 +30,22 @@ From here on out, bmo is responsible only for itself.
 
 ### Improvement 1: Make new tool creation less horrifying
 
-bmo had quite a hard time creating `file_stats_simple`. I want to see if bmo is
+bmo had quite a hard time creating `file_stats_simple`. I wanted to see if bmo was
 capable of simplifying the process by creating a "golden path" for future tool
-creation.
+creation, so I asked it whether we could separate reference material about the
+codebase itself and the tool creation process.
+
+`agent-2026-01-17T15-13-40-912Z.log`
 
 **New tool alert: `move_file`**
 
-In the process, bmo created a `move_file` tool and then proceeded to move our
+bmo created a `move_file` tool and then proceeded to move our
 `AGENTS.md` file out of the repo entirely. We had to walk back that one
-together, but grateful to see the first truly organic tool creation. We'll see
-if we use it again in the future.
+together, but grateful to see the first truly organic tool creation. I'm
+incredibly curious to see whether bmo decides to use that tool again in the
+future.
+
+`agent-2026-01-17T15-39-50-038Z.log`
 
 We ended up splitting the tool creation part of `AGENTS.md` in a new
 `tools/BMO_AGENTS.md` file, which gets installed alongside the `bmo` binary and
@@ -48,8 +56,16 @@ referenced during tool creation.
 I don't want something bmo does to itself to take the whole thing off the
 rails.
 
-### Exploration: Count tool usage
+`agent-2026-01-17T15-59-43-211Z.log`
 
+**New tool alert: `git_commit`**
 
+bmo successfully created a `git_commit` tool, but struggled to understand that
+in this case, the commit needs to happen within bmo's codebase, not at the
+location where we've installed the current suite of tools.
 
+### Future exploration: Count tool usage
+
+I need to create some kind of tool that reads logs and counts the number of
+tool uses.
 
