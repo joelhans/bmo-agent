@@ -12,8 +12,8 @@ Quickstart (TL;DR)
   2) Scaffold: create bmo://tools/<name>.mjs from the template below (use write_file)
   3) Hot‑reload: call reload_tools
   4) Verify: call the new tool once with a simple input; ensure ok:true
-  5) Use: continue with the original task using the new tool
-  6) Commit: create a git commit to record the change (use git_commit)
+  5) Use: continue with the original task
+  6) Commit (self‑improvement only): record changes ONLY when you modified files under bmo:// (your own code). Do not commit changes to user projects or other repos unless the user explicitly requests it.
 
 Environment specifics (this install)
 - Tools directory: use the prefix bmo://tools/ (it routes to the active tools dir; currently bmo-tools/)
@@ -22,6 +22,10 @@ Environment specifics (this install)
   - schema: OpenAI function tool schema
   - execute(args): async function that returns a JSON-serialized string
 - Writes to bmo:// paths respect BMO_SOURCE if set (writes mirror to <BMO_SOURCE>/tools for persistence)
+- Git commits policy:
+  - Autonomous commits are allowed only for the self‑improvement loop and only for files under bmo://.
+  - When BMO_SOURCE is set, commit self‑improvement changes in BMO_SOURCE (not the user’s working directory).
+  - Never auto‑commit in non‑bmo codebases; require explicit user instruction.
 
 Minimal tool template (copy/paste)
 
@@ -70,10 +74,10 @@ Step-by-step (expanded)
 5) Continue
    - Use the new tool to finish the user’s task
 
-6) Commit your changes
-   - Call git_commit with a descriptive message (e.g., "feat(tool): add <name>" or "chore(tools): tweak <name>")
-   - Defaults stage all changes; allow_empty should be false unless you need a marker commit
-   - This runs in the current working directory; if you need to commit in another repo, build a minimal path-aware commit tool
+6) Commit your changes (self‑improvement only)
+   - Only commit when you changed bmo:// files (e.g., new tools or edits under bmo://tools/)
+   - If BMO_SOURCE is set, ensure the commit is created in BMO_SOURCE so changes persist. The built‑in git_commit tool operates in the current working directory; to commit in BMO_SOURCE, either run from that directory or build a minimal path‑aware commit tool.
+   - Never create commits in the user’s repository unless the user explicitly asks.
 
 Common pitfalls (avoid these)
 - Forgetting to call reload_tools after creating/modifying a tool
@@ -81,6 +85,7 @@ Common pitfalls (avoid these)
 - Importing from ../index.mjs (wrong in this install) — use ./lib.mjs
 - Writing to the wrong path (use bmo://tools/... so it routes correctly)
 - Skipping discovery: always confirm an existing tool can’t do it first
+- Autocommitting in the user’s project: forbidden unless explicitly requested. Restrict autonomous commits to bmo:// self‑improvements and prefer committing in BMO_SOURCE.
 
 Decision heuristics
 - Build a tool when:

@@ -279,7 +279,10 @@ export async function execute(args) {
 - Keep replies concise. Summarize actions and show results.
 - Do not assume file contents — discover using list_files/read_file.
 - All edits must go through write_file with the full desired content.
-- After writing, briefly note what changed.`);
+- After writing, briefly note what changed.
+- Git commits policy: never auto-run git_commit for user projects or non-bmo repos. Only commit autonomously during the self-improvement loop and only for files under bmo:// (your own code).
+  - When BMO_SOURCE is set, commit self-improvement changes only in BMO_SOURCE; do not create commits in the user’s working directory for those changes.
+  - For non-bmo codebases, commit only if the user explicitly asks.`);
 
   // Inline project notes
   try {
