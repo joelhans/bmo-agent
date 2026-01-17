@@ -1,73 +1,126 @@
 AGENTS.md — Project Context and Working Notes
 
-Use this file to capture an evolving understanding of the project. It is inlined into the agent’s system prompt when running inside this repo by default, or when BMO_INLINE_NOTES=1 or BMO_NOTES_FILE is set. Set BMO_DISABLE_NOTES=1 to prevent inlining.
+Use this file to capture an evolving understanding of the project. It is inlined into the agent's system prompt when running inside this repo by default, or when BMO_INLINE_NOTES=1 or BMO_NOTES_FILE is set. Set BMO_DISABLE_NOTES=1 to prevent inlining.
 
 Sections
 - Project Overview
 - File Structure
 - Key Components
+- Self-Improvement Architecture
 - Patterns and Conventions
-- Tooling Opportunities (incl. “tools that would have helped”)
-- Self-Improvement Opportunities
+- Tooling Opportunities
 
 ## Project Overview
-- bmo is a minimal Node.js CLI coding agent that streams responses from OpenAI and can act on the local workspace via tools.
-- bmo’s job: take user input and complete tasks using available tools, prioritizing action over suggestion.
-- Current tools:
-  - list_cwd(): list files/directories in the current working directory.
-  - read_file(filename): read file contents.
-  - write_file(filename, content): write or overwrite a file with provided content.
+
+bmo is a self-improving Node.js CLI coding agent that streams responses from OpenAI and can act on the local workspace via tools. bmo can also modify its own codebase to add new capabilities while running.
+
+Core principles:
+- Action over suggestion: complete tasks using tools rather than explaining steps
+- Self-improvement: when lacking a capability, build a new tool and reload
+- Pragmatism: err on the side of building tools that improve future experiences
 
 ## File Structure
-- .env: Environment variables (OPENAI_API_KEY required; NGROKAI optional baseURL override; BMO_DATA_DIR optional for logs).
-- AGENTS.md: This file (project memory/context) optionally loaded into the system prompt per environment flags and defaults.
-- index.mjs: Main CLI. Implements streaming, tool calls, and a clear system prompt establishing bmo’s identity and action-first behavior.
-- package.json: Dependencies and scripts (runs with node index.mjs; optional Bun compile to dist/bmo; install-cli helper).
-- pnpm-lock.yaml: Locked dependency versions.
-- node_modules/: Installed packages.
 
-Potential/optional folders that could be introduced later
-- reports/: For transcripts, summaries, or artifacts (not currently present).
-- steps/: For workflows/notes (not currently present).
+```
+bmo/                              # BMO_HOME
+├── index.mjs                     # Core loop with path resolution and dynamic tool loader
+├── AGENTS.md                     # This file (bmo's understanding of itself)
+├── .env                          # OPENAI_API_KEY, optional NGROKAI, BMO_DATA_DIR
+├── package.json                  # Dependencies and scripts
+└── tools/                        # One file per tool, loaded dynamically at startup
+    ├── list_files.mjs            # List files/directories (supports bmo:// prefix)
+    ├── read_file.mjs             # Read file contents (supports bmo:// prefix)
+    ├── write_file.mjs            # Write/create files (supports bmo:// prefix)
+    └── reload_tools.mjs          # Hot-reload tools without restart
+```
 
 ## Key Components
-- Conversation state: conversationHistory accumulates user, assistant, and tool messages.
-- System prompt: Built at startup to assert bmo’s identity and behavior, and can inline AGENTS.md for extra context.
-- OpenAI client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, baseURL: process.env.NGROKAI })
-- Streaming loop (runPrompt):
-  1) Ensure system message is present.
-  2) Push user input to history.
-  3) Create a streaming chat completion with the tools schema.
-  4) Accumulate assistant content while capturing tool_calls deltas.
-  5) After stream ends, push the full assistant message (and tool_calls, if any) to history.
-  6) If tool_calls were present, execute each synchronously, push tool results as tool messages, and loop again until an assistant message arrives with no further tool calls.
-- Tools exposed to the model:
-  - list_cwd(): returns { ok, files } listing current directory.
-  - read_file(filename): returns { ok, content } or { ok: false, error }.
-  - write_file(filename, content): writes content, returns { ok, message } or { ok: false, error }.
+
+### Path Resolution
+
+The `bmo://` prefix routes file operations to BMO_HOME:
+- Regular paths like `src/config.ts` → current working directory
+- `bmo://tools/grep.mjs` → BMO_HOME/tools/grep.mjs
+
+BMO_HOME is determined by:
+1. The BMO_HOME environment variable if set
+2. Otherwise, the directory containing index.mjs (works for compiled binaries too)
+
+### Dynamic Tool Loader
+
+At startup, bmo scans BMO_HOME/tools/ and imports all .mjs files. Each tool exports:
+- `schema`: OpenAI function tool definition
+- `execute(args)`: async function returning JSON string
+
+Cache-busting ensures hot reload works even in compiled binaries: imports use `?update=${Date.now()}` query strings.
+
+### Tool File Format
+
+```js
+import { resolvePath } from "../index.mjs";
+
+export const schema = {
+  type: "function",
+  function: {
+    name: "tool_name",
+    description: "What this tool does",
+    parameters: {
+      type: "object",
+      properties: { /* ... */ },
+      required: [],
+    },
+  },
+};
+
+export async function execute(args) {
+  // implementation
+  return JSON.stringify({ ok: true, result: "..." });
+}
+```
+
+### Core Loop
+
+1. Load tools from BMO_HOME/tools/ at startup
+2. Build system prompt with self-improvement instructions
+3. Stream chat completions with tool schemas
+4. Execute tool calls, push results to history
+5. Loop until assistant responds without tool calls
+
+## Self-Improvement Architecture
+
+When a task requires capabilities beyond current tools:
+1. Investigate the smallest viable solution as a new tool
+2. Write the tool to bmo://tools/{name}.mjs
+3. Call reload_tools to load it immediately
+4. Verify it works by calling it
+5. Continue with the original task
+
+This works when bmo runs as:
+- Direct node execution: `node index.mjs`
+- Compiled binary: tools directory remains external, not bundled
 
 ## Patterns and Conventions
-- Action-first: when tasks involve files, the model is instructed to call tools (discover with list/read; change with write) instead of only suggesting steps.
-- Tools return JSON-serialized strings so they can be safely added to conversationHistory.
-- All edits occur via write_file with full-file content.
-- Brief, results-focused replies: after actions, summarize what was done and the outcome.
-- Session log is written to ~/.local/share/bmo (or BMO_DATA_DIR), with secure permissions when possible.
-- Project notes inclusion controls:
-  - Default: inline AGENTS.md only when running inside the bmo repo.
-  - BMO_INLINE_NOTES=1: inline AGENTS.md even in other repos.
-  - BMO_NOTES_FILE=/path/to/notes.md: inline a specific notes file.
-  - BMO_DISABLE_NOTES=1: never inline notes.
 
-## Tooling Opportunities (incl. “tools that would have helped”)
-- Recursive/filtered file listing (glob, include/exclude) to navigate larger repos.
-- Append/patch utilities (append_line, insert_after, json_patch) to avoid full overwrites when not necessary.
-- Diff/preview tool to show proposed changes before writing.
-- Structured code mod tools (regex replace, AST transforms for JS/TS) for safer refactors.
-- Project summarizer that scans repo structure on first run and seeds File Structure + Key Components.
-- Safe shell execution tool with explicit user confirmation for build/test automation.
+- Tools return JSON-serialized strings for safe inclusion in conversationHistory
+- All file edits use write_file with full content (no partial updates)
+- Session logs go to ~/.local/share/bmo (or BMO_DATA_DIR)
+- Brief, results-focused replies after actions
 
-## Self-Improvement Opportunities
-- Add retries/backoff for API calls and better error messages for tool failures.
-- Tighten path safety (restrict tool access to within repo; consider allowlists).
-- Optional: Persist conversation transcripts/artifacts to reports/ with timestamps.
-- Optional: Provide deduplication/merge logic for AGENTS.md updates when a future context-update tool is added.
+### Environment Variables
+
+- `OPENAI_API_KEY`: Required
+- `NGROKAI`: Optional baseURL override for OpenAI client
+- `BMO_HOME`: Override bmo's codebase location
+- `BMO_DATA_DIR`: Override session log directory
+- `BMO_INLINE_NOTES=1`: Inline AGENTS.md in any repo
+- `BMO_NOTES_FILE=/path/to/notes.md`: Inline specific notes file
+- `BMO_DISABLE_NOTES=1`: Never inline notes
+
+## Tooling Opportunities
+
+Ideas for future tools bmo might build for itself:
+- grep/search: Find patterns across files
+- glob: List files matching patterns recursively
+- patch: Apply partial edits without full file rewrites
+- shell: Execute commands with user confirmation
+- summarize: Generate project overview from file structure

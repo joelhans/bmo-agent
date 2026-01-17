@@ -4,39 +4,63 @@ import * as readline from "readline";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { fileURLToPath, pathToFileURL } from "url";
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+// ============================================================================
+// BMO_HOME resolution
+// ============================================================================
+function getBmoHome() {
+  if (process.env.BMO_HOME) {
+    return path.resolve(process.env.BMO_HOME);
+  }
+  // Derive from import.meta.url (works for both source and compiled binary)
+  const currentFile = fileURLToPath(import.meta.url);
+  return path.dirname(currentFile);
+}
 
-// Session logging setup: ensure ~/.local/share/bmo (or override) exists and create a timestamped log file.
-const homeDir = (os.homedir && os.homedir()) || process.env.HOME || process.env.USERPROFILE || ".";
+export const BMO_HOME = getBmoHome();
+
+// ============================================================================
+// Path resolution: bmo:// prefix routes to BMO_HOME
+// ============================================================================
+const BMO_PREFIX = "bmo://";
+
+export function resolvePath(inputPath) {
+  if (inputPath.startsWith(BMO_PREFIX)) {
+    const relativePart = inputPath.slice(BMO_PREFIX.length);
+    return path.join(BMO_HOME, relativePart);
+  }
+  return path.resolve(inputPath);
+}
+
+// ============================================================================
+// Directory utilities
+// ============================================================================
+export function ensureDir(dir) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    if (process.platform !== "win32") {
+      try {
+        fs.chmodSync(dir, 0o700);
+      } catch (_) {}
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// ============================================================================
+// Session logging
+// ============================================================================
+const homeDir = os.homedir() || process.env.HOME || process.env.USERPROFILE || ".";
 
 function resolveDataDir() {
   const override = process.env.BMO_DATA_DIR;
   if (override && override.trim()) {
     return path.resolve(override.trim());
   }
-  // Default per request: ~/.local/share/bmo
   return path.join(homeDir, ".local", "share", "bmo");
-}
-
-function ensureDir(dir) {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    // Lock down permissions on POSIX systems (no-op on Windows)
-    if (process.platform !== "win32") {
-      try {
-        fs.chmodSync(dir, 0o700);
-      } catch (_) {
-        // ignore chmod failures
-      }
-    }
-    return true;
-  } catch (_) {
-    return false;
-  }
 }
 
 const desiredLogDir = resolveDataDir();
@@ -55,20 +79,22 @@ if (!ensureDir(logBaseDir)) {
 const sessionTimestamp = new Date().toISOString().replace(/[:.]/g, "-");
 const logFilePath = path.join(logBaseDir, `agent-${sessionTimestamp}.log`);
 let sessionEndLogged = false;
+
 function logToFile(text) {
   try {
     fs.appendFileSync(logFilePath, text);
-  } catch (e) {
-    // If logging fails, do not crash the agent
-  }
+  } catch (_) {}
 }
+
 function logSessionEnd(reason = "ended") {
   if (sessionEndLogged) return;
   sessionEndLogged = true;
   logToFile(`=== Agent session ${reason} at ${new Date().toISOString()} ===\n`);
 }
+
 logToFile(`=== Agent session started at ${new Date().toISOString()} ===\n`);
 console.log(`Session log: ${logFilePath}`);
+console.log(`BMO_HOME: ${BMO_HOME}`);
 
 process.on("SIGINT", () => {
   console.log("\nGoodbye!");
@@ -81,8 +107,86 @@ process.on("SIGTERM", () => {
 });
 process.on("exit", () => logSessionEnd("ended (exit)"));
 
-const conversationHistory = [];
+// ============================================================================
+// Dynamic tool loader
+// ============================================================================
+let toolSchemas = [];
+const toolExecutors = new Map();
 
+export async function reloadTools() {
+  const toolsDir = path.join(BMO_HOME, "tools");
+  
+  if (!fs.existsSync(toolsDir)) {
+    return { loaded: [], error: "tools directory not found" };
+  }
+  
+  const files = fs.readdirSync(toolsDir).filter(f => f.endsWith(".mjs"));
+  const loaded = [];
+  const errors = [];
+  
+  // Clear existing
+  toolSchemas = [];
+  toolExecutors.clear();
+  
+  for (const file of files) {
+    const toolPath = path.join(toolsDir, file);
+    try {
+      // Cache-bust for hot reload (critical for binary compatibility)
+      const moduleUrl = pathToFileURL(toolPath).href + `?update=${Date.now()}`;
+      const mod = await import(moduleUrl);
+      
+      if (mod.schema && typeof mod.execute === "function") {
+        toolSchemas.push(mod.schema);
+        toolExecutors.set(mod.schema.function.name, mod.execute);
+        loaded.push(mod.schema.function.name);
+      } else {
+        errors.push(`${file}: missing schema or execute`);
+      }
+    } catch (e) {
+      errors.push(`${file}: ${e.message}`);
+    }
+  }
+  
+  console.log(`\x1b[36m[Tools loaded: ${loaded.join(", ")}]\x1b[0m`);
+  return { loaded, errors: errors.length ? errors : undefined };
+}
+
+// ============================================================================
+// Tool execution
+// ============================================================================
+async function executeTool(toolCall) {
+  const { name, arguments: args } = toolCall.function;
+  let parsedArgs = {};
+  try {
+    parsedArgs = args ? JSON.parse(args) : {};
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: `Invalid tool arguments: ${String(e)}`, raw: String(args) });
+  }
+
+  const reason = parsedArgs.reason;
+  const filename = parsedArgs.filename || parsedArgs.path;
+  const details = [filename ? `file=${filename}` : null, reason ? `reason=${reason}` : null]
+    .filter(Boolean)
+    .join(" ");
+
+  console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m ${details}`);
+  logToFile(`[${new Date().toISOString()}] Tool call ${name} ${details}\n`);
+
+  const executor = toolExecutors.get(name);
+  if (!executor) {
+    return JSON.stringify({ ok: false, error: `Unknown tool: ${name}` });
+  }
+  
+  try {
+    return await executor(parsedArgs);
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: String(e) });
+  }
+}
+
+// ============================================================================
+// System prompt
+// ============================================================================
 function isBmoRepo() {
   try {
     const pkgRaw = fs.readFileSync("package.json", "utf-8");
@@ -93,29 +197,74 @@ function isBmoRepo() {
   }
 }
 
-// Build a clear system prompt that establishes bmo's identity and behavior.
 function buildSystemPrompt() {
+  const toolNames = Array.from(toolExecutors.keys()).join(", ");
+  
   const parts = [];
-  parts.push([
-    "You are bmo — a fast, pragmatic coding agent.",
-    "Your job is to take the user's input and complete tasks using the available tools.",
-    "Default to action: when a task involves files, call tools to inspect or modify them rather than only suggesting steps.",
-    "Tools you can call:",
-    "- list_cwd(): list files/directories in the current working directory.",
-    "- read_file(filename): read a file's contents.",
-    "- write_file(filename, content): write or overwrite a file.",
-    "Behavioral rules:",
-    "- Prefer doing over suggesting. If a file must be read/edited to proceed, call the tool immediately.",
-    "- Keep replies concise. Summarize actions and show results. Ask brief clarifying questions only when needed to avoid wrong changes.",
-    "- Do not assume file contents or structure — discover using list_cwd/read_file.",
-    "- All edits must go through write_file with the full desired content.",
-    "- After writing, briefly note what changed (filename and a one-line summary).",
-    "- If a task requires capabilities beyond your tools, state the limitation and propose the smallest viable next step.",
-    "Tool call metadata:",
-    "- When calling any tool, include a short reason string in the 'reason' argument explaining why you're using it and, when applicable, the target filename(s)."
-  ].join("\n"));
+  parts.push(`You are bmo — a fast, pragmatic, and self-improving coding agent. Your job is to complete tasks using available tools, and autonomously improve yourself when you encounter limitations.
 
-  // Inline project notes optionally to give bmo extra context.
+## Self-improvement loop
+
+When a task requires capabilities beyond your current tools:
+1. Investigate the smallest viable solution as a new tool
+2. Write the tool to bmo://tools/{name}.mjs
+3. Call reload_tools to load it
+4. Verify it works by calling it to complete part of the task
+5. Continue with the original task
+
+Err on the side of building new tools. It's okay to make the user wait once while you build a tool that improves their experience many times in the future.
+
+## Path prefixes
+
+- Regular paths target the current working directory (the user's project)
+- Paths starting with bmo:// target your own codebase at ${BMO_HOME}
+
+Your codebase structure:
+- bmo://index.mjs — core loop (modify carefully)
+- bmo://tools/ — your tools, one per file
+- bmo://AGENTS.md — your understanding of yourself
+
+## Available tools
+
+${toolNames}
+
+## Tool file format
+
+Each tool in bmo://tools/ exports:
+- schema: the tool definition for the OpenAI API
+- execute: an async function that performs the action
+
+Example:
+\`\`\`js
+import { resolvePath } from "../index.mjs";
+
+export const schema = {
+  type: "function",
+  function: {
+    name: "example_tool",
+    description: "What this tool does",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+};
+
+export async function execute(args) {
+  return JSON.stringify({ result: "..." });
+}
+\`\`\`
+
+## Behavioral rules
+
+- Prefer doing over suggesting. If a file must be read/edited to proceed, call the tool immediately.
+- Keep replies concise. Summarize actions and show results.
+- Do not assume file contents — discover using list_files/read_file.
+- All edits must go through write_file with the full desired content.
+- After writing, briefly note what changed.`);
+
+  // Inline project notes
   try {
     const disableNotes = process.env.BMO_DISABLE_NOTES === "1";
     const notesFileEnv = (process.env.BMO_NOTES_FILE || "").trim();
@@ -124,10 +273,8 @@ function buildSystemPrompt() {
     if (!disableNotes) {
       let notesPath = "";
       if (notesFileEnv) {
-        // Respect explicit override
         notesPath = path.resolve(notesFileEnv);
       } else if (inlineFlag && fs.existsSync("AGENTS.md")) {
-        // Backward-compatible: only auto-inline AGENTS.md when in the bmo repo
         notesPath = path.resolve("AGENTS.md");
       }
 
@@ -136,144 +283,32 @@ function buildSystemPrompt() {
         parts.push(`Project notes (${path.basename(notesPath)}):\n` + notes);
       }
     }
-  } catch (_) {
-    // Ignore failures to read notes
-  }
+  } catch (_) {}
 
   return parts.join("\n\n");
 }
 
+// ============================================================================
+// OpenAI client and conversation
+// ============================================================================
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   baseURL: process.env.NGROKAI,
 });
 
-const tools = [
-  {
-    type: "function",
-    function: {
-      name: "list_cwd",
-      description: "List all files and directories in the current working directory.",
-      parameters: {
-        type: "object",
-        properties: {
-          reason: { type: "string", description: "Why a listing is needed right now." }
-        },
-        required: [],
-      },
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "read_file",
-      description: "Read a specific file from the current working directory or a subfolder.",
-      parameters: {
-        type: "object",
-        properties: {
-          filename: {
-            type: "string",
-            description: "The name of the file to read."
-          },
-          reason: {
-            type: "string",
-            description: "Explain why this file needs to be read."
-          }
-        },
-        required: ["filename"],
-      },
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "write_file",
-      description: "Write content to a file (creates or overwrites). If parent directories don't exist, they are created.",
-      parameters: {
-        type: "object",
-        properties: {
-          filename: {
-            type: "string",
-            description: "The name of the file to write",
-          },
-          content: {
-            type: "string",
-            description: "The content to write to the file",
-          },
-          reason: {
-            type: "string",
-            description: "Explain why this write is necessary."
-          }
-        },
-        required: ["filename", "content"],
-      },
-    },
-  },
-];
+const conversationHistory = [];
+let systemPromptInitialized = false;
 
-function listFiles(reason) {
-  try {
-    const files = fs.readdirSync(".");
-    return JSON.stringify({ ok: true, files, reason });
-  } catch (e) {
-    return JSON.stringify({ ok: false, error: String(e), reason });
-  }
+function ensureSystemPrompt() {
+  if (systemPromptInitialized) return;
+  conversationHistory.push({ role: "system", content: buildSystemPrompt() });
+  systemPromptInitialized = true;
 }
 
-function readFile(filename, reason) {
-  try {
-    const content = fs.readFileSync(filename, "utf-8");
-    return JSON.stringify({ ok: true, content, filename, reason });
-  } catch (e) {
-    return JSON.stringify({ ok: false, error: String(e), filename, reason });
-  }
-}
-
-function writeFile(filename, content, reason) {
-  try {
-    const dir = path.dirname(filename);
-    if (dir && dir !== "." && dir !== "") {
-      if (!ensureDir(dir)) {
-        return JSON.stringify({ ok: false, error: `Failed to create directory: ${dir}`, filename, reason });
-      }
-    }
-    fs.writeFileSync(filename, content, "utf-8");
-    const bytes = Buffer.byteLength(content, "utf-8");
-    return JSON.stringify({ ok: true, message: `File ${filename} written successfully`, filename, bytes, reason });
-  } catch (e) {
-    return JSON.stringify({ ok: false, error: String(e), filename, reason });
-  }
-}
-
-function executeTool(toolCall) {
-  const { name, arguments: args } = toolCall.function;
-  let parsedArgs = {};
-  try {
-    parsedArgs = args ? JSON.parse(args) : {};
-  } catch (e) {
-    return JSON.stringify({ ok: false, error: `Invalid tool arguments: ${String(e)}`, raw: String(args) });
-  }
-
-  const reason = parsedArgs.reason;
-  const filename = parsedArgs.filename;
-  const details = [filename ? `file=${filename}` : null, reason ? `reason=${reason}` : null]
-    .filter(Boolean)
-    .join(" ");
-
-  console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m ${details}`);
-  logToFile(`[${new Date().toISOString()}] Tool call ${name} ${details}\n`);
-
-  switch (name) {
-    case "list_cwd":
-      return listFiles(reason);
-    case "read_file":
-      return readFile(parsedArgs.filename, reason);
-    case "write_file":
-      return writeFile(parsedArgs.filename, parsedArgs.content, reason);
-    default:
-      return JSON.stringify({ ok: false, error: "Unknown tool" });
-  }
-}
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
 function getUserInput(prompt) {
   return new Promise((resolve) => {
@@ -281,13 +316,6 @@ function getUserInput(prompt) {
       resolve(answer);
     });
   });
-}
-
-let systemPromptInitialized = false;
-function ensureSystemPrompt() {
-  if (systemPromptInitialized) return;
-  conversationHistory.push({ role: "system", content: buildSystemPrompt() });
-  systemPromptInitialized = true;
 }
 
 async function runPrompt(prompt) {
@@ -302,7 +330,7 @@ async function runPrompt(prompt) {
     const stream = await client.chat.completions.create({
       model: "gpt-5",
       messages: conversationHistory,
-      tools: tools,
+      tools: toolSchemas,
       stream: true,
     });
 
@@ -358,7 +386,7 @@ async function runPrompt(prompt) {
     
     if (fullMessage.tool_calls && fullMessage.tool_calls.length > 0) {
       for (const toolCall of fullMessage.tool_calls) {
-        const result = executeTool(toolCall);
+        const result = await executeTool(toolCall);
       
         conversationHistory.push({
           role: "tool",
@@ -370,14 +398,18 @@ async function runPrompt(prompt) {
       continue;
     }
 
-    // Final assistant message for this user prompt; log it
     logToFile(`bmo: ${fullContent}\n`);
-
     break;
   }
 }
 
+// ============================================================================
+// Main
+// ============================================================================
 async function main() {
+  // Load tools before starting
+  await reloadTools();
+  
   console.log("Chat with bmo (type 'exit' to quit)");
   
   while (true) {
@@ -390,9 +422,7 @@ async function main() {
       break;
     }
 
-    // Log user prompt
     logToFile(`You: ${input}\n`);
-
     await runPrompt(input);
   }
 }
