@@ -110,6 +110,19 @@ context window was part of the problem.
 
 `home/agent-2026-01-19T05-11-17-334Z.log`+`home/agent-2026-01-19T13-16-35-240Z.log`
 
+## Jan 19, 2026
+
+We finally got snipprok figured out. Hooray. But there's definitely more to do
+there to make it better.
+
+### `run_command`: I want to know what command is actually running
+
+TK
+
+### Make the system prompt more test-and-verify friendly
+
+TK
+
 ### API key handling
 
 ```
@@ -122,7 +135,7 @@ file.
 
 ## Misc
 
-### Improvement: Understand why bmo hangs sometimes.
+### Improvement: Understand why bmo hangs sometimes
 
 Do we need more feedback?
 

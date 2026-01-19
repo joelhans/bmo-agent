@@ -25,16 +25,13 @@ export async function execute(args) {
   const cwd = process.cwd()
 
   return await new Promise((resolve) => {
+    // Emit a concise, single-line prelude to the user's terminal and capture it
+    const prelude = `[Tool Call: run_command] cmd=${cmd}${reason ? ` reason=${reason}` : ''}`
+    try { process.stderr.write(prelude + "\n") } catch {}
+
     const child = exec(cmd, { cwd, timeout: timeoutMs ?? 0, env: { ...process.env, ...(env || {}) } })
     let stdout = ''
-    let stderr = ''
-
-    // Prepend a clear prelude so the UI shows intent + the exact command
-    if (reason) {
-      stderr += `[run_command] reason: ${reason}\n`
-    }
-    stderr += `[run_command] cmd: ${cmd}\n`
-    stderr += `[run_command] cwd: ${cwd}\n`
+    let stderr = prelude + "\n" // include prelude in captured stderr as well
 
     child.stdout?.on('data', (d) => (stdout += String(d)))
     child.stderr?.on('data', (d) => (stderr += String(d)))
@@ -46,12 +43,12 @@ export async function execute(args) {
       resolve(
         JSON.stringify({
           ok,
-          // Provide a succinct message that surfaces the command prominently
           message: `[run_command] ${cmd}`,
           cmd,
           reason,
           stdout,
           stderr,
+          preludeLine: prelude,
           ...extra,
           startTime,
           endTime,
