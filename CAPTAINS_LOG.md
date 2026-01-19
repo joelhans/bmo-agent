@@ -106,7 +106,8 @@ bmo:
 We got a little stuck on implementing the "right" way to convert the DOM to a
 `.png` without a bunch of weird artifacts or not loading the proper font. I
 think this is where bmo finds its limits--I wonder if the increasingly large
-context window was part of the problem.
+context window was part of the problem. That's going to be a hard one to figure
+out.
 
 `home/agent-2026-01-19T05-11-17-334Z.log`+`home/agent-2026-01-19T13-16-35-240Z.log`
 
@@ -117,9 +118,13 @@ there to make it better.
 
 ### `run_command`: I want to know what command is actually running
 
-TK
+This was pretty straightforward.
 
 `home/agent-2026-01-19T14-14-57-973Z.log`
+
+In the end, we implemented a new `details()` export for every tool that requires
+it to show exactly what command is being run or file being manipulated. Helps,
+you know, catch things you'd rather not have happen.
 
 ### Make the system prompt more test-and-verify friendly
 
@@ -143,8 +148,7 @@ file.
 
 ### Experiment: What if I try to give the AI agent skills in particular tools?
 
-### Improvement: Push the system prompt more on creating new tools even if an
-existing tool could do it, but not as efficiently as possible
+### Improvement: Push the system prompt more on creating new tools even if an existing tool could do it, but not as efficiently as possible
 
 ### Improvement: How can I get more feedback?
 

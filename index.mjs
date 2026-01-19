@@ -58,7 +58,7 @@ export function ensureDir(dir) {
 }
 
 // ============================================================================
-// Session logging
+// Session logging and data dir
 // ============================================================================
 const homeDir = os.homedir() || process.env.HOME || process.env.USERPROFILE || ".";
 
@@ -70,21 +70,22 @@ function resolveDataDir() {
   return path.join(homeDir, ".local", "share", "bmo");
 }
 
-const desiredLogDir = resolveDataDir();
-let logBaseDir = desiredLogDir;
-if (!ensureDir(logBaseDir)) {
+const desiredDataDir = resolveDataDir();
+let dataBaseDir = desiredDataDir;
+if (!ensureDir(dataBaseDir)) {
   const fallback = path.join(os.tmpdir(), "bmo");
   if (ensureDir(fallback)) {
-    console.warn(`Warning: failed to create ${desiredLogDir}. Falling back to ${fallback}`);
-    logBaseDir = fallback;
+    console.warn(`Warning: failed to create ${desiredDataDir}. Falling back to ${fallback}`);
+    dataBaseDir = fallback;
   } else {
-    console.warn(`Warning: failed to create ${desiredLogDir} and ${fallback}. Falling back to current directory.`);
-    logBaseDir = ".";
+    console.warn(`Warning: failed to create ${desiredDataDir} and ${fallback}. Falling back to current directory.`);
+    dataBaseDir = ".";
   }
 }
 
+// Session log sits inside data dir
 const sessionTimestamp = new Date().toISOString().replace(/[:.]/g, "-");
-const logFilePath = path.join(logBaseDir, `agent-${sessionTimestamp}.log`);
+const logFilePath = path.join(dataBaseDir, `agent-${sessionTimestamp}.log`);
 let sessionEndLogged = false;
 
 function logToFile(text) {
@@ -114,6 +115,59 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 process.on("exit", () => logSessionEnd("ended (exit)"));
+
+// ============================================================================
+// Config management (API keys, etc.)
+// ============================================================================
+const configPath = path.join(dataBaseDir, "config.json");
+
+function loadConfig() {
+  try {
+    const raw = fs.readFileSync(configPath, "utf-8");
+    return JSON.parse(raw);
+  } catch (_) {
+    return { keys: {} };
+  }
+}
+
+function saveConfig(cfg) {
+  try {
+    ensureDir(path.dirname(configPath));
+    fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
+    if (process.platform !== "win32") {
+      try { fs.chmodSync(configPath, 0o600); } catch (_) {}
+    }
+    return true;
+  } catch (e) {
+    console.error("Failed to save config:", e.message);
+    return false;
+  }
+}
+
+function maskKey(k) {
+  if (!k || typeof k !== "string") return "(empty)";
+  const start = k.slice(0, 4);
+  const end = k.slice(-4);
+  return `${start}…${end}`;
+}
+
+const PROVIDER_ENV_MAP = {
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  xai: "XAI_API_KEY",
+  google: "GOOGLE_API_KEY",
+  groq: "GROQ_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
+};
+
+// If env OPENAI_API_KEY not set, try to hydrate from config
+(function hydrateEnvFromConfig() {
+  const cfg = loadConfig();
+  if (!process.env.OPENAI_API_KEY && cfg?.keys?.openai) {
+    process.env.OPENAI_API_KEY = cfg.keys.openai;
+  }
+})();
 
 // ============================================================================
 // Dynamic tool loader
@@ -434,9 +488,75 @@ async function runPrompt(prompt) {
 }
 
 // ============================================================================
+// CLI: key management
+// ============================================================================
+function printKeyUsage() {
+  console.log("Usage:\n  bmo key add <key>                 # Adds default 'openai' key\n  bmo key add <provider> <key>      # Adds key for a specific provider (openai, anthropic, openrouter, xai, google, groq, deepseek)");
+}
+
+function handleKeyCommand(args) {
+  const sub = (args[0] || '').toLowerCase();
+  if (sub !== 'add') {
+    printKeyUsage();
+    process.exitCode = 1;
+    return;
+  }
+
+  // Accept either `bmo key add <key>` (defaults to openai) or `bmo key add <provider> <key>`
+  let provider = 'openai';
+  let key = '';
+
+  if (args.length >= 3) {
+    provider = args[1].toLowerCase();
+    key = args[2];
+  } else if (args.length >= 2) {
+    const maybeProvider = (args[1] || '').toLowerCase();
+    if (PROVIDER_ENV_MAP[maybeProvider]) {
+      provider = maybeProvider;
+      key = args[2] || '';
+    } else {
+      key = args[1];
+    }
+  }
+
+  if (!key) {
+    printKeyUsage();
+    console.error("\nError: missing key value.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const cfg = loadConfig();
+  cfg.keys = cfg.keys || {};
+  cfg.keys[provider] = key;
+  const ok = saveConfig(cfg);
+
+  // Export to env for current process when known
+  const envName = PROVIDER_ENV_MAP[provider];
+  if (envName) process.env[envName] = key;
+
+  if (ok) {
+    console.log(`Saved API key for '${provider}': ${maskKey(key)}\nConfig: ${configPath}`);
+    // If provider is openai, let the user know it's now active for this session
+    if (provider === 'openai') {
+      console.log("OPENAI_API_KEY is now set for this session.");
+    }
+  } else {
+    process.exitCode = 1;
+  }
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 async function main() {
+  // Handle CLI subcommands before loading tools
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'key') {
+    handleKeyCommand(argv.slice(1));
+    return; // Do not start chat when handling key command
+  }
+
   // Load tools before starting
   await reloadTools();
   
