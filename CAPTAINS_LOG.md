@@ -28,7 +28,7 @@ which is remarkably cool.
 
 From here on out, bmo is responsible only for itself.
 
-### Improvement 1: Make new tool creation less horrifying
+### Make new tool creation less horrifying
 
 bmo had quite a hard time creating `file_stats_simple`. I wanted to see if bmo was
 capable of simplifying the process by creating a "golden path" for future tool
@@ -51,7 +51,7 @@ We ended up splitting the tool creation part of `AGENTS.md` in a new
 `tools/BMO_AGENTS.md` file, which gets installed alongside the `bmo` binary and
 referenced during tool creation.
 
-### Improvement 2: Version control everything with git
+### Version control the self-improvement loop with git
 
 I don't want something bmo does to itself to take the whole thing off the
 rails. It needs to know how to version-control itself.
@@ -66,7 +66,30 @@ Later, when trying to install bmo on my Fedora machine, I ran into an issue
 where `codesign` was missing. bmo was smart enough to fix the problem
 automatically and then commit the change. Neato.
 
-### Improvement 3: re-roll `bmo`
+## Jan 18, 2026
+
+The real challenge here is that I know from trying this experiment before that
+there are certain tools I want bmo to build for itself, but I need to resist the
+temptation to "fuzz" the results by giving it prompts for things I dont really
+need.
+
+I jumped into a personal project and asked bmo to update dependencies with
+`pnpm`, which I knew would inspire it to create a tool to run arbitrary commands
+on by behalf, but then I felt bad and reset the commit. It's not free will if
+I'm acting like some omniscient deity constantly nudging it in the "right"
+direction.
+
+That said, there is something I actually want that will push bmo to its limits.
+
+### Time to build `snipprock`!
+
+
+
+## Misc
+
+### Improvement: API key handling
+
+### Improvement: re-roll `bmo`
 
 ### Future exploration: Count tool usage
 
