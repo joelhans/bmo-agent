@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { formatDetails } from "./lib.mjs";
 
 export const schema = {
   type: "function",
@@ -16,6 +17,15 @@ export const schema = {
     },
   },
 };
+
+export function details(args) {
+  const { filename, encoding, reason } = args || {}
+  return formatDetails([
+    filename ? `file=${filename}` : null,
+    encoding ? `encoding=${encoding}` : null,
+    reason ? `reason=${reason}` : null,
+  ])
+}
 
 export async function execute(args) {
   try {

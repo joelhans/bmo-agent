@@ -1,4 +1,5 @@
 import { exec } from 'node:child_process'
+import { formatDetails } from './lib.mjs'
 
 export const schema = {
   type: 'function',
@@ -16,6 +17,14 @@ export const schema = {
       required: ['cmd']
     }
   }
+}
+
+export function details(args) {
+  const { cmd, reason } = args || {}
+  return formatDetails([
+    cmd ? `cmd=${cmd}` : null,
+    reason ? `reason=${reason}` : null,
+  ])
 }
 
 export async function execute(args) {

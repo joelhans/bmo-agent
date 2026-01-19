@@ -76,3 +76,8 @@ export async function triggerReload() {
   }
   return { error: "reload callback not registered" };
 }
+
+// Helper to build standardized details strings for tool calls
+export function formatDetails(parts = []) {
+  return parts.filter(Boolean).join(' ');
+}

@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { resolvePath, ensureDir, BMO_HOME, BMO_SOURCE } from "./lib.mjs";
+import { resolvePath, ensureDir, BMO_HOME, BMO_SOURCE, formatDetails } from "./lib.mjs";
 
 const BMO_PREFIX = "bmo://";
 
@@ -29,6 +29,14 @@ export const schema = {
     },
   },
 };
+
+export function details(args) {
+  const { filename, reason } = args || {}
+  return formatDetails([
+    filename ? `file=${filename}` : null,
+    reason ? `reason=${reason}` : null,
+  ])
+}
 
 function writeToPath(targetPath, content) {
   const dir = path.dirname(targetPath);

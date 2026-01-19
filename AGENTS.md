@@ -6,7 +6,7 @@ What lives where
 - index.mjs — the core runtime (system prompt builder, tool loader, REPL, logging). Modify carefully.
 - tools/ — source tools used when running from the repo. The installed/binary layout mirrors to bmo-tools/ at runtime.
   - tools/lib.mjs — shared helpers for tools (path resolving, reload callback registration, etc.).
-  - tools/*.mjs — one file per tool (schema + execute returning a JSON string).
+  - tools/*.mjs — one file per tool (schema + execute returning a JSON string, and a required details(args) export).
   - tools/BMO_AGENTS.md — Golden Path for adding tools (bundled with binaries). Use this when creating/editing tools.
 - dist/ — build artifacts (e.g., compiled binaries).
 - CAPTAINS_LOG.md — running notes/changelog for development sessions.
@@ -21,7 +21,7 @@ Notes inlining behavior (how docs get into the model)
 - BMO_INLINE_NOTES=1 enables inlining when not running in this repo (useful for generic directories).
 
 Conventions when hacking on tools in this repo
-- Schema + execute: every tool exports schema (OpenAI tool definition) and execute(args) that returns JSON.stringify(...).
+- Schema + execute + details: every tool exports schema (OpenAI tool definition), execute(args) that returns JSON.stringify(...), and details(args) that returns a concise string for the core prelude (e.g., cmd=..., file=..., path=...) plus optional reason=....
 - Import helpers from ./tools/lib.mjs inside tools (not from index.mjs).
 - File paths: use bmo:// prefix to target the active runtime home (installed tools or repo tools).
 - After adding/modifying a tool, call reload_tools so the runtime hot-reloads it.

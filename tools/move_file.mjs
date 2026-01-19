@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { resolvePath, ensureDir, BMO_SOURCE } from "./lib.mjs";
+import { resolvePath, ensureDir, BMO_SOURCE, formatDetails } from "./lib.mjs";
 
 export const schema = {
   type: "function",
@@ -18,6 +18,15 @@ export const schema = {
     },
   },
 };
+
+export function details(args) {
+  const { from, to, reason } = args || {}
+  return formatDetails([
+    from ? `from=${from}` : null,
+    to ? `to=${to}` : null,
+    reason ? `reason=${reason}` : null,
+  ])
+}
 
 function normalizeSourceRelative(relativePart) {
   // Normalize bmo-tools/ -> tools/ for source mirroring

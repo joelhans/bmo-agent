@@ -21,6 +21,9 @@ Environment specifics (this install)
 - Every tool must export:
   - schema: OpenAI function tool schema
   - execute(args): async function that returns a JSON-serialized string
+  - details(args): function that returns a concise, single-line prelude
+    - This string must include the tool’s primary cmd/target (e.g., cmd=..., file=..., path=..., from=... to=...)
+    - May include reason=... if provided
 - Writes to bmo:// paths respect BMO_SOURCE if set (writes mirror to <BMO_SOURCE>/tools for persistence)
 - Git commits policy:
   - Autonomous commits are allowed only for the self‑improvement loop and only for files under bmo://.
@@ -29,7 +32,7 @@ Environment specifics (this install)
 
 Minimal tool template (copy/paste)
 
-import { resolvePath } from "./lib.mjs";
+import { resolvePath, formatDetails } from "./lib.mjs";
 
 export const schema = {
   type: "function",
@@ -40,11 +43,21 @@ export const schema = {
       type: "object",
       properties: {
         // arg1: { type: "string", description: "..." },
+        // reason: { type: "string", description: "Why this tool is needed right now." },
       },
       required: [],
     },
   },
 };
+
+export function details(args) {
+  const { target, cmd, reason } = args || {}
+  return formatDetails([
+    cmd ? `cmd=${cmd}` : null,
+    target ? `target=${target}` : null,
+    reason ? `reason=${reason}` : null,
+  ])
+}
 
 export async function execute(args) {
   try {
@@ -64,6 +77,7 @@ Step-by-step (expanded)
    - Path: bmo://tools/<name>.mjs
    - Match schema.function.name to the filename (convention: <name>.mjs and name: "<name>")
    - Return JSON.stringify(...) from execute
+   - Implement details(args) to include cmd or the primary target
 
 3) Reload tools
    - Call reload_tools right after writing

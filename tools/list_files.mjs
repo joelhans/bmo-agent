@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { resolvePath } from "./lib.mjs";
+import { resolvePath, formatDetails } from "./lib.mjs";
 
 export const schema = {
   type: "function",
@@ -19,6 +19,15 @@ export const schema = {
     },
   },
 };
+
+export function details(args) {
+  const { path: p, reason } = args || {}
+  const targetPath = p || '.'
+  return formatDetails([
+    targetPath ? `path=${targetPath}` : null,
+    reason ? `reason=${reason}` : null,
+  ])
+}
 
 export async function execute(args) {
   const targetPath = args.path || ".";

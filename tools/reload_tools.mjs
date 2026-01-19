@@ -1,4 +1,4 @@
-import { triggerReload } from "./lib.mjs";
+import { triggerReload, formatDetails } from "./lib.mjs";
 
 export const schema = {
   type: "function",
@@ -17,6 +17,13 @@ export const schema = {
     },
   },
 };
+
+export function details(args) {
+  const { reason } = args || {}
+  return formatDetails([
+    reason ? `reason=${reason}` : null,
+  ])
+}
 
 export async function execute(args) {
   const reason = args.reason;

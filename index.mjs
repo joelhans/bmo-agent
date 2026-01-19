@@ -119,7 +119,7 @@ process.on("exit", () => logSessionEnd("ended (exit)"));
 // Dynamic tool loader
 // ============================================================================
 let toolSchemas = [];
-const toolExecutors = new Map();
+const toolRegistry = new Map(); // name -> { execute, details }
 
 // Resolve tools directory: prefer bmo-tools/ (installed), fall back to tools/ (source)
 function getToolsDir() {
@@ -143,7 +143,7 @@ export async function reloadTools() {
   
   // Clear existing
   toolSchemas = [];
-  toolExecutors.clear();
+  toolRegistry.clear();
   
   for (const file of files) {
     const toolPath = path.join(toolsDir, file);
@@ -152,12 +152,12 @@ export async function reloadTools() {
       const moduleUrl = pathToFileURL(toolPath).href + `?update=${Date.now()}`;
       const mod = await import(moduleUrl);
       
-      if (mod.schema && typeof mod.execute === "function") {
+      if (mod.schema && typeof mod.execute === "function" && typeof mod.details === "function") {
         toolSchemas.push(mod.schema);
-        toolExecutors.set(mod.schema.function.name, mod.execute);
+        toolRegistry.set(mod.schema.function.name, { execute: mod.execute, details: mod.details });
         loaded.push(mod.schema.function.name);
       } else {
-        errors.push(`${file}: missing schema or execute`);
+        errors.push(`${file}: missing schema, execute, or details()`);
       }
     } catch (e) {
       errors.push(`${file}: ${e.message}`);
@@ -180,27 +180,23 @@ async function executeTool(toolCall) {
     return JSON.stringify({ ok: false, error: `Invalid tool arguments: ${String(e)}`, raw: String(args) });
   }
 
-  const reason = parsedArgs.reason;
-  const filename = parsedArgs.filename || parsedArgs.path;
-  const cmd = parsedArgs.cmd;
-  const details = [
-    cmd ? `cmd=${cmd}` : null,
-    filename ? `file=${filename}` : null,
-    reason ? `reason=${reason}` : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m ${details}`);
-  logToFile(`[${new Date().toISOString()}] Tool call ${name} ${details}\n`);
-
-  const executor = toolExecutors.get(name);
-  if (!executor) {
+  const impl = toolRegistry.get(name);
+  if (!impl) {
     return JSON.stringify({ ok: false, error: `Unknown tool: ${name}` });
   }
-  
+
+  let detailsText = '';
   try {
-    return await executor(parsedArgs);
+    detailsText = String(impl.details(parsedArgs) || '');
+  } catch (e) {
+    detailsText = `details() error: ${String(e)}`;
+  }
+
+  console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m ${detailsText}`);
+  logToFile(`[${new Date().toISOString()}] Tool call ${name} ${detailsText}\n`);
+
+  try {
+    return await impl.execute(parsedArgs);
   } catch (e) {
     return JSON.stringify({ ok: false, error: String(e) });
   }
@@ -220,7 +216,7 @@ function isBmoRepo() {
 }
 
 function buildSystemPrompt() {
-  const toolNames = Array.from(toolExecutors.keys()).join(", ");
+  const toolNames = Array.from(toolRegistry.keys()).join(", ");
   
   const parts = [];
   parts.push(`You are bmo — a fast, pragmatic, and self-improving coding agent. Your job is to complete tasks using available tools, and autonomously improve yourself when you encounter limitations.

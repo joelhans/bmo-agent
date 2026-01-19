@@ -1,4 +1,5 @@
 import { spawnSync } from "child_process";
+import { formatDetails } from "./lib.mjs";
 
 export const schema = {
   type: "function",
@@ -42,6 +43,18 @@ export const schema = {
     },
   },
 };
+
+export function details(args) {
+  const { message, paths, add_all, allow_empty, signoff } = args || {}
+  const pathList = Array.isArray(paths) && paths.length ? `paths=${paths.join(',')}` : null
+  return formatDetails([
+    message ? `msg=${JSON.stringify(message)}` : null,
+    add_all === false ? `add_all=false` : null,
+    allow_empty ? `allow_empty=true` : null,
+    signoff ? `signoff=true` : null,
+    pathList,
+  ])
+}
 
 function run(cmd, args = [], options = {}) {
   const res = spawnSync(cmd, args, { encoding: "utf8", ...options });

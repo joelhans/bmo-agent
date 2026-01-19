@@ -119,6 +119,8 @@ there to make it better.
 
 TK
 
+`home/agent-2026-01-19T14-14-57-973Z.log`
+
 ### Make the system prompt more test-and-verify friendly
 
 TK
@@ -134,6 +136,20 @@ file.
 ```
 
 ## Misc
+
+### Experiment: What happens if I take read/write/list away?
+
+### Experiment: What if I change the provider+model?
+
+### Experiment: What if I try to give the AI agent skills in particular tools?
+
+### Improvement: Push the system prompt more on creating new tools even if an
+existing tool could do it, but not as efficiently as possible
+
+### Improvement: How can I get more feedback?
+
+I would like to know what the agent is up to instead of just `bmo:` hanging
+until it decides on the right tool call.
 
 ### Improvement: Understand why bmo hangs sometimes
 

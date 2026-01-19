@@ -1,4 +1,4 @@
-import { resolvePath } from "./lib.mjs";
+import { resolvePath, formatDetails } from "./lib.mjs";
 import fs from "fs/promises";
 
 export const schema = {
@@ -22,6 +22,15 @@ export const schema = {
     },
   },
 };
+
+export function details(args) {
+  const { filename, reason, encoding } = args || {}
+  return formatDetails([
+    filename ? `file=${filename}` : null,
+    encoding ? `encoding=${encoding}` : null,
+    reason ? `reason=${reason}` : null,
+  ])
+}
 
 export async function execute(args) {
   try {
