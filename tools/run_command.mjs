@@ -22,17 +22,19 @@ export async function execute(args) {
   const { cmd, timeoutMs, env, reason } = args
   const startedAt = new Date()
   const startTime = startedAt.toISOString()
+  const cwd = process.cwd()
 
   return await new Promise((resolve) => {
-    const child = exec(cmd, { cwd: process.cwd(), timeout: timeoutMs ?? 0, env: { ...process.env, ...(env || {}) } })
+    const child = exec(cmd, { cwd, timeout: timeoutMs ?? 0, env: { ...process.env, ...(env || {}) } })
     let stdout = ''
     let stderr = ''
 
-    // Prepend reasoning to the stderr stream so it shows up in the result
+    // Prepend a clear prelude so the UI shows intent + the exact command
     if (reason) {
       stderr += `[run_command] reason: ${reason}\n`
     }
     stderr += `[run_command] cmd: ${cmd}\n`
+    stderr += `[run_command] cwd: ${cwd}\n`
 
     child.stdout?.on('data', (d) => (stdout += String(d)))
     child.stderr?.on('data', (d) => (stderr += String(d)))
@@ -44,6 +46,8 @@ export async function execute(args) {
       resolve(
         JSON.stringify({
           ok,
+          // Provide a succinct message that surfaces the command prominently
+          message: `[run_command] ${cmd}`,
           cmd,
           reason,
           stdout,
@@ -52,7 +56,7 @@ export async function execute(args) {
           startTime,
           endTime,
           durationMs,
-          cwd: process.cwd(),
+          cwd,
         })
       )
     }

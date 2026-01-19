@@ -8,7 +8,7 @@ Once I thought bmo could bootstrap its own self-improvement system, and now
 I realize that's nearly impossible, because it relies on the sheer luck of
 one-shotting the implementation. Please help, Amp.
 
-Now, time for the first test: `/agent-2026-01-17T14-33-36-852Z.log`:
+Now, time for the first test: `work/agent-2026-01-17T14-33-36-852Z.log`:
 
 When I ask `How many words are there in STARTING_PROMPT.md?`, `bmo` knows
 well enough to create a new `word_count` tool, hot-reload the toolset, and
@@ -18,7 +18,7 @@ For an even more real test: from my dotfiles directory, can I give it a prompt
 to suggest creating a new tool, create the tool, hot-reload it, add it to
 bmo's source directory, *and* execute it?
 
-`agent-2026-01-17T15-07-11-138Z.log`: `Read the number of characters in
+`work/agent-2026-01-17T15-07-11-138Z.log`: `Read the number of characters in
 init.lua`
 
 **New tool alert: `file_stats_simple`**
@@ -35,7 +35,7 @@ capable of simplifying the process by creating a "golden path" for future tool
 creation, so I asked it whether we could separate reference material about the
 codebase itself and the tool creation process.
 
-`agent-2026-01-17T15-13-40-912Z.log`
+`work/agent-2026-01-17T15-13-40-912Z.log`
 
 **New tool alert: `move_file`**
 
@@ -45,7 +45,7 @@ together, but grateful to see the first truly organic tool creation. I'm
 incredibly curious to see whether bmo decides to use that tool again in the
 future.
 
-`agent-2026-01-17T15-39-50-038Z.log`
+`work/agent-2026-01-17T15-39-50-038Z.log`
 
 We ended up splitting the tool creation part of `AGENTS.md` in a new
 `tools/BMO_AGENTS.md` file, which gets installed alongside the `bmo` binary and
@@ -56,7 +56,7 @@ referenced during tool creation.
 I don't want something bmo does to itself to take the whole thing off the
 rails. It needs to know how to version-control itself.
 
-agent-2026-01-17T17-09-13-627Z.log
+`work/agent-2026-01-17T17-09-13-627Z.log`
 
 **New tool alert: `git_commit`**
 
@@ -83,11 +83,50 @@ That said, there is something I actually want that will push bmo to its limits.
 
 ### Time to build `snipprock`!
 
+I wanted a completely owned experience for generating .pngs of code snippets to
+show ngrok off in some nice light. Product launches, different configs for
+ngrok.ai, you know the deal. Everything else is a bit too hard to fiddle with
+and doesn't generate output that smells like ngrok, so let's 
 
+`home/agent-2026-01-19T03-33-58-945Z.log`
+
+**New tool alert: `run_command`**
+
+Unsurprisingly, bmo needed to be able to run `pnpm` to scaffold this thing out.
+`run_command` does the trick quite well, but I did have to nudge bmo a little
+bit to add reasoning to the tool call output in my terminal.
+
+```
+bmo:
+[Tool Call: run_command] reason=Verify Phase 3 changes compile successfully with Mantle components and inline styles.
+bmo:
+[Tool Call: run_command] reason=Quick check: dev server boots without errors for Phase 3 UI.
+```
+
+We got a little stuck on implementing the "right" way to convert the DOM to a
+`.png` without a bunch of weird artifacts or not loading the proper font. I
+think this is where bmo finds its limits--I wonder if the increasingly large
+context window was part of the problem.
+
+`home/agent-2026-01-19T05-11-17-334Z.log`+`home/agent-2026-01-19T13-16-35-240Z.log`
+
+### API key handling
+
+```
+Implement an API key handling function where I can use `bmo key add ...` to add
+a new API key and `bmo key unset` to remove an OPENAI_API_KEY. This key should
+be stored in ~/.config/bmo/ and referenced by bmo at runtime. If there is no key
+there, then BMO should first look to environment variables, and finally a .env
+file.
+```
 
 ## Misc
 
-### Improvement: API key handling
+### Improvement: Understand why bmo hangs sometimes.
+
+Do we need more feedback?
+
+### Improvement: Check for updates
 
 ### Improvement: re-roll `bmo`
 
