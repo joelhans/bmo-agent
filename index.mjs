@@ -182,7 +182,12 @@ async function executeTool(toolCall) {
 
   const reason = parsedArgs.reason;
   const filename = parsedArgs.filename || parsedArgs.path;
-  const details = [filename ? `file=${filename}` : null, reason ? `reason=${reason}` : null]
+  const cmd = parsedArgs.cmd;
+  const details = [
+    cmd ? `cmd=${cmd}` : null,
+    filename ? `file=${filename}` : null,
+    reason ? `reason=${reason}` : null,
+  ]
     .filter(Boolean)
     .join(" ");
 
