@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 import { fileURLToPath } from "url";
 
 // BMO_HOME resolution - works for both source and compiled binary
@@ -29,6 +30,17 @@ export function getToolsDir() {
 export const BMO_SOURCE = process.env.BMO_SOURCE 
   ? path.resolve(process.env.BMO_SOURCE) 
   : null;
+
+// Config directory (separate from BMO_HOME so installs don't overwrite user data)
+function getConfigDir() {
+  if (process.env.BMO_CONF) {
+    return path.resolve(process.env.BMO_CONF);
+  }
+  // Default to XDG-like location
+  return path.join(os.homedir(), ".local", "share", "bmo");
+}
+
+export const BMO_CONF = getConfigDir();
 
 // Path resolution: bmo:// prefix routes to BMO_HOME
 const BMO_PREFIX = "bmo://";

@@ -154,6 +154,15 @@ situations of coding agents deleting home directories, I thought it was a good
 time to add ask for verification before running `rm` commands in
 particular.
 
+**New tool alert: `user_preferences`**
+
+Seems like bmo wants to not just check before running `rm` but develop a whole
+new system. And when that doesn't work in my testing, it decides to...
+
+`laptop/agent-2026-01-20T14-18-23-352Z.log`
+`laptop/agent-2026-01-20T14-24-53-827Z.log`
+`laptop/agent-2026-01-20T14-35-32-050Z.log`
+
 ## Misc
 
 ### Experiment: What happens if I take read/write/list away?
