@@ -132,6 +132,10 @@ TK
 
 ### API key handling
 
+`home/agent-2026-01-19T22-37-14-482Z.log`
+
+I got tired of `export OPENAI_API_KEY`ing everywhere, so:
+
 ```
 Implement an API key handling function where I can use `bmo key add ...` to add
 a new API key and `bmo key unset` to remove an OPENAI_API_KEY. This key should
@@ -139,6 +143,9 @@ be stored in ~/.config/bmo/ and referenced by bmo at runtime. If there is no key
 there, then BMO should first look to environment variables, and finally a .env
 file.
 ```
+
+Never gets old seeing a random 1Pasword popup asking to unlock your SSH key and
+know that it's bmo doing... something.
 
 ## Misc
 
@@ -148,6 +155,8 @@ file.
 
 ### Experiment: What if I try to give the AI agent skills in particular tools?
 
+### Improvement: Look for and read AGENTS.md by default
+
 ### Improvement: Push the system prompt more on creating new tools even if an existing tool could do it, but not as efficiently as possible
 
 ### Improvement: How can I get more feedback?
@@ -155,7 +164,7 @@ file.
 I would like to know what the agent is up to instead of just `bmo:` hanging
 until it decides on the right tool call.
 
-### Improvement: Understand why bmo hangs sometimes
+### Improvement: Understand why bmo hangs sometimes / add a "hit `esc`" escape hatch
 
 Do we need more feedback?
 
