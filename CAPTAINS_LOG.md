@@ -126,10 +126,6 @@ In the end, we implemented a new `details()` export for every tool that requires
 it to show exactly what command is being run or file being manipulated. Helps,
 you know, catch things you'd rather not have happen.
 
-### Make the system prompt more test-and-verify friendly
-
-TK
-
 ### API key handling
 
 `home/agent-2026-01-19T22-37-14-482Z.log`
@@ -147,6 +143,17 @@ file.
 Never gets old seeing a random 1Pasword popup asking to unlock your SSH key and
 know that it's bmo doing... something.
 
+## Jan 20, 2026
+
+### Add some guardrails
+
+After reading about [ways to isloate Claude
+Code](https://blog.emilburzo.com/2026/01/running-claude-code-dangerously-safely/) with
+`--dangerously-skip-permissions` turned on, and some hilarious-but-scary
+situations of coding agents deleting home directories, I thought it was a good
+time to add ask for verification before running `rm` commands in
+particular.
+
 ## Misc
 
 ### Experiment: What happens if I take read/write/list away?
@@ -154,6 +161,8 @@ know that it's bmo doing... something.
 ### Experiment: What if I change the provider+model?
 
 ### Experiment: What if I try to give the AI agent skills in particular tools?
+
+### Make the system prompt more test-and-verify friendly
 
 ### Improvement: Look for and read AGENTS.md by default
 
