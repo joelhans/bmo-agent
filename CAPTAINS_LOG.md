@@ -177,12 +177,27 @@ And the system works!
 
 ## Jan 21, 2026
 
-### Experiment: Try 5.2-codex
+### Improvement: How can I get more feedback?
 
+I would like to know what the agent is up to instead of just `bmo:` hanging
+until it decides on the right tool call.
 
+`work/agent-2026-01-21T18-22-34-679Z.log`
 
+**New tool alert: `progress`**
+
+Time to put this to the test with...
+
+### Read `AGENTS.md` by default
+
+I got tired of starting each prompt: `Read AGENTS.md to understand this project.
+...`
+
+`work/agent-2026-01-21T18-38-53-132Z.log`
 
 ## Misc
+
+### Experiment: Try 5.2-codex
 
 ### Experiment: What happens if I take read/write/list away?
 
@@ -196,10 +211,6 @@ And the system works!
 
 ### Improvement: Push the system prompt more on creating new tools even if an existing tool could do it, but not as efficiently as possible
 
-### Improvement: How can I get more feedback?
-
-I would like to know what the agent is up to instead of just `bmo:` hanging
-until it decides on the right tool call.
 
 ### Improvement: Understand why bmo hangs sometimes / add a "hit `esc`" escape hatch
 

@@ -15,13 +15,13 @@ What lives where
 Notes inlining behavior (how docs get into the model)
 - Precedence at runtime:
   1) BMO_NOTES_FILE — absolute path; if set, that file is inlined.
-  2) If running in this repo (isBmoRepo) and AGENTS.md exists here, this file is inlined.
+  2) If AGENTS.md exists in the current working directory, that file is inlined.
   3) Otherwise, tools/BMO_AGENTS.md (from the active tools dir) is inlined so binaries always have guidance.
   4) Set BMO_DISABLE_NOTES=1 to disable inlining.
 - BMO_INLINE_NOTES=1 enables inlining when not running in this repo (useful for generic directories).
 
 Conventions when hacking on tools in this repo
-- Schema + execute + details: every tool exports schema (OpenAI tool definition), execute(args) that returns JSON.stringify(...), and details(args) that returns a concise string for the core prelude (e.g., cmd=..., file=..., path=...) plus optional reason=....
+- Schema + execute + details: every tool exports schema (OpenAI function tool definition), execute(args) that returns JSON.stringify(...), and details(args) that returns a concise string for the core prelude (e.g., cmd=..., file=..., path=...) plus optional reason=....
 - Import helpers from ./tools/lib.mjs inside tools (not from index.mjs).
 - File paths: use bmo:// prefix to target the active runtime home (installed tools or repo tools).
 - After adding/modifying a tool, call reload_tools so the runtime hot-reloads it.

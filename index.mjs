@@ -350,8 +350,8 @@ export async function execute(args) {
       // Highest precedence: explicit override
       if (notesFileEnv) {
         notesPath = path.resolve(notesFileEnv);
-      } else if (isBmoRepo() && fs.existsSync("AGENTS.md")) {
-        // In repo: prefer the repo's AGENTS.md (repo-specific docs)
+      } else if (fs.existsSync("AGENTS.md")) {
+        // Prefer AGENTS.md from the current working directory when present
         notesPath = path.resolve("AGENTS.md");
       } else {
         // Fallback for binaries and non-repo contexts: shipped Golden Path next to tools
