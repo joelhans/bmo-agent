@@ -163,6 +163,22 @@ new system. And when that doesn't work in my testing, it decides to...
 `laptop/agent-2026-01-20T14-24-53-827Z.log`
 `laptop/agent-2026-01-20T14-35-32-050Z.log`
 
+**New tool alert: `git_commit_path`**
+
+One of the ongoing challenges with bmo has been the separation of concerns
+between the `BMO_SOURCE`/`BMO_HOME` directories and the current working
+directory, which is often wholly unrelated to bmo itself. Self-improvement of
+bmo shouldn't affect the cwd, so I'm very happy to see with new tools that
+explicitly reinforce the difference.
+
+And the system works!
+
+`laptop/agent-2026-01-21T13-07-27-659Z.log`
+
+## Jan 21, 2026
+
+
+
 ## Misc
 
 ### Experiment: What happens if I take read/write/list away?
