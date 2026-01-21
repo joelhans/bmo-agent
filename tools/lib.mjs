@@ -25,11 +25,33 @@ export function getToolsDir() {
   return path.join(BMO_HOME, "tools");
 }
 
+// Resolve BMO_SOURCE with sensible defaults for installed binaries
+// Precedence:
+//  1) If ~/src/bmo exists, use it (default dev source)
+//  2) Else if BMO_SOURCE env var is set, use that
+//  3) Else null (no source mirror)
+function resolveBmoSource() {
+  try {
+    const defaultPath = path.join(os.homedir(), "src", "bmo");
+    if (fs.existsSync(defaultPath)) {
+      return defaultPath;
+    }
+  } catch (_) {
+    // ignore
+  }
+  if (process.env.BMO_SOURCE) {
+    try {
+      return path.resolve(process.env.BMO_SOURCE);
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+}
+
 // BMO_SOURCE: canonical source location for persisting new tools
 // When set, writes to bmo:// go here AND get copied to BMO_HOME
-export const BMO_SOURCE = process.env.BMO_SOURCE 
-  ? path.resolve(process.env.BMO_SOURCE) 
-  : null;
+export const BMO_SOURCE = resolveBmoSource();
 
 // Config directory (separate from BMO_HOME so installs don't overwrite user data)
 function getConfigDir() {

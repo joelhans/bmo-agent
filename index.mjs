@@ -375,10 +375,29 @@ export async function execute(args) {
 // ============================================================================
 // OpenAI client and conversation
 // ============================================================================
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.NGROKAI,
-});
+let openaiClient = null;
+function getOpenAIClient() {
+  if (!openaiClient) {
+    // Try a last-chance hydrate from config in case the user just ran `bmo key add`
+    if (!process.env.OPENAI_API_KEY) {
+      const cfg = loadConfig();
+      if (cfg?.keys?.openai) {
+        process.env.OPENAI_API_KEY = cfg.keys.openai;
+      }
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      const msg = "Missing OPENAI_API_KEY. Run 'bmo key add <key>' or set OPENAI_API_KEY in your environment.";
+      throw new Error(msg);
+    }
+
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      baseURL: process.env.NGROKAI,
+    });
+  }
+  return openaiClient;
+}
 
 const conversationHistory = [];
 let systemPromptInitialized = false;
@@ -411,6 +430,7 @@ async function runPrompt(prompt) {
   });
 
   while (true) {
+    const client = getOpenAIClient();
     const stream = await client.chat.completions.create({
       model: "gpt-5",
       messages: conversationHistory,
@@ -583,7 +603,12 @@ async function main() {
     }
 
     logToFile(`You: ${input}\n`);
-    await runPrompt(input);
+    try {
+      await runPrompt(input);
+    } catch (e) {
+      console.error(String(e?.message || e));
+      console.error("Tip: set OPENAI_API_KEY or run 'bmo key add <key>'.");
+    }
   }
 }
 
