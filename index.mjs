@@ -102,8 +102,6 @@ function logSessionEnd(reason = "ended") {
 
 logToFile(`=== Agent session started at ${new Date().toISOString()} ===\n`);
 console.log(`Session log: ${logFilePath}`);
-console.log(`BMO_HOME: ${BMO_HOME}`);
-console.log(`BMO_SOURCE env: ${process.env.BMO_SOURCE || "(not set)"}`)
 
 process.on("SIGINT", () => {
   console.log("\nGoodbye!");
@@ -508,65 +506,6 @@ async function runPrompt(prompt) {
 }
 
 // ============================================================================
-// CLI: key management
-// ============================================================================
-function printKeyUsage() {
-  console.log("Usage:\n  bmo key add <key>                 # Adds default 'openai' key\n  bmo key add <provider> <key>      # Adds key for a specific provider (openai, anthropic, openrouter, xai, google, groq, deepseek)");
-}
-
-function handleKeyCommand(args) {
-  const sub = (args[0] || '').toLowerCase();
-  if (sub !== 'add') {
-    printKeyUsage();
-    process.exitCode = 1;
-    return;
-  }
-
-  // Accept either `bmo key add <key>` (defaults to openai) or `bmo key add <provider> <key>`
-  let provider = 'openai';
-  let key = '';
-
-  if (args.length >= 3) {
-    provider = args[1].toLowerCase();
-    key = args[2];
-  } else if (args.length >= 2) {
-    const maybeProvider = (args[1] || '').toLowerCase();
-    if (PROVIDER_ENV_MAP[maybeProvider]) {
-      provider = maybeProvider;
-      key = args[2] || '';
-    } else {
-      key = args[1];
-    }
-  }
-
-  if (!key) {
-    printKeyUsage();
-    console.error("\nError: missing key value.");
-    process.exitCode = 1;
-    return;
-  }
-
-  const cfg = loadConfig();
-  cfg.keys = cfg.keys || {};
-  cfg.keys[provider] = key;
-  const ok = saveConfig(cfg);
-
-  // Export to env for current process when known
-  const envName = PROVIDER_ENV_MAP[provider];
-  if (envName) process.env[envName] = key;
-
-  if (ok) {
-    console.log(`Saved API key for '${provider}': ${maskKey(key)}\nConfig: ${configPath}`);
-    // If provider is openai, let the user know it's now active for this session
-    if (provider === 'openai') {
-      console.log("OPENAI_API_KEY is now set for this session.");
-    }
-  } else {
-    process.exitCode = 1;
-  }
-}
-
-// ============================================================================
 // Main
 // ============================================================================
 async function main() {
@@ -587,13 +526,14 @@ async function main() {
     const lib = await import(libUrl);
     lib.registerReloadCallback(reloadTools);
 
-    // Expose effective BMO_SOURCE in this process and log it
+    // Expose effective BMO_SOURCE in this process and print a single concise runtime line
     if (!process.env.BMO_SOURCE && lib.BMO_SOURCE) {
       process.env.BMO_SOURCE = lib.BMO_SOURCE;
     }
-    console.log(`Effective BMO_SOURCE: ${process.env.BMO_SOURCE || "(none)"}`);
+    console.log(`Runtime: home=${BMO_HOME} source=${process.env.BMO_SOURCE || "(none)"}`);
   } catch (e) {
     console.warn("Warning: could not register reload callback:", e.message);
+    console.log(`Runtime: home=${BMO_HOME} source=${process.env.BMO_SOURCE || "(none)"}`);
   }
   
   console.log("Chat with bmo (type 'exit' to quit)");
