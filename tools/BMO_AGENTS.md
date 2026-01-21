@@ -126,7 +126,7 @@ Notes behavior (inlining into the system prompt)
 BMO environment variables (quick reference)
 - BMO_HOME: active runtime home (auto-detected)
 - BMO_SOURCE: canonical source directory for persisting new tools. Resolution precedence:
-  1) If ~/src/bmo exists, use it by default
+  1) If ~/src/bmo-agent exists, use it by default
   2) Else if BMO_SOURCE env var is set, use that
   3) Else null (no source mirror)
 - BMO_NOTES_FILE: absolute path to a notes file to inline (recommended for binaries)

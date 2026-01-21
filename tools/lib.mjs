@@ -27,12 +27,12 @@ export function getToolsDir() {
 
 // Resolve BMO_SOURCE with sensible defaults for installed binaries
 // Precedence:
-//  1) If ~/src/bmo exists, use it (default dev source)
+//  1) If ~/src/bmo-agent exists, use it (default dev source)
 //  2) Else if BMO_SOURCE env var is set, use that
 //  3) Else null (no source mirror)
 function resolveBmoSource() {
   try {
-    const defaultPath = path.join(os.homedir(), "src", "bmo");
+    const defaultPath = path.join(os.homedir(), "src", "bmo-agent");
     if (fs.existsSync(defaultPath)) {
       return defaultPath;
     }
