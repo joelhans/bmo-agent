@@ -186,7 +186,12 @@ until it decides on the right tool call.
 
 **New tool alert: `progress`**
 
-Time to put this to the test with...
+Time to put this to the test with... can bmo understand our frontend repo?
+
+`work/agent-2026-01-21T23-39-28-921Z.log`
+
+It's really cool to see bmo report on the steps it's taking and why, but clearly
+it likes to overestimate how many steps are required to accomplish a task.
 
 ### Read `AGENTS.md` by default
 
@@ -194,6 +199,14 @@ I got tired of starting each prompt: `Read AGENTS.md to understand this project.
 ...`
 
 `work/agent-2026-01-21T18-38-53-132Z.log`
+
+### Battling regressions
+
+At some point, bmo broke both its API key handling and `BMO_SOURCE`
+functionality. Cool cool. We did get 'em fixed, though.
+
+`work/agent-2026-01-21T22-39-05-461Z.log`
+`work/agent-2026-01-21T23-00-43-703Z.log`
 
 ## Misc
 
@@ -210,7 +223,6 @@ I got tired of starting each prompt: `Read AGENTS.md to understand this project.
 ### Improvement: Look for and read AGENTS.md by default
 
 ### Improvement: Push the system prompt more on creating new tools even if an existing tool could do it, but not as efficiently as possible
-
 
 ### Improvement: Understand why bmo hangs sometimes / add a "hit `esc`" escape hatch
 
