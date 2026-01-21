@@ -103,7 +103,7 @@ function logSessionEnd(reason = "ended") {
 logToFile(`=== Agent session started at ${new Date().toISOString()} ===\n`);
 console.log(`Session log: ${logFilePath}`);
 console.log(`BMO_HOME: ${BMO_HOME}`);
-console.log(`BMO_SOURCE: ${process.env.BMO_SOURCE || "(not set - new tools won't persist)"}`)
+console.log(`BMO_SOURCE env: ${process.env.BMO_SOURCE || "(not set)"}`)
 
 process.on("SIGINT", () => {
   console.log("\nGoodbye!");
@@ -586,6 +586,12 @@ async function main() {
     const libUrl = pathToFileURL(libPath).href + `?t=${Date.now()}`;
     const lib = await import(libUrl);
     lib.registerReloadCallback(reloadTools);
+
+    // Expose effective BMO_SOURCE in this process and log it
+    if (!process.env.BMO_SOURCE && lib.BMO_SOURCE) {
+      process.env.BMO_SOURCE = lib.BMO_SOURCE;
+    }
+    console.log(`Effective BMO_SOURCE: ${process.env.BMO_SOURCE || "(none)"}`);
   } catch (e) {
     console.warn("Warning: could not register reload callback:", e.message);
   }
