@@ -28,7 +28,7 @@ Environment specifics (this install)
 - Git commits policy:
   - Autonomous commits are allowed only for the self‑improvement loop and only for files under bmo://.
   - When BMO_SOURCE is set, commit self‑improvement changes in BMO_SOURCE (not the user’s working directory).
-  - Never auto‑commit in non‑bmo codebases; require explicit user instruction.
+  - Never auto‑commit in non-bmo codebases; require explicit user instruction.
 
 Minimal tool template (copy/paste)
 
@@ -142,3 +142,4 @@ Tool Registry (append entries below)
 - reload_tools — hot-reload tools
 - move_file — rename/move files (supports bmo://). Mirrors to BMO_SOURCE if set
 - git_commit — stage and commit changes in the current working directory
+- progress — emit a concise progress/status message to the user for early feedback
