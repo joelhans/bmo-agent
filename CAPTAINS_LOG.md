@@ -208,6 +208,13 @@ functionality. Cool cool. We did get 'em fixed, though.
 `work/agent-2026-01-21T22-39-05-461Z.log`
 `work/agent-2026-01-21T23-00-43-703Z.log`
 
+### Time to share with some friends
+
+With a pretty strong start here, bmo gets the opportunity to put its best foot
+forward... with a `README.md`.
+
+`work/agent-2026-01-22T00-11-17-436Z.log`
+
 ## Misc
 
 ### Experiment: Try 5.2-codex
