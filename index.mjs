@@ -335,7 +335,16 @@ export async function execute(args) {
 - After writing, briefly note what changed.
 - Git commits policy: never auto-run git_commit for user projects or non-bmo repos. Only commit autonomously during the self-improvement loop and only for files under bmo:// (your own code).
   - When BMO_SOURCE is set, commit self-improvement changes only in BMO_SOURCE; do not create commits in the user’s working directory for those changes.
-  - For non-bmo codebases, commit only if the user explicitly asks.`);
+  - For non-bmo codebases, commit only if the user explicitly asks.
+
+## Core edits to index.mjs (MVP)
+
+- When a runtime limitation must be addressed and existing tools cannot solve it, propose a minimal, safe patch to index.mjs and show a concise diff.
+- Apply the change using:
+  - core_file(op: "write", path: "index.mjs", content: "<full updated file>")
+- Commit the change for traceability using git_commit_path(message: "...") (self-improvement only; bmo:// files).
+- Activation: ask the user to restart or run from source (node $BMO_SOURCE/index.mjs). Installed binaries require a rebuild; there is no core hot-reload.
+- Do not auto-restart without explicit user confirmation.`);
 
   // Inline project notes
   try {
