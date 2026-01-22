@@ -215,6 +215,12 @@ forward... with a `README.md`.
 
 `work/agent-2026-01-22T00-11-17-436Z.log`
 
+No real surprises there.
+
+### Push bmo to be more ambitious with itself
+
+`work/agent-2026-01-22T00-34-43-569Z.log`
+
 ## Misc
 
 ### Experiment: Try 5.2-codex
