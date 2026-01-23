@@ -6,12 +6,13 @@ Purpose: make adding tools predictable, fast, and repeatable. Follow this checkl
 
 Quickstart (TL;DR)
 - Prefer doing over suggesting. If you need a capability not covered by current tools, build a minimal tool immediately.
+- When a safer/faster behavior is clearly better, prefer upgrading existing tools (even if this breaks prior semantics) over adding parallel ones. Document, verify, and commit.
 - Golden Path steps:
   1) Discover: list existing tools and confirm none fit
      - Use list_files path=bmo://tools/ and scan names
   2) Scaffold: create bmo://tools/<name>.mjs from the template below (use write_file)
   3) Hot‑reload: call reload_tools
-  4) Verify: call the new tool once with a simple input; ensure ok:true
+  4) Verify: call the new or changed tool once with a simple input; ensure ok:true
   5) Use: continue with the original task
   6) Commit (self‑improvement only): record changes ONLY when you modified files under bmo:// (your own code). Do not commit changes to user projects or other repos unless the user explicitly requests it.
 
@@ -83,15 +84,24 @@ Step-by-step (expanded)
    - Call reload_tools right after writing
 
 4) Verify
-   - Immediately call the new tool with a minimal input and check ok:true
+   - Immediately call the new or changed tool with a minimal input and check ok:true
 
 5) Continue
-   - Use the new tool to finish the user’s task
+   - Use the new or improved tool to finish the user’s task
 
 6) Commit your changes (self‑improvement only)
    - Only commit when you changed bmo:// files (e.g., new tools or edits under bmo://tools/)
    - If BMO_SOURCE is set, ensure the commit is created in BMO_SOURCE so changes persist. The built‑in git_commit tool operates in the current working directory; to commit in BMO_SOURCE, either run from that directory or build a minimal path‑aware commit tool.
    - Never create commits in the user’s repository unless the user explicitly asks.
+
+Compatibility posture (breaking changes)
+- Optimize in place: If a change makes a tool safer, faster, or more correct, prefer changing the existing tool rather than adding a parallel one—even if this breaks prior semantics.
+- Guardrails for breaking changes:
+  - Keep the interface stable when possible; change behavior under the hood.
+  - Add sensible escape hatches (e.g., allowDangerous, confirmDangerous, env overrides) rather than preserving unsafe defaults.
+  - Verify with a minimal call and surface any notable behavior differences in the Tool Registry entry and commit message.
+  - Make the change small and focused (single tool, single responsibility).
+- Example: run_command now runs under bash -lc with set -Ee -o pipefail, disables pagers/colors, enforces timeouts, and includes a destructive-command guard.
 
 Common pitfalls (avoid these)
 - Forgetting to call reload_tools after creating/modifying a tool
@@ -105,6 +115,9 @@ Decision heuristics
 - Build a tool when:
   - You’d run more than one line of logic repeatedly in this session or future ones
   - You need FS/network/system access beyond current tools
+- Change an existing tool when:
+  - Its current behavior causes friction (hangs, paging, color noise, correctness issues)
+  - You can make it safer/faster with a small, focused internal change
 - Don’t build when:
   - A single existing tool call or two can finish the task now
 

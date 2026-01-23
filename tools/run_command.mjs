@@ -1,4 +1,5 @@
-import { exec } from 'node:child_process'
+import { spawn } from 'node:child_process'
+import * as path from 'node:path'
 import { formatDetails } from './lib.mjs'
 
 export const schema = {
@@ -10,7 +11,7 @@ export const schema = {
       type: 'object',
       properties: {
         cmd: { type: 'string', description: 'The full shell command to execute' },
-        timeoutMs: { type: 'number', description: 'Optional timeout in milliseconds after which the process will be killed' },
+        timeoutMs: { type: 'number', description: 'Optional timeout in milliseconds after which the process will be killed (default 60000)' },
         env: { type: 'object', description: 'Optional environment variables to merge into process.env' },
         reason: { type: 'string', description: 'Why this command is being run (shown in the result for transparency)' },
         confirmDangerous: { type: 'boolean', description: 'Set true to run commands detected as potentially destructive (e.g., those using rm). Defaults to false.' }
@@ -22,8 +23,9 @@ export const schema = {
 
 export function details(args) {
   const { cmd, reason, confirmDangerous } = args || {}
+  const displayCmd = (cmd || '').slice(0, 200)
   return formatDetails([
-    cmd ? `cmd=${cmd}` : null,
+    displayCmd ? `cmd=${JSON.stringify(displayCmd)}` : null,
     reason ? `reason=${reason}` : null,
     confirmDangerous ? `confirmDangerous=${!!confirmDangerous}` : null,
   ])
@@ -33,18 +35,14 @@ export function details(args) {
 function detectDestructive(cmd) {
   const risks = []
   // Detect rm only when it appears to be the command at the start of a pipeline/statement segment
-  // Examples detected: "rm ...", "sudo rm ...", "/bin/rm ...", "foo && rm ...", "foo | sudo rm ..."
-  // Examples NOT detected: "echo rm", "printf 'rm -rf /'"
   const rmAtSegmentStart = /(^|\n|;|\|\||&&|\|)\s*(?:sudo\s+)?(?:(?:\.?\/)?(?:usr\/bin\/|bin\/|sbin\/)?)*rm(\s|$)/
   if (rmAtSegmentStart.test(cmd)) {
     const entry = { type: 'rm', severity: 'medium', message: 'rm command detected; may delete files' }
-    // Escalate severity for recursive/force flags (any order -rf or -fr within same rm invocation)
     const rmRf = /(^|\n|;|\|\||&&|\|)\s*(?:sudo\s+)?(?:(?:\.?\/)?(?:usr\/bin\/|bin\/|sbin\/)?)*rm\s+[^\n]*(-[rf]{2}|-r[^\n]*-f|-f[^\n]*-r)/i
     if (rmRf.test(cmd)) {
       entry.severity = 'high'
       entry.message = 'rm -rf detected; forceful recursive delete'
     }
-    // Potentially catastrophic targets
     if (/\brm\b[^\n]*\s\/(\s|$)/.test(cmd)) {
       entry.severity = 'critical'
       entry.message = 'rm appears to target root (/) path'
@@ -56,6 +54,10 @@ function detectDestructive(cmd) {
 
 export async function execute(args) {
   const { cmd, timeoutMs, env, reason, confirmDangerous } = args
+  if (!cmd || typeof cmd !== 'string') {
+    return JSON.stringify({ ok: false, error: 'cmd is required and must be a string' })
+  }
+
   const startedAt = new Date()
   const startTime = startedAt.toISOString()
   const cwd = process.cwd()
@@ -82,18 +84,47 @@ export async function execute(args) {
     })
   }
 
+  const mergedEnv = {
+    ...process.env,
+    NO_COLOR: '1',
+    CLICOLOR: '0',
+    TERM: process.env.TERM || 'dumb',
+    PAGER: 'cat',
+    GIT_PAGER: 'cat',
+    RIPGREP_CONFIG_PATH: '/dev/null',
+    ...(env || {}),
+  }
+
+  const shellCmd = `set -Ee -o pipefail; ${cmd}`
+
   return await new Promise((resolve) => {
-    const child = exec(cmd, { cwd, timeout: timeoutMs ?? 0, env: { ...process.env, ...(env || {}) } })
+    const child = spawn('bash', ['-lc', shellCmd], {
+      cwd,
+      env: mergedEnv,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
     let stdout = ''
     let stderr = ''
+    let timedOut = false
 
-    child.stdout?.on('data', (d) => (stdout += String(d)))
-    child.stderr?.on('data', (d) => (stderr += String(d)))
+    const timeout = setTimeout(() => {
+      if (timeoutMs && timeoutMs > 0) {
+        timedOut = true
+        try { child.kill('SIGTERM') } catch (_) {}
+        setTimeout(() => { try { child.kill('SIGKILL') } catch (_) {} }, 2500)
+      }
+    }, Math.max(1, Number(timeoutMs || 60000)))
 
-    const finalize = (ok, extra = {}) => {
+    child.stdout.on('data', (d) => (stdout += String(d)))
+    child.stderr.on('data', (d) => (stderr += String(d)))
+
+    const finalize = (code, signal, error) => {
+      clearTimeout(timeout)
       const endedAt = new Date()
       const endTime = endedAt.toISOString()
       const durationMs = endedAt - startedAt
+      const ok = !timedOut && code === 0 && !error
       resolve(
         JSON.stringify({
           ok,
@@ -102,7 +133,10 @@ export async function execute(args) {
           reason,
           stdout,
           stderr,
-          ...extra,
+          code,
+          signal,
+          timedOut,
+          error: error ? String(error) : undefined,
           startTime,
           endTime,
           durationMs,
@@ -113,7 +147,7 @@ export async function execute(args) {
       )
     }
 
-    child.on('close', (code, signal) => finalize(true, { code, signal }))
-    child.on('error', (err) => finalize(false, { error: String(err) }))
+    child.on('error', (err) => finalize(undefined, undefined, err))
+    child.on('close', (code, signal) => finalize(code, signal))
   })
 }

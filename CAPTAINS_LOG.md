@@ -233,6 +233,19 @@ it created a whole new tool for the purpose. Interesting.
 
 `agent-2026-01-23T13-23-21-474Z.log`
 
+**New tool alert: `scan_sensitive`**
+
+Later, I was doing some work on the ngrok blog and found that `run_command`
+often hung when running ripgrep. I asked bmo about it a litte bit and it made a
+new tool with some timeout protections.
+
+**New tool alert: `safe_run`**
+
+I continued to probe bmo as to why it didn't make the tool automatically and it
+replied that it's focused on safety and stability... when I want it focused on
+efficiency and efficacy. There's much more to be done here.
+
+`agent-2026-01-23T16-24-04-337Z.log`
 
 ## Misc
 
