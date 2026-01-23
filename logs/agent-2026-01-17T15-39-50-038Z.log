@@ -1,0 +1,33 @@
+=== Agent session started at 2026-01-17T15:39:50.038Z ===
+You: OK we've now separated the golden path for creating new tools into tools/BMO_AGENTS.md, but I also think the root AGENTS.md needs to be more related to the bmo codebase itself. We can separate them so that BMO_AGENTS.md gets deployed with the binary and then AGENTS.md only gets pulled up if we're working in this directory. That feels like it'll be more helpful in the future when I'm working in other directories that might have an AGENTS.md of their own about that project's context.
+[2026-01-17T15:43:36.291Z] Tool call list_files file=bmo://tools/ reason=Confirm existence of BMO_AGENTS.md and review current tools to avoid assumptions.
+[2026-01-17T15:43:49.136Z] Tool call list_files file=. reason=Check if root AGENTS.md exists to update it as requested.
+[2026-01-17T15:43:55.689Z] Tool call read_file file=bmo://tools/BMO_AGENTS.md reason=Review current Golden Path content to ensure root AGENTS.md can reference it appropriately.
+[2026-01-17T15:44:01.465Z] Tool call read_file file=AGENTS.md reason=Review current contents to determine how to refocus it on bmo codebase and link to BMO_AGENTS.md.
+[2026-01-17T15:44:06.962Z] Tool call read_file file=index.mjs reason=Confirm how notes are inlined (AGENTS.md vs BMO_AGENTS.md) to ensure our changes align and update text accordingly.
+[2026-01-17T15:44:45.441Z] Tool call write_file file=AGENTS.md reason=Refocus root AGENTS.md on the bmo repo context and point Golden Path to tools/BMO_AGENTS.md.
+[2026-01-17T15:46:13.400Z] Tool call write_file file=index.mjs reason=Align notes inlining with new separation: prefer repo AGENTS.md when in repo, otherwise inline tools/BMO_AGENTS.md; update codebase structure text accordingly.
+[2026-01-17T15:46:16.650Z] Tool call read_file file=AGENTS.md reason=Verify updated contents reflect the new scope and references.
+bmo: Done. I split responsibilities and updated the runtime to prefer the right notes depending on context.
+
+Changes made
+- Rewrote AGENTS.md to be a bmo codebase guide (repo-focused) and to point contributors to tools/BMO_AGENTS.md for the Golden Path.
+- Updated index.mjs:
+  - Codebase structure in system prompt now references bmo://tools/BMO_AGENTS.md as the self-guidance file, with AGENTS.md noted as repo docs.
+  - Notes inlining precedence:
+    1) BMO_NOTES_FILE (explicit override)
+    2) If running in this repo and AGENTS.md exists, inline AGENTS.md
+    3) Otherwise, inline tools/BMO_AGENTS.md next to the active tools (works for binaries and non-repo dirs)
+    4) BMO_DISABLE_NOTES=1 to disable
+- Verified tools/BMO_AGENTS.md exists and remains unchanged.
+
+What changed
+- AGENTS.md now documents repo layout, conventions, and how to work on bmo; it no longer duplicates the Golden Path.
+- buildSystemPrompt will inline repo AGENTS.md when in this repo; elsewhere it falls back to the shipped BMO_AGENTS.md, matching your desired behavior.
+
+Files touched
+- AGENTS.md: replaced with a repo-focused guide (2694 bytes)
+- index.mjs: updated system prompt structure text and notes inlining logic
+
+If you want, I can also add a brief note in tools/BMO_AGENTS.md pointing back to AGENTS.md for repo-specific details.
+=== Agent session ended (exit) at 2026-01-17T15:47:48.278Z ===

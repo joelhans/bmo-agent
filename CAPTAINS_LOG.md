@@ -221,6 +221,19 @@ No real surprises there.
 
 `work/agent-2026-01-22T00-34-43-569Z.log`
 
+## Jan 23, 2026
+
+After a bit of a break, I came back to bmo for the sake of starting on the blog
+post I'll eventually finish up about it. I asked it to pull all the agent logs
+stored in `~/.local/share/bmo/*.log` that I reference in this captain's log, and
+after some trouble with Bash, it got the job done. Where it got interesting was
+that I asked bmo to scan those logs for anything sensitive I wouldn't want
+stored on a public GitHub repo, and instead of just `grep`ing through the files,
+it created a whole new tool for the purpose. Interesting.
+
+`agent-2026-01-23T13-23-21-474Z.log`
+
+
 ## Misc
 
 ### Experiment: Try 5.2-codex
@@ -245,7 +258,7 @@ Do we need more feedback?
 
 ### Improvement: re-roll `bmo`
 
-### Future exploration: Count tool usage
+### Future exploration: Count tool usage + what shell commands bmo likes most
 
 I need to create some kind of tool that reads logs and counts the number of
 tool uses.
