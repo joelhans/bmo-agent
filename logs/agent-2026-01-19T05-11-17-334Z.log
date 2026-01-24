@@ -1,0 +1,70 @@
+=== Agent session started at 2026-01-19T05:11:17.334Z ===
+You: Read PROMPT.md to understand what we're building. We're stuck on Phase 4 and all the existing DOM-to-png libraries haven't worked. What else could we try? Think hard. Be novel.
+[2026-01-19T05:13:06.230Z] Tool call list_files file=. reason=Discover repository structure and confirm PROMPT.md exists to read it.
+[2026-01-19T05:13:07.342Z] Tool call read_file file=PROMPT.md reason=Understand project goals and Phase 4 DOM-to-png issue to propose novel alternatives.
+[2026-01-19T05:13:31.715Z] Tool call list_files file=src reason=See current app implementation and where Phase 4 export is attempted.
+[2026-01-19T05:13:33.353Z] Tool call read_file file=src/App.jsx reason=Inspect current implementation of DOM-to-PNG and identify failures to propose alternatives.
+bmo: Great news: you don’t have to fight html2canvas/dom-to-image anymore. There are client-side, deterministic ways to export a styled snippet that don’t rely on DOM capture at all. Here are novel approaches that work reliably with Mantle/Prism, plus tradeoffs and how to implement them quickly.
+
+Option A — Token-to-SVG (then PNG)
+- Idea: Skip DOM capture. Tokenize with Prism, then render an SVG yourself: background rect + one <text> element per line + <tspan> per token with fill colors. Embed JetBrains Mono as a data URL in <style> inside the SVG so fonts render identically everywhere.
+- Why it works: SVG is vector and honors inline styles deterministically. No Shadow DOM, pseudo-element, or CSS variable extraction issues. Fonts are bundled.
+- Steps:
+  1) Tokenize: Prism.tokenize(code, grammar) and flatten to lines/segments (you already have flattenTokensToLines).
+  2) Compute layout: lineHeight = round(fontSize * 1.5). For monospaced fonts, character advance = measure or simply charCount * charWidth. You can measure once by drawing a long “M” string to a hidden canvas to infer per-char width.
+  3) Color map: Build a tokenType -> color map by temporarily inserting <span class="token …"> into the current theme container (you already do this in buildTokenColorMap).
+  4) Build SVG string: 
+     - <svg width/height> with a <rect> for background and optional border.
+     - <style> that inlines @font-face src: url(data:font/woff2;base64,...) for JetBrains Mono and font-variant-ligatures: none.
+     - For each line: <text y={…}><tspan fill={color}>segment</tspan>…</text>. Track x with dx on tspans to avoid recomputing absolute x.
+  5) Convert to PNG if needed: new Blob([svg], { type: "image/svg+xml" }) → createImageBitmap → drawImage(canvas) → toBlob/toDataURL → download.
+- Pros: Pixel-perfect, crisp at any scale, zero layout flakiness, easy to support 1x/2x/3x. You also get an “Export SVG” for free.
+- Cons: Need to embed fonts (one-time cost). If you want line numbers, render another column of text.
+
+Option B — Finish the pure-canvas highlighter (you’ve started this)
+- You already tokenize with Prism, compute colors via hidden spans, and draw to a canvas. Make it production-solid by:
+  - Use TextMetrics for exact vertical metrics:
+    - const m = ctx.measureText("Hg"); lineHeight = (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) * 1.2 (or your 1.5 multiplier).
+  - Disable ligatures so canvas width matches DOM: set font-variant-ligatures: none on the preview and ensure canvas font includes "liga" off (JetBrains Mono supports ligatures; disable them for deterministic widths).
+  - Tab handling: replace tabs with fixed spaces (e.g., 2 or 4).
+  - Emoji/Color fonts: If you care, draw them as-is; most modern canvases handle them fine. Otherwise, strip or replace.
+  - Anti-aliasing/scale: You already support scale; set canvas.width/height in device pixels and style width/height in CSS for display (if you ever preview the canvas).
+  - Line numbers: Paint a gutter first (different bg), then the numbers with reduced opacity, then code.
+- Pros: Zero new deps, full control, works offline, fast.
+- Cons: More code to maintain than SVG; you’re reimplementing layout.
+
+Option C — Satori + Resvg WASM (JS-only “server-quality” rendering)
+- Idea: Use satori (the engine behind Vercel OG images) to turn a React-like tree into an SVG with fonts. Then rasterize the SVG to PNG fully client-side using @resvg/resvg-wasm.
+- Steps:
+  1) Tokenize with Prism, produce a small React-like tree: a container + flex column of lines + inline <span> for tokens with style={{ color }}.
+  2) Load JetBrains Mono TTF/OTF bytes (fetch from public/) and pass to satori({ fonts: [{ name:'JetBrains Mono', data, weight:400, style:'normal' }] }).
+  3) satori returns SVG string. Rasterize with resvg-wasm to PNG Uint8Array; create Blob and download.
+- Pros: Gorgeous output, robust text shaping/line breaking, consistent fonts. Deterministic across browsers.
+- Cons: Adds ~1–2 small deps and a font file; slight bundle cost. Still all client-side.
+
+Option D — SVG foreignObject clone with fully inlined styles
+- Idea: Clone your snippet DOM, inline computed styles for all descendants (and ::before/::after), put it as a <foreignObject> inside an SVG, then render to canvas.
+- Key is a robust “style serializer” (walk DOM, getComputedStyle for each node, set style attributes, resolve CSS variables to actual values). Also inline @font-face in the SVG.
+- Pros: Captures “exact” DOM including complex CSS decorations.
+- Cons: More moving parts; must ensure no external resources or they’ll taint the canvas. Harder than A/B.
+
+Option E — Last resort: headless screenshot service (puppeteer-core)
+- Spin up a tiny serverless/edge function (Puppeteer) that receives HTML+CSS + your tokenized colors and returns a PNG. Extremely reliable, but requires infra.
+
+My recommendation
+- Short term: Finish Option B (you’re 80% there). It keeps everything client-only and will pass Phase 4 quickly. I can wire up: ligature off, precise line metrics, tabs, line numbers, and an “Export SVG” fallback in ~150 LOC.
+- Medium term: Add Option A (Token-to-SVG). It gives you perfect crispness and an “Export SVG” feature users will like. You can keep your color map and tokenization code as-is.
+- If you want the most polished “library-quality” output and don’t mind deps, Option C (Satori + Resvg) is fantastic.
+
+Tell me which path you prefer (B quick fix vs A SVG-first vs C Satori), and I’ll implement it right away.
+You: Let's do C then.
+[2026-01-19T05:16:08.696Z] Tool call list_files file=public reason=See if there are fonts we can reuse for embedding in Satori.
+[2026-01-19T05:16:10.029Z] Tool call list_files file=public/fonts reason=Check available font files to embed with Satori.
+[2026-01-19T05:17:15.871Z] Tool call read_file file=package.json reason=Check current dependencies and scripts to integrate new deps for satori + resvg.
+[2026-01-19T05:18:06.048Z] Tool call run_command reason=Add client-side rendering and rasterization dependencies for Option C (Satori + Resvg WASM).
+[2026-01-19T05:18:48.341Z] Tool call read_file file=src/main.jsx reason=Understand app root and CSS imports for fonts/background, to ensure Satori styles consistent.
+[2026-01-19T05:20:12.923Z] Tool call write_file file=src/App.jsx reason=Implement Phase 4 export using Satori + Resvg WASM: generate SVG from tokenized code and rasterize to PNG client-side with zoom scaling.
+[2026-01-19T05:20:14.355Z] Tool call run_command reason=Verify the project builds after integrating Satori + Resvg changes for Phase 4.
+[2026-01-19T05:20:58.496Z] Tool call write_file file=src/App.jsx reason=Preserve indentation in Satori output by converting spaces to NBSP and tabs to double spaces before rendering segments.
+[2026-01-19T05:21:00.233Z] Tool call run_command reason=Run dev server to manually verify PNG export at runtime with satori+resvg-wasm.
+=== Agent session ended (SIGINT) at 2026-01-19T13:16:20.077Z ===
