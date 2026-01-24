@@ -1,0 +1,20 @@
+=== Agent session started at 2026-01-21T13:07:27.659Z ===
+You: What are my preferences for destructive commands?
+[2026-01-21T13:07:44.642Z] Tool call user_preferences op=all reason=User asked about preferences for destructive commands; retrieve all to inspect relevant keys.
+bmo: Your current preference is:
+- confirm_destructive_actions: true
+
+This means I will require explicit confirmation before running potentially destructive commands (e.g., rm, force-deleting, overwriting).
+You: Create a tmp directory
+[2026-01-21T13:08:04.114Z] Tool call run_command cmd=mkdir -p tmp reason=Create a tmp directory in the current working directory
+bmo: Created tmp directory (or confirmed it already existed). No output, exit code 0.
+You: Delete tmp/ now
+bmo: This is a destructive action and your preference requires confirmation.
+
+Confirm delete of /Users/joelhans/src/snipprock/tmp (recursive)? 
+- Reply “yes” to proceed (will run: rm -rf tmp)
+- Reply “no” to cancel
+- Or ask me to show its contents first.
+You: yes
+[2026-01-21T13:09:17.996Z] Tool call run_command cmd=rm -rf tmp reason=User confirmed deletion of tmp directory confirmDangerous=true
+bmo: Deleted tmp directory. No output, exit code 0.
