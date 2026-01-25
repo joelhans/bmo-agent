@@ -424,14 +424,22 @@ function ensureSystemPrompt() {
   systemPromptInitialized = true;
 }
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+// Lazily create readline only when chat starts to allow quick-exit subcommands like `bmo key add`
+let rl = null;
+function ensureReadline() {
+  if (!rl) {
+    rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+  }
+  return rl;
+}
 
 function getUserInput(prompt) {
+  const rlInst = ensureReadline();
   return new Promise((resolve) => {
-    rl.question(prompt, (answer) => {
+    rlInst.question(prompt, (answer) => {
       resolve(answer);
     });
   });
@@ -621,7 +629,7 @@ async function main() {
     if (input.toLowerCase() === "exit") {
       console.log("Goodbye!");
       logSessionEnd("ended (command)");
-      rl.close();
+      if (rl) rl.close();
       break;
     }
 
