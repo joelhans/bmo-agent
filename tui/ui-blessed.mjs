@@ -1,6 +1,43 @@
 // neo-blessed based TUI for bmo (Phase 1 skeleton)
 // Provides createTuiUI(bus, opts) returning { promptInput, dispose }
 
+// Force bun/packagers to include neo-blessed dynamic widget modules
+// blessed/lib/widget.js requires './widgets/' + file dynamically; static side-effect imports ensure bundlers embed them.
+import 'neo-blessed/lib/widgets/node.js';
+import 'neo-blessed/lib/widgets/screen.js';
+import 'neo-blessed/lib/widgets/element.js';
+import 'neo-blessed/lib/widgets/box.js';
+import 'neo-blessed/lib/widgets/text.js';
+import 'neo-blessed/lib/widgets/line.js';
+import 'neo-blessed/lib/widgets/scrollablebox.js';
+import 'neo-blessed/lib/widgets/scrollabletext.js';
+import 'neo-blessed/lib/widgets/bigtext.js';
+import 'neo-blessed/lib/widgets/list.js';
+import 'neo-blessed/lib/widgets/form.js';
+import 'neo-blessed/lib/widgets/input.js';
+import 'neo-blessed/lib/widgets/textarea.js';
+import 'neo-blessed/lib/widgets/textbox.js';
+import 'neo-blessed/lib/widgets/button.js';
+import 'neo-blessed/lib/widgets/progressbar.js';
+import 'neo-blessed/lib/widgets/filemanager.js';
+import 'neo-blessed/lib/widgets/checkbox.js';
+import 'neo-blessed/lib/widgets/radioset.js';
+import 'neo-blessed/lib/widgets/radiobutton.js';
+import 'neo-blessed/lib/widgets/prompt.js';
+import 'neo-blessed/lib/widgets/question.js';
+import 'neo-blessed/lib/widgets/message.js';
+import 'neo-blessed/lib/widgets/loading.js';
+import 'neo-blessed/lib/widgets/listbar.js';
+import 'neo-blessed/lib/widgets/log.js';
+import 'neo-blessed/lib/widgets/table.js';
+import 'neo-blessed/lib/widgets/listtable.js';
+import 'neo-blessed/lib/widgets/terminal.js';
+import 'neo-blessed/lib/widgets/image.js';
+import 'neo-blessed/lib/widgets/ansiimage.js';
+import 'neo-blessed/lib/widgets/overlayimage.js';
+import 'neo-blessed/lib/widgets/video.js';
+import 'neo-blessed/lib/widgets/layout.js';
+
 import blessedMod from 'neo-blessed';
 
 export async function createTuiUI(bus, opts = {}) {
