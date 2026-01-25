@@ -205,8 +205,6 @@ async function runPrompt(prompt) {
 
     let firstToken = false;
     const firstTokenTimer = setTimeout(() => { if (!firstToken) UIBus.emit('sys:status', 'Still connecting… check API key/network'); }, 7000);
-    const controller = new AbortController();
-    const hardTimeout = setTimeout(() => controller.abort(new Error('Request timed out')), 30000);
 
     let fullContent = "";
     let toolCalls = [];
@@ -214,7 +212,7 @@ async function runPrompt(prompt) {
 
     try {
       const client = getOpenAIClient();
-      const stream = await client.chat.completions.create({ model: getModel(), messages: conversationHistory, tools: toolSchemas, stream: true, signal: controller.signal });
+      const stream = await client.chat.completions.create({ model: getModel(), messages: conversationHistory, tools: toolSchemas, stream: true });
       for await (const part of stream) {
         const delta = part.choices[0]?.delta || {};
         if (delta.content) { if (!firstToken) { firstToken = true; UIBus.emit('sys:status', 'Streaming…'); } fullContent += delta.content; UIBus.emit('chat:assistant_delta', delta.content); }
@@ -227,7 +225,7 @@ async function runPrompt(prompt) {
           }
         }
       }
-      clearTimeout(firstTokenTimer); clearTimeout(hardTimeout);
+      clearTimeout(firstTokenTimer);
       UIBus.emit('chat:assistant_done');
       fullMessage.content = fullContent; if (toolCalls.length > 0) fullMessage.tool_calls = toolCalls; conversationHistory.push(fullMessage);
       if (fullMessage.tool_calls && fullMessage.tool_calls.length > 0) {
@@ -236,7 +234,7 @@ async function runPrompt(prompt) {
       }
       UIBus.emit('sys:status', 'Idle'); logToFile(`bmo: ${fullContent}\n`); break;
     } catch (e) {
-      clearTimeout(firstTokenTimer); clearTimeout(hardTimeout);
+      clearTimeout(firstTokenTimer);
       const msg = String(e?.message || e);
       UIBus.emit('chat:assistant_delta', `Error: ${msg}`);
       UIBus.emit('chat:assistant_done');
