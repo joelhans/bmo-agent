@@ -1,14 +1,11 @@
 // neo-blessed based TUI for bmo (Phase 1 skeleton)
 // Provides createTuiUI(bus, opts) returning { promptInput, dispose }
 
+import blessedMod from 'neo-blessed';
+
 export async function createTuiUI(bus, opts = {}) {
-  let blessed;
-  try {
-    const mod = await import('neo-blessed');
-    blessed = mod.default || mod;
-  } catch (e) {
-    throw new Error("neo-blessed is not installed. Install with: pnpm add neo-blessed");
-  }
+  // Prefer static import so bundlers include neo-blessed in single-file builds
+  const blessed = blessedMod.default || blessedMod;
 
   // Terminal quirk handling: Ghostty TERM can cause capability errors (e.g., Setulc)
   const rawTerm = String(opts.term || process.env.BMO_TUI_TERM || process.env.TERM || 'xterm-256color');

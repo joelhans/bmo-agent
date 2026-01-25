@@ -291,7 +291,7 @@ async function main() {
   if (tuiCandidate) { ui = tuiCandidate; TUI_ACTIVE = true; }
   else { ui = createConsoleUI(UIBus); TUI_ACTIVE = false; }
   if (!TUI_ACTIVE) {
-    console.log("Chat with bmo (type 'exit' to quit)\nHint: set BMO_TUI=1 or pass --tui to enable the TUI (requires neo-blessed)\nTip: set BMO_MODEL to override model (default gpt-4o-mini)");
+    console.log("Chat with bmo (type 'exit' to quit)\nHint: set BMO_TUI=1 or pass --tui to enable the TUI (requires neo-blessed)\nTip: set BMO_MODEL to override model (default gpt-5)");
   }
   while (true) {
     const input = await ui.promptInput("You: ");
