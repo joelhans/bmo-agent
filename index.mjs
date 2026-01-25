@@ -108,16 +108,28 @@ async function tryInitTui(bus) {
   const flag = (process.env.BMO_TUI === '1') || process.argv.includes('--tui');
   if (!(flag && (isTTY || force))) return null;
   try {
-    const tuiPath = path.join(BMO_HOME, 'tui', 'ui-blessed.mjs');
-    if (!fs.existsSync(tuiPath)) { console.warn('TUI module not found; falling back to console UI'); return null; }
-    const modUrl = pathToFileURL(tuiPath).href + `?t=${Date.now()}`;
-    const mod = await import(modUrl);
+    // Prefer bundle-friendly relative import so packagers can include TUI and deps
+    const mod = await import('./tui/ui-blessed.mjs');
     if (typeof mod.createTuiUI !== 'function') { console.warn('TUI module missing createTuiUI; falling back to console UI'); return null; }
     const tui = await mod.createTuiUI(bus, {});
-    // Avoid console logging that would corrupt the screen; use status bus instead
     UIBus.emit('sys:status', 'TUI enabled (neo-blessed)');
     return tui;
-  } catch (e) { console.warn('TUI init failed:', e.message); return null; }
+  } catch (e1) {
+    // Fallback to disk path for non-bundled installs
+    try {
+      const tuiPath = path.join(BMO_HOME, 'tui', 'ui-blessed.mjs');
+      if (!fs.existsSync(tuiPath)) { console.warn('TUI module not found; falling back to console UI'); return null; }
+      const modUrl = pathToFileURL(tuiPath).href + `?t=${Date.now()}`;
+      const mod = await import(modUrl);
+      if (typeof mod.createTuiUI !== 'function') { console.warn('TUI module missing createTuiUI; falling back to console UI'); return null; }
+      const tui = await mod.createTuiUI(bus, {});
+      UIBus.emit('sys:status', 'TUI enabled (neo-blessed)');
+      return tui;
+    } catch (e2) {
+      console.warn('TUI init failed:', (e2 && e2.message) || (e1 && e1.message) || String(e2 || e1));
+      return null;
+    }
+  }
 }
 
 // ============================================================================
@@ -291,7 +303,7 @@ async function main() {
   if (tuiCandidate) { ui = tuiCandidate; TUI_ACTIVE = true; }
   else { ui = createConsoleUI(UIBus); TUI_ACTIVE = false; }
   if (!TUI_ACTIVE) {
-    console.log("Chat with bmo (type 'exit' to quit)\nHint: set BMO_TUI=1 or pass --tui to enable the TUI (requires neo-blessed)\nTip: set BMO_MODEL to override model (default gpt-5)");
+    console.log("Chat with bmo (type 'exit' to quit)\nHint: set BMO_TUI=1 or pass --tui to enable the TUI\nTip: set BMO_MODEL to override model (default gpt-5)");
   }
   while (true) {
     const input = await ui.promptInput("You: ");
