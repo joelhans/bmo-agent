@@ -213,11 +213,9 @@ function createConsoleUI(bus) {
   bus.on('chat:assistant_done', () => {
     process.stdout.write("\n");
   });
-  // Optional: surface status lines
-  bus.on('sys:status', (text) => {
-    if (text) console.log(text);
-  });
-  // Tool events can be surfaced in future; keep console logs as-is for now.
+  // Optional: surface status lines and errors
+  bus.on('sys:status', (text) => { if (text) console.log(text); });
+  bus.on('sys:error', (text) => { if (text) console.error(text); });
 
   return {
     async promptInput(promptText) {
@@ -527,12 +525,16 @@ function ensureSystemPrompt() {
 async function runPrompt(prompt) {
   ensureSystemPrompt();
 
-  conversationHistory.push({
-    role: "user",
-    content: prompt,
-  });
+  conversationHistory.push({ role: "user", content: prompt });
 
-  while (true) {
+  // Start assistant line immediately; ensures a visible line even if an error occurs
+  UIBus.emit('chat:assistant_start');
+
+  let fullContent = "";
+  let toolCalls = [];
+  const fullMessage = { role: "assistant", content: "", tool_calls: undefined };
+
+  try {
     const client = getOpenAIClient();
     const stream = await client.chat.completions.create({
       model: "gpt-5",
@@ -540,17 +542,6 @@ async function runPrompt(prompt) {
       tools: toolSchemas,
       stream: true,
     });
-
-    let fullContent = "";
-    let toolCalls = [];
-
-    const fullMessage = {
-      role: "assistant",
-      content: "",
-      tool_calls: undefined
-    };
-
-    UIBus.emit('chat:assistant_start');
 
     for await (const part of stream) {
       const delta = part.choices[0]?.delta || {};
@@ -585,28 +576,26 @@ async function runPrompt(prompt) {
     UIBus.emit('chat:assistant_done');
 
     fullMessage.content = fullContent;
-    if (toolCalls.length > 0) {
-      fullMessage.tool_calls = toolCalls;
-    }
-
+    if (toolCalls.length > 0) fullMessage.tool_calls = toolCalls;
     conversationHistory.push(fullMessage);
-    
+
     if (fullMessage.tool_calls && fullMessage.tool_calls.length > 0) {
       for (const toolCall of fullMessage.tool_calls) {
         const result = await executeTool(toolCall);
-      
-        conversationHistory.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: result,
-        });
+        conversationHistory.push({ role: "tool", tool_call_id: toolCall.id, content: result });
       }
-
-      continue;
+      // Loop back for model follow-ups
+      return;
     }
 
     logToFile(`bmo: ${fullContent}\n`);
-    break;
+  } catch (e) {
+    const msg = String(e?.message || e);
+    UIBus.emit('chat:assistant_delta', `Error: ${msg}`);
+    UIBus.emit('chat:assistant_done');
+    UIBus.emit('sys:error', msg);
+    logToFile(`bmo ERROR: ${msg}\n`);
+    return;
   }
 }
 
@@ -719,11 +708,11 @@ async function main() {
     // Echo user input to UI and log
     UIBus.emit('chat:user_input', input);
     logToFile(`You: ${input}\n`);
+
     try {
       await runPrompt(input);
-    } catch (e) {
-      console.error(String(e?.message || e));
-      console.error("Tip: set OPENAI_API_KEY or run 'bmo key add <key>'.");
+    } catch (_) {
+      // runPrompt emits errors to the UI and log; no further action needed here
     }
   }
 }
