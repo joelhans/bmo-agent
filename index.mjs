@@ -403,7 +403,7 @@ Your codebase structure:
 
 ## Available tools
 
-${toolNames}
+${Array.from(toolRegistry.keys()).join(", ")}
 
 ## Tool file format
 
@@ -461,14 +461,11 @@ export async function execute(args) {
     if (!disableNotes) {
       let notesPath = "";
 
-      // Highest precedence: explicit override
       if (notesFileEnv) {
         notesPath = path.resolve(notesFileEnv);
       } else if (fs.existsSync("AGENTS.md")) {
-        // Prefer AGENTS.md from the current working directory when present
         notesPath = path.resolve("AGENTS.md");
       } else {
-        // Fallback for binaries and non-repo contexts: shipped Golden Path next to tools
         const toolsDir = getToolsDir();
         const bundled = path.join(toolsDir, "BMO_AGENTS.md");
         if (fs.existsSync(bundled)) {
@@ -492,23 +489,16 @@ export async function execute(args) {
 let openaiClient = null;
 function getOpenAIClient() {
   if (!openaiClient) {
-    // Try a last-chance hydrate from config in case the user just ran `bmo key add`
     if (!process.env.OPENAI_API_KEY) {
       const cfg = loadConfig();
       if (cfg?.keys?.openai) {
         process.env.OPENAI_API_KEY = cfg.keys.openai;
       }
     }
-
     if (!process.env.OPENAI_API_KEY) {
-      const msg = "Missing OPENAI_API_KEY. Run 'bmo key add <key>' or set OPENAI_API_KEY in your environment.";
-      throw new Error(msg);
+      throw new Error("Missing OPENAI_API_KEY. Run 'bmo key add <key>' or set OPENAI_API_KEY in your environment.");
     }
-
-    openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      baseURL: process.env.NGROKAI,
-    });
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, baseURL: process.env.NGROKAI });
   }
   return openaiClient;
 }
@@ -524,78 +514,83 @@ function ensureSystemPrompt() {
 
 async function runPrompt(prompt) {
   ensureSystemPrompt();
-
   conversationHistory.push({ role: "user", content: prompt });
 
-  // Start assistant line immediately; ensures a visible line even if an error occurs
-  UIBus.emit('chat:assistant_start');
+  while (true) {
+    UIBus.emit('chat:assistant_start');
+    UIBus.emit('sys:status', 'Connecting…');
 
-  let fullContent = "";
-  let toolCalls = [];
-  const fullMessage = { role: "assistant", content: "", tool_calls: undefined };
+    let firstToken = false;
+    const timer = setTimeout(() => {
+      if (!firstToken) UIBus.emit('sys:status', 'Still connecting… check API key/network');
+    }, 8000);
 
-  try {
-    const client = getOpenAIClient();
-    const stream = await client.chat.completions.create({
-      model: "gpt-5",
-      messages: conversationHistory,
-      tools: toolSchemas,
-      stream: true,
-    });
+    let fullContent = "";
+    let toolCalls = [];
+    const fullMessage = { role: "assistant", content: "", tool_calls: undefined };
 
-    for await (const part of stream) {
-      const delta = part.choices[0]?.delta || {};
+    try {
+      const client = getOpenAIClient();
+      const stream = await client.chat.completions.create({
+        model: "gpt-5",
+        messages: conversationHistory,
+        tools: toolSchemas,
+        stream: true,
+      });
 
-      if (delta.content) {
-        fullContent += delta.content;
-        UIBus.emit('chat:assistant_delta', delta.content);
-      }
+      for await (const part of stream) {
+        const delta = part.choices[0]?.delta || {};
 
-      if (delta.tool_calls) {
-        for (const toolDelta of delta.tool_calls) {
-          const idx = toolDelta.index;
+        if (delta.content) {
+          if (!firstToken) { firstToken = true; UIBus.emit('sys:status', 'Streaming…'); }
+          fullContent += delta.content;
+          UIBus.emit('chat:assistant_delta', delta.content);
+        }
 
-          if (!toolCalls[idx]) {
-            toolCalls[idx] = {
-              id: toolDelta.id,
-              type: "function",
-              function: { name: "", arguments: "" }
-            };
-          }
-
-          if (toolDelta.function?.name) {
-            toolCalls[idx].function.name += toolDelta.function.name;
-          }
-          if (toolDelta.function?.arguments) {
-            toolCalls[idx].function.arguments += toolDelta.function.arguments;
+        if (delta.tool_calls) {
+          for (const toolDelta of delta.tool_calls) {
+            const idx = toolDelta.index;
+            if (!toolCalls[idx]) {
+              toolCalls[idx] = { id: toolDelta.id, type: "function", function: { name: "", arguments: "" } };
+            }
+            if (toolDelta.function?.name) {
+              toolCalls[idx].function.name += toolDelta.function.name;
+            }
+            if (toolDelta.function?.arguments) {
+              toolCalls[idx].function.arguments += toolDelta.function.arguments;
+            }
           }
         }
       }
-    }
 
-    UIBus.emit('chat:assistant_done');
+      clearTimeout(timer);
+      UIBus.emit('chat:assistant_done');
 
-    fullMessage.content = fullContent;
-    if (toolCalls.length > 0) fullMessage.tool_calls = toolCalls;
-    conversationHistory.push(fullMessage);
+      fullMessage.content = fullContent;
+      if (toolCalls.length > 0) fullMessage.tool_calls = toolCalls;
+      conversationHistory.push(fullMessage);
 
-    if (fullMessage.tool_calls && fullMessage.tool_calls.length > 0) {
-      for (const toolCall of fullMessage.tool_calls) {
-        const result = await executeTool(toolCall);
-        conversationHistory.push({ role: "tool", tool_call_id: toolCall.id, content: result });
+      if (fullMessage.tool_calls && fullMessage.tool_calls.length > 0) {
+        for (const toolCall of fullMessage.tool_calls) {
+          const result = await executeTool(toolCall);
+          conversationHistory.push({ role: "tool", tool_call_id: toolCall.id, content: result });
+        }
+        // Loop again for the assistant follow-up
+        continue;
       }
-      // Loop back for model follow-ups
-      return;
-    }
 
-    logToFile(`bmo: ${fullContent}\n`);
-  } catch (e) {
-    const msg = String(e?.message || e);
-    UIBus.emit('chat:assistant_delta', `Error: ${msg}`);
-    UIBus.emit('chat:assistant_done');
-    UIBus.emit('sys:error', msg);
-    logToFile(`bmo ERROR: ${msg}\n`);
-    return;
+      UIBus.emit('sys:status', 'Idle');
+      logToFile(`bmo: ${fullContent}\n`);
+      break;
+    } catch (e) {
+      clearTimeout(timer);
+      const msg = String(e?.message || e);
+      UIBus.emit('chat:assistant_delta', `Error: ${msg}`);
+      UIBus.emit('chat:assistant_done');
+      UIBus.emit('sys:error', msg);
+      logToFile(`bmo ERROR: ${msg}\n`);
+      break;
+    }
   }
 }
 
@@ -614,7 +609,6 @@ function handleKeyCommand(args) {
     return;
   }
 
-  // Accept either `bmo key add <key>` (defaults to openai) or `bmo key add <provider> <key>`
   let provider = 'openai';
   let key = '';
 
@@ -643,13 +637,11 @@ function handleKeyCommand(args) {
   cfg.keys[provider] = key;
   const ok = saveConfig(cfg);
 
-  // Export to env for current process when known
   const envName = PROVIDER_ENV_MAP[provider];
   if (envName) process.env[envName] = key;
 
   if (ok) {
     console.log(`Saved API key for '${provider}': ${maskKey(key)}\nConfig: ${configPath}`);
-    // If provider is openai, let the user know it's now active for this session
     if (provider === 'openai') {
       console.log("OPENAI_API_KEY is now set for this session.");
     }
@@ -662,24 +654,19 @@ function handleKeyCommand(args) {
 // Main
 // ============================================================================
 async function main() {
-  // Handle CLI subcommands before loading tools
   const argv = process.argv.slice(2);
   if (argv[0] === 'key') {
     handleKeyCommand(argv.slice(1));
-    return; // Do not start chat when handling key command
+    return;
   }
 
-  // Load tools before starting
   await reloadTools();
   
-  // Register reload callback so reload_tools can call back into us
   try {
     const libPath = path.join(getToolsDir(), "lib.mjs");
     const libUrl = pathToFileURL(libPath).href + `?t=${Date.now()}`;
     const lib = await import(libUrl);
     lib.registerReloadCallback(reloadTools);
-
-    // Expose effective BMO_SOURCE in this process and print a single concise runtime line
     if (!process.env.BMO_SOURCE && lib.BMO_SOURCE) {
       process.env.BMO_SOURCE = lib.BMO_SOURCE;
     }
@@ -689,7 +676,6 @@ async function main() {
     console.log(`Runtime: home=${BMO_HOME} source=${process.env.BMO_SOURCE || "(none)"}`);
   }
 
-  // Init UI: try TUI first when requested; fallback to console adapter
   ui = await tryInitTui(UIBus);
   if (!ui) ui = createConsoleUI(UIBus);
 
@@ -705,15 +691,10 @@ async function main() {
       break;
     }
 
-    // Echo user input to UI and log
     UIBus.emit('chat:user_input', input);
     logToFile(`You: ${input}\n`);
 
-    try {
-      await runPrompt(input);
-    } catch (_) {
-      // runPrompt emits errors to the UI and log; no further action needed here
-    }
+    await runPrompt(input);
   }
 }
 
