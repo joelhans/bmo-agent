@@ -1,47 +1,13 @@
 // neo-blessed based TUI for bmo (Phase 1 skeleton)
 // Provides createTuiUI(bus, opts) returning { promptInput, dispose }
 
-// Force bun/packagers to include neo-blessed dynamic widget modules
-// blessed/lib/widget.js requires './widgets/' + file dynamically; static side-effect imports ensure bundlers embed them.
-import 'neo-blessed/lib/widgets/node.js';
-import 'neo-blessed/lib/widgets/screen.js';
-import 'neo-blessed/lib/widgets/element.js';
-import 'neo-blessed/lib/widgets/box.js';
-import 'neo-blessed/lib/widgets/text.js';
-import 'neo-blessed/lib/widgets/line.js';
-import 'neo-blessed/lib/widgets/scrollablebox.js';
-import 'neo-blessed/lib/widgets/scrollabletext.js';
-import 'neo-blessed/lib/widgets/bigtext.js';
-import 'neo-blessed/lib/widgets/list.js';
-import 'neo-blessed/lib/widgets/form.js';
-import 'neo-blessed/lib/widgets/input.js';
-import 'neo-blessed/lib/widgets/textarea.js';
-import 'neo-blessed/lib/widgets/textbox.js';
-import 'neo-blessed/lib/widgets/button.js';
-import 'neo-blessed/lib/widgets/progressbar.js';
-import 'neo-blessed/lib/widgets/filemanager.js';
-import 'neo-blessed/lib/widgets/checkbox.js';
-import 'neo-blessed/lib/widgets/radioset.js';
-import 'neo-blessed/lib/widgets/radiobutton.js';
-import 'neo-blessed/lib/widgets/prompt.js';
-import 'neo-blessed/lib/widgets/question.js';
-import 'neo-blessed/lib/widgets/message.js';
-import 'neo-blessed/lib/widgets/loading.js';
-import 'neo-blessed/lib/widgets/listbar.js';
-import 'neo-blessed/lib/widgets/log.js';
-import 'neo-blessed/lib/widgets/table.js';
-import 'neo-blessed/lib/widgets/listtable.js';
-import 'neo-blessed/lib/widgets/terminal.js';
-import 'neo-blessed/lib/widgets/image.js';
-import 'neo-blessed/lib/widgets/ansiimage.js';
-import 'neo-blessed/lib/widgets/overlayimage.js';
-import 'neo-blessed/lib/widgets/video.js';
-import 'neo-blessed/lib/widgets/layout.js';
+// IMPORTANT: Do NOT import the Terminal widget; Bun compile breaks on term.js.
+// We also avoid side-effect imports; instead we rely on neo-blessed's own requires
+// and our bunfig aliases to exclude Terminal.
 
 import blessedMod from 'neo-blessed';
 
 export async function createTuiUI(bus, opts = {}) {
-  // Prefer static import so bundlers include neo-blessed in single-file builds
   const blessed = blessedMod.default || blessedMod;
 
   // Terminal quirk handling: Ghostty TERM can cause capability errors (e.g., Setulc)
@@ -117,11 +83,10 @@ export async function createTuiUI(bus, opts = {}) {
     left: 0,
     height: 1,
     width: '100%',
-    inputOnFocus: false, // avoid auto-reading; we call readInput() explicitly in promptInput()
+    inputOnFocus: false,
     keys: true,
     mouse: true,
     style: { fg: 'white', bg: 'black' },
-    // cursor and scrollbar hints
     scrollbar: { ch: ' ', inverse: true },
     clickable: true,
   });
@@ -132,12 +97,10 @@ export async function createTuiUI(bus, opts = {}) {
   screen.append(inputLabel);
   screen.append(input);
 
-  // Handy key to refocus input anytime
   screen.key(['escape'], () => { try { input.focus(); screen.render(); } catch (_) {} });
 
   let _pendingResolve = null;
 
-  // Unified cleanup to restore terminal modes even on abrupt exits
   let cleaned = false;
   function cleanupTerminal() {
     if (cleaned) return;
@@ -151,47 +114,22 @@ export async function createTuiUI(bus, opts = {}) {
     try { screen.destroy(); } catch (_) {}
   }
 
-  function hardExit(code = 0) {
-    cleanupTerminal();
-    try { process.exit(code); } catch (_) {}
-  }
-
-  // Ensure cleanup on process lifecycle events
-  process.once('beforeExit', () => cleanupTerminal());
-  process.once('exit', () => cleanupTerminal());
+  function hardExit(code = 0) { cleanupTerminal(); try { process.exit(code); } catch (_) {} }
+  process.once('beforeExit', cleanupTerminal);
+  process.once('exit', cleanupTerminal);
   process.once('SIGINT', () => hardExit(0));
   process.once('SIGTERM', () => hardExit(0));
   process.once('uncaughtException', () => hardExit(1));
 
-  // Ctrl+C handling (both at screen and input level)
-  const ccHandler = () => {
-    if (_pendingResolve) {
-      const r = _pendingResolve; _pendingResolve = null;
-      try { r('exit'); } catch (_) {}
-    } else {
-      hardExit(0);
-    }
-  };
+  const ccHandler = () => { if (_pendingResolve) { const r = _pendingResolve; _pendingResolve = null; try { r('exit'); } catch (_) {} } else { hardExit(0); } };
   screen.key(['C-c'], ccHandler);
   input.key(['C-c'], ccHandler);
 
-  // Simple streaming buffer approach
   let chatBuffer = '';
-  function chatAppend(text) {
-    chatBuffer += text;
-    chatBox.setContent(chatBuffer);
-    chatBox.setScrollPerc(100);
-    screen.render();
-  }
+  function chatAppend(text) { chatBuffer += text; chatBox.setContent(chatBuffer); chatBox.setScrollPerc(100); screen.render(); }
   function chatNewline() { chatAppend('\n'); }
-  function eventLine(text) {
-    const ts = new Date().toISOString().split('T')[1].replace('Z','');
-    eventsBox.pushLine(`[${ts}] ${text}`);
-    eventsBox.setScrollPerc(100);
-    screen.render();
-  }
+  function eventLine(text) { const ts = new Date().toISOString().split('T')[1].replace('Z',''); eventsBox.pushLine(`[${ts}] ${text}`); eventsBox.setScrollPerc(100); screen.render(); }
 
-  // Subscribe to bus events
   bus.on('chat:user_input', (text) => { chatAppend(`{green-fg}You{/green-fg}: ${text || ''}\n`); });
   bus.on('chat:assistant_start', () => { chatAppend('{red-fg}bmo{/red-fg}: '); });
   bus.on('chat:assistant_delta', (chunk) => { if (typeof chunk === 'string') chatAppend(chunk); });
@@ -202,34 +140,21 @@ export async function createTuiUI(bus, opts = {}) {
   bus.on('sys:status', (text) => { if (typeof text === 'string') { status.setContent(`{blue-fg}${text}{/blue-fg}`); screen.render(); } });
   bus.on('sys:error', (text) => { if (typeof text === 'string') { chatAppend(`{red-fg}Error{/red-fg}: ${text}\n`); } });
 
-  // Input handling
   async function promptInput(promptText = 'You: ') {
     inputLabel.setContent(`{green-fg}${promptText}{/green-fg}`);
     input.setValue('');
-
-    // Clean listeners to avoid stacking
     input.removeAllListeners('submit');
     input.removeAllListeners('cancel');
 
     return new Promise((resolve) => {
       _pendingResolve = resolve;
       let done = false;
-      const finish = (value) => {
-        if (done) return;
-        done = true;
-        _pendingResolve = null;
-        try { input.removeAllListeners('submit'); input.removeAllListeners('cancel'); } catch (_) {}
-        try { input.blur(); } catch (_) {}
-        resolve((value ?? '').toString());
-      };
+      const finish = (value) => { if (done) return; done = true; _pendingResolve = null; try { input.removeAllListeners('submit'); input.removeAllListeners('cancel'); } catch (_) {} try { input.blur(); } catch (_) {} resolve((value ?? '').toString()); };
       input.once('submit', (val) => finish(val));
       input.once('cancel', () => finish(''));
-
       input.focus();
       screen.render();
-      // Start capturing input explicitly
       input.readInput();
-      // No noisy focus/event logs here — Tools pane is for tool calls only.
     });
   }
 
@@ -237,7 +162,6 @@ export async function createTuiUI(bus, opts = {}) {
 
   if (rawTerm !== safeTerm) { eventLine(`TERM '${rawTerm}' overridden → '${safeTerm}' for compatibility`); }
   eventLine('TUI ready');
-  // Focus input initially (won't start reading until promptInput calls readInput)
   input.focus();
   screen.render();
 

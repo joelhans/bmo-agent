@@ -1,12 +1,7 @@
-# bun build configuration to ensure neo-blessed dynamic deps are included
-# and to stub out heavy optional deps we do not use.
+# bun build configuration for bmo
 
-[install]
-# no special install options
-
-[define]
-# Define nothing for now
-
-[resolve]
-# Alias term.js and pty.js to local shims so compile does not fail
-alias = { "term.js" = "./shims/term.js/index.js", "pty.js" = "./shims/pty.js/index.js" }
+[alias]
+"term.js" = "./shims/term.js/index.js"
+"pty.js" = "./shims/pty.js/index.js"
+"neo-blessed/lib/widgets/terminal.js" = "./shims/neo-blessed/terminal.js"
+"neo-blessed/lib/widget.js" = "./shims/neo-blessed/widget.js"
