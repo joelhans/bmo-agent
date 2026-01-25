@@ -10,10 +10,19 @@ export async function createTuiUI(bus, opts = {}) {
     throw new Error("neo-blessed is not installed. Install with: pnpm add neo-blessed");
   }
 
+  // Terminal quirk handling: Ghostty TERM can cause capability errors (e.g., Setulc)
+  const rawTerm = String(opts.term || process.env.BMO_TUI_TERM || process.env.TERM || 'xterm-256color');
+  const safeTerm = rawTerm.toLowerCase().includes('ghostty') ? 'xterm-256color' : rawTerm;
+  if (safeTerm !== process.env.TERM) {
+    process.env.TERM = safeTerm;
+  }
+
   const screen = blessed.screen({
     smartCSR: true,
     title: 'bmo — TUI',
     dockBorders: true,
+    fullUnicode: true,
+    term: safeTerm,
   });
 
   // Layout
@@ -89,7 +98,7 @@ export async function createTuiUI(bus, opts = {}) {
       _pendingResolve('exit');
       _pendingResolve = null;
     } else {
-      screen.destroy();
+      try { screen.destroy(); } catch (_) {}
       process.exit(0);
     }
   });
@@ -122,7 +131,6 @@ export async function createTuiUI(bus, opts = {}) {
 
   bus.on('chat:assistant_delta', (chunk) => {
     if (typeof chunk !== 'string') return;
-    // Update last line efficiently
     streamingLine += chunk;
     const lines = chatBox.getLines();
     if (lines.length > 0) {
@@ -137,7 +145,6 @@ export async function createTuiUI(bus, opts = {}) {
   });
 
   bus.on('chat:assistant_done', () => {
-    // Ensure a trailing newline after streaming
     chatBox.pushLine('');
     chatBox.setScrollPerc(100);
     screen.render();
@@ -165,7 +172,6 @@ export async function createTuiUI(bus, opts = {}) {
   });
   bus.on('sys:error', (text) => {
     if (typeof text === 'string') {
-      // Also show errors in chat pane for visibility
       pushChatLine(`{red-fg}Error{/red-fg}: ${text}`);
       screen.render();
     }
@@ -191,6 +197,10 @@ export async function createTuiUI(bus, opts = {}) {
 
   function dispose() {
     try { screen.destroy(); } catch (_) {}
+  }
+
+  if (rawTerm !== safeTerm) {
+    eventLine(`TERM '${rawTerm}' overridden → '${safeTerm}' for compatibility`);
   }
 
   screen.render();
