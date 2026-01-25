@@ -192,7 +192,7 @@ function buildSystemPrompt() {
   } catch (_) {}
   return parts.join("\n\n");
 }
-function getModel() { return process.env.BMO_MODEL || 'gpt-4o-mini'; }
+function getModel() { return process.env.BMO_MODEL || 'gpt-5'; }
 let openaiClient = null;
 function getOpenAIClient() {
   if (!openaiClient) {
