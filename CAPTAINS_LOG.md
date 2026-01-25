@@ -255,6 +255,10 @@ I tried to make a TUI. It did all sorts of madness.
 - `agent-2026-01-25T21-36-48-159Z.log`
 - `agent-2026-01-25T21-48-30-368Z.log`
 - `agent-2026-01-25T22-05-56-100Z.log`
+- `agent-2026-01-25T23-15-18-324Z.log`
+
+The longer I work at this, the more it's clear to me that context windows are
+important and bmo's inability to track the context window is creating problems.
 
 ## Misc
 

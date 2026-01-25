@@ -5,10 +5,11 @@
 // We also avoid side-effect imports; instead we rely on neo-blessed's own requires
 // and our bunfig aliases to exclude Terminal.
 
-import blessedMod from 'neo-blessed';
+// Import our blessed shim directly to avoid dynamic './widgets/*' requires in single-file builds
+import blessedShim from '../shims/neo-blessed/blessed.js';
 
 export async function createTuiUI(bus, opts = {}) {
-  const blessed = blessedMod.default || blessedMod;
+  const blessed = (blessedShim && (blessedShim.default || blessedShim)) || blessedShim;
 
   // Terminal quirk handling: Ghostty TERM can cause capability errors (e.g., Setulc)
   const rawTerm = String(opts.term || process.env.BMO_TUI_TERM || process.env.TERM || 'xterm-256color');
@@ -160,7 +161,9 @@ export async function createTuiUI(bus, opts = {}) {
 
   function dispose() { cleanupTerminal(); }
 
-  if (rawTerm !== safeTerm) { eventLine(`TERM '${rawTerm}' overridden → '${safeTerm}' for compatibility`); }
+  const rawTerm = String(opts.term || process.env.BMO_TUI_TERM || process.env.TERM || 'xterm-256color');
+  const safeTerm2 = rawTerm.toLowerCase().includes('ghostty') ? 'xterm-256color' : rawTerm;
+  if (rawTerm !== safeTerm2) { eventLine(`TERM '${rawTerm}' overridden → '${safeTerm2}' for compatibility`); }
   eventLine('TUI ready');
   input.focus();
   screen.render();

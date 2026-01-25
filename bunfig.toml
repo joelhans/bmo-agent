@@ -6,4 +6,5 @@
 "neo-blessed/lib/widgets/terminal.js" = "./shims/neo-blessed/terminal.js"
 "neo-blessed/lib/widget.js" = "./shims/neo-blessed/widget.js"
 "neo-blessed/lib/blessed.js" = "./shims/neo-blessed/blessed.js"
-"neo-blessed" = "neo-blessed/lib/blessed.js"
+# IMPORTANT: map the package root directly to our shim, not the upstream lib
+"neo-blessed" = "./shims/neo-blessed/blessed.js"
