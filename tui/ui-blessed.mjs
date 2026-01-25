@@ -83,7 +83,7 @@ export async function createTuiUI(bus, opts = {}) {
     left: 0,
     height: 1,
     width: '100%',
-    inputOnFocus: true,
+    inputOnFocus: false, // avoid auto-reading; we call readInput() explicitly in promptInput()
     keys: true,
     mouse: true,
     style: { fg: 'white', bg: 'black' },
@@ -101,10 +101,12 @@ export async function createTuiUI(bus, opts = {}) {
   // Handy key to refocus input anytime
   screen.key(['escape'], () => { try { input.focus(); screen.render(); } catch (_) {} });
 
+  let _pendingResolve = null;
+
   screen.key(['C-c'], () => {
     if (_pendingResolve) {
-      _pendingResolve('exit');
-      _pendingResolve = null;
+      const r = _pendingResolve; _pendingResolve = null;
+      try { r('exit'); } catch (_) {}
     } else {
       try { screen.destroy(); } catch (_) {}
       process.exit(0);
@@ -139,27 +141,31 @@ export async function createTuiUI(bus, opts = {}) {
   bus.on('sys:error', (text) => { if (typeof text === 'string') { chatAppend(`{red-fg}Error{/red-fg}: ${text}\n`); } });
 
   // Input handling
-  let _pendingResolve = null;
   async function promptInput(promptText = 'You: ') {
     inputLabel.setContent(`{green-fg}${promptText}{/green-fg}`);
     input.setValue('');
+
     // Clean listeners to avoid stacking
     input.removeAllListeners('submit');
     input.removeAllListeners('cancel');
 
     return new Promise((resolve) => {
       _pendingResolve = resolve;
+      let done = false;
       const finish = (value) => {
-        const out = (value ?? '').toString();
+        if (done) return;
+        done = true;
         _pendingResolve = null;
-        try { input.cancel(); } catch (_) {}
+        try { input.removeAllListeners('submit'); input.removeAllListeners('cancel'); } catch (_) {}
         try { input.blur(); } catch (_) {}
-        resolve(out);
+        resolve((value ?? '').toString());
       };
-      input.once('submit', finish);
+      input.once('submit', (val) => finish(val));
       input.once('cancel', () => finish(''));
+
       input.focus();
       screen.render();
+      // Start capturing input explicitly
       input.readInput();
       eventLine('input: focused (press Enter to submit)');
     });
@@ -169,6 +175,7 @@ export async function createTuiUI(bus, opts = {}) {
 
   if (rawTerm !== safeTerm) { eventLine(`TERM '${rawTerm}' overridden → '${safeTerm}' for compatibility`); }
   eventLine('TUI ready');
+  // Focus input initially (won't start reading until promptInput calls readInput)
   input.focus();
   screen.render();
 

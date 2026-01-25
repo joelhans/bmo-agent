@@ -247,6 +247,13 @@ efficiency and efficacy. There's much more to be done here.
 
 `agent-2026-01-23T16-24-04-337Z.log`
 
+## Jan 25, 2026
+
+I tried to make a TUI. It did all sorts of madness.
+
+- `agent-2026-01-25T19-58-04-760Z.log`
+- `agent-2026-01-25T21-36-48-159Z.log`
+
 ## Misc
 
 ### Experiment: Try 5.2-codex
