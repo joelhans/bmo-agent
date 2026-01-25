@@ -103,66 +103,51 @@ export async function createTuiUI(bus, opts = {}) {
     }
   });
 
-  function pushChatLine(text) {
-    chatBox.pushLine(text);
+  // Simple streaming buffer approach (robust)
+  let chatBuffer = '';
+  function chatAppend(text) {
+    chatBuffer += text;
+    chatBox.setContent(chatBuffer);
     chatBox.setScrollPerc(100);
+    screen.render();
   }
-
+  function chatNewline() {
+    chatAppend('\n');
+  }
   function eventLine(text) {
     const ts = new Date().toISOString().split('T')[1].replace('Z','');
     eventsBox.pushLine(`[${ts}] ${text}`);
     eventsBox.setScrollPerc(100);
+    screen.render();
   }
-
-  // Streaming state for assistant line
-  let streamingLine = '';
 
   // Subscribe to bus events
   bus.on('chat:user_input', (text) => {
-    pushChatLine(`{green-fg}You{/green-fg}: ${text || ''}`);
-    screen.render();
+    chatAppend(`{green-fg}You{/green-fg}: ${text || ''}\n`);
   });
 
   bus.on('chat:assistant_start', () => {
-    streamingLine = '{red-fg}bmo{/red-fg}: ';
-    pushChatLine(streamingLine);
-    screen.render();
+    chatAppend('{red-fg}bmo{/red-fg}: ');
   });
 
   bus.on('chat:assistant_delta', (chunk) => {
-    if (typeof chunk !== 'string') return;
-    streamingLine += chunk;
-    const lines = chatBox.getLines();
-    if (lines.length > 0) {
-      lines[lines.length - 1] = streamingLine;
-      chatBox.setContent(lines.join('\n'));
-      chatBox.setScrollPerc(100);
-      screen.render();
-    } else {
-      pushChatLine(streamingLine);
-      screen.render();
-    }
+    if (typeof chunk === 'string') chatAppend(chunk);
   });
 
   bus.on('chat:assistant_done', () => {
-    chatBox.pushLine('');
-    chatBox.setScrollPerc(100);
-    screen.render();
+    chatNewline();
   });
 
   bus.on('tool:call_started', ({ name, details }) => {
     eventLine(`tool → ${name} ${details ? '(' + details + ')' : ''}`);
-    screen.render();
   });
   bus.on('tool:call_result', ({ name, ok, error }) => {
     eventLine(`tool ✓ ${name} ${ok ? 'ok' : 'ERR'}${error ? ': ' + error : ''}`);
-    screen.render();
   });
   bus.on('sys:reload_tools', ({ loaded, errors, error }) => {
     if (error) eventLine(`reload ERR: ${error}`);
     if (loaded) eventLine(`reload loaded: ${loaded.join(', ')}`);
     if (errors && errors.length) eventLine(`reload issues: ${errors.join('; ')}`);
-    screen.render();
   });
   bus.on('sys:status', (text) => {
     if (typeof text === 'string') {
@@ -172,8 +157,7 @@ export async function createTuiUI(bus, opts = {}) {
   });
   bus.on('sys:error', (text) => {
     if (typeof text === 'string') {
-      pushChatLine(`{red-fg}Error{/red-fg}: ${text}`);
-      screen.render();
+      chatAppend(`{red-fg}Error{/red-fg}: ${text}\n`);
     }
   });
 
@@ -190,6 +174,8 @@ export async function createTuiUI(bus, opts = {}) {
       input.readInput((err, value) => {
         const out = (value ?? '').toString();
         _pendingResolve = null;
+        // Blur to ensure next promptInput can re-focus cleanly
+        try { input.blur(); } catch (_) {}
         resolve(out);
       });
     });
