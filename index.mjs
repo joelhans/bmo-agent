@@ -168,6 +168,71 @@ const PROVIDER_ENV_MAP = {
 })();
 
 // ============================================================================
+// UI Bus and Console UI Adapter (Phase 0)
+// ============================================================================
+const UIBus = {
+  _listeners: new Map(),
+  on(type, fn) {
+    const set = this._listeners.get(type) || new Set();
+    set.add(fn);
+    this._listeners.set(type, set);
+  },
+  off(type, fn) {
+    const set = this._listeners.get(type);
+    if (set) set.delete(fn);
+  },
+  emit(type, payload) {
+    const set = this._listeners.get(type);
+    if (!set) return;
+    for (const fn of Array.from(set)) {
+      try { fn(payload); } catch (_) {}
+    }
+  }
+};
+
+// Lazily created readline for console UI
+let rl = null;
+function ensureReadline() {
+  if (!rl) {
+    rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+  }
+  return rl;
+}
+
+function createConsoleUI(bus) {
+  // Subscribe to chat events for streaming output
+  bus.on('chat:assistant_start', () => {
+    process.stdout.write(`\x1b[31mbmo\x1b[0m: `);
+  });
+  bus.on('chat:assistant_delta', (chunk) => {
+    if (typeof chunk === 'string') process.stdout.write(chunk);
+  });
+  bus.on('chat:assistant_done', () => {
+    process.stdout.write("\n");
+  });
+  // Optional: surface status lines
+  bus.on('sys:status', (text) => {
+    if (text) console.log(text);
+  });
+  // Tool events can be surfaced in future; keep console logs as-is for now.
+
+  return {
+    async promptInput(promptText) {
+      const rlInst = ensureReadline();
+      return new Promise((resolve) => rlInst.question(promptText, resolve));
+    },
+    dispose() {
+      try { if (rl) rl.close(); } catch (_) {}
+    }
+  };
+}
+
+let ui = null;
+
+// ============================================================================
 // Dynamic tool loader
 // ============================================================================
 let toolSchemas = [];
@@ -186,7 +251,9 @@ export async function reloadTools() {
   const toolsDir = getToolsDir();
   
   if (!fs.existsSync(toolsDir)) {
-    return { loaded: [], error: "tools directory not found" };
+    const res = { loaded: [], error: "tools directory not found" };
+    UIBus.emit('sys:reload_tools', res);
+    return res;
   }
   
   const files = fs.readdirSync(toolsDir).filter(f => f.endsWith(".mjs") && f !== "lib.mjs");
@@ -217,7 +284,9 @@ export async function reloadTools() {
   }
   
   console.log(`\x1b[36m[Tools loaded: ${loaded.join(", ")}]\x1b[0m`);
-  return { loaded, errors: errors.length ? errors : undefined };
+  const result = { loaded, errors: errors.length ? errors : undefined };
+  UIBus.emit('sys:reload_tools', result);
+  return result;
 }
 
 // ============================================================================
@@ -247,9 +316,13 @@ async function executeTool(toolCall) {
   console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m ${detailsText}`);
   logToFile(`[${new Date().toISOString()}] Tool call ${name} ${detailsText}\n`);
 
+  UIBus.emit('tool:call_started', { name, details: detailsText });
   try {
-    return await impl.execute(parsedArgs);
+    const out = await impl.execute(parsedArgs);
+    UIBus.emit('tool:call_result', { name, ok: true });
+    return out;
   } catch (e) {
+    UIBus.emit('tool:call_result', { name, ok: false, error: String(e) });
     return JSON.stringify({ ok: false, error: String(e) });
   }
 }
@@ -424,27 +497,6 @@ function ensureSystemPrompt() {
   systemPromptInitialized = true;
 }
 
-// Lazily create readline only when chat starts to allow quick-exit subcommands like `bmo key add`
-let rl = null;
-function ensureReadline() {
-  if (!rl) {
-    rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-  }
-  return rl;
-}
-
-function getUserInput(prompt) {
-  const rlInst = ensureReadline();
-  return new Promise((resolve) => {
-    rlInst.question(prompt, (answer) => {
-      resolve(answer);
-    });
-  });
-}
-
 async function runPrompt(prompt) {
   ensureSystemPrompt();
 
@@ -471,14 +523,14 @@ async function runPrompt(prompt) {
       tool_calls: undefined
     };
 
-    process.stdout.write(`\x1b[31mbmo\x1b[0m: `);
+    UIBus.emit('chat:assistant_start');
 
     for await (const part of stream) {
       const delta = part.choices[0]?.delta || {};
 
       if (delta.content) {
         fullContent += delta.content;
-        process.stdout.write(delta.content);
+        UIBus.emit('chat:assistant_delta', delta.content);
       }
 
       if (delta.tool_calls) {
@@ -503,7 +555,7 @@ async function runPrompt(prompt) {
       }
     }
 
-    process.stdout.write("\n");
+    UIBus.emit('chat:assistant_done');
 
     fullMessage.content = fullContent;
     if (toolCalls.length > 0) {
@@ -620,16 +672,19 @@ async function main() {
     console.warn("Warning: could not register reload callback:", e.message);
     console.log(`Runtime: home=${BMO_HOME} source=${process.env.BMO_SOURCE || "(none)"}`);
   }
-  
+
+  // Init UI (Phase 0: console adapter)
+  ui = createConsoleUI(UIBus);
+
   console.log("Chat with bmo (type 'exit' to quit)");
   
   while (true) {
-    const input = await getUserInput("\n\x1b[32mYou\x1b[0m: ");
+    const input = await ui.promptInput("\n\x1b[32mYou\x1b[0m: ");
     
     if (input.toLowerCase() === "exit") {
       console.log("Goodbye!");
       logSessionEnd("ended (command)");
-      if (rl) rl.close();
+      ui.dispose();
       break;
     }
 
