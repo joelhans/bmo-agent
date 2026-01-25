@@ -22,7 +22,7 @@ export async function createTuiUI(bus, opts = {}) {
     top: 0,
     left: 0,
     width: '70%',
-    height: '100%-4',
+    height: '100%-3',
     tags: true,
     keys: true,
     mouse: true,
@@ -38,7 +38,7 @@ export async function createTuiUI(bus, opts = {}) {
     top: 0,
     left: '70%',
     width: '30%',
-    height: '100%-4',
+    height: '100%-3',
     tags: true,
     keys: true,
     mouse: true,
@@ -49,11 +49,20 @@ export async function createTuiUI(bus, opts = {}) {
     content: ''
   });
 
+  const status = blessed.box({
+    bottom: 2,
+    left: 0,
+    height: 1,
+    width: '100%',
+    tags: true,
+    content: '',
+  });
+
   const inputLabel = blessed.box({
     bottom: 1,
     left: 0,
     height: 1,
-    width: '100%-2',
+    width: '100%',
     tags: true,
     content: '{green-fg}You{/green-fg}:',
   });
@@ -62,29 +71,18 @@ export async function createTuiUI(bus, opts = {}) {
     bottom: 0,
     left: 0,
     height: 1,
-    width: '100%-2',
+    width: '100%',
     inputOnFocus: true,
     keys: true,
     mouse: true,
     style: { fg: 'white', bg: 'black' },
-    border: { type: 'line' },
-    padding: { left: 1, right: 1 },
-  });
-
-  const status = blessed.box({
-    bottom: 0,
-    right: 0,
-    height: 1,
-    width: 'shrink',
-    tags: true,
-    content: '',
   });
 
   screen.append(chatBox);
   screen.append(eventsBox);
+  screen.append(status);
   screen.append(inputLabel);
   screen.append(input);
-  screen.append(status);
 
   screen.key(['C-c'], () => {
     // Let main handle exit by resolving with 'exit' if waiting; else just destroy
@@ -120,6 +118,10 @@ export async function createTuiUI(bus, opts = {}) {
   }
 
   // Subscribe to bus events
+  bus.on('chat:user_input', (text) => {
+    chatAppend('{green-fg}You{/green-fg}: ' + (text || ''));
+    chatNewline();
+  });
   bus.on('chat:assistant_start', () => {
     chatAppend('{red-fg}bmo{/red-fg}: ');
   });
@@ -159,7 +161,6 @@ export async function createTuiUI(bus, opts = {}) {
       _pendingResolve = resolve;
       input.focus();
       input.readInput((err, value) => {
-        // Blessed textbox keeps focus; clear and resolve
         const out = (value ?? '').toString();
         _pendingResolve = null;
         resolve(out);

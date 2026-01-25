@@ -479,7 +479,7 @@ export async function execute(args) {
       }
 
       if (notesPath && fs.existsSync(notesPath)) {
-        const notes = fs.readFileSync(notesPath, "-utf-8");
+        const notes = fs.readFileSync(notesPath, "utf-8");
         parts.push(`Project notes (${path.basename(notesPath)}):\n` + notes);
       }
     }
@@ -707,7 +707,7 @@ async function main() {
   console.log("Chat with bmo (type 'exit' to quit)\nHint: set BMO_TUI=1 or pass --tui to enable the TUI (requires neo-blessed)");
   
   while (true) {
-    const input = await ui.promptInput("\n\x1b[32mYou\x1b[0m: ");
+    const input = await ui.promptInput("You: ");
     
     if ((input || '').toLowerCase() === "exit") {
       console.log("Goodbye!");
@@ -716,6 +716,8 @@ async function main() {
       break;
     }
 
+    // Echo user input to UI and log
+    UIBus.emit('chat:user_input', input);
     logToFile(`You: ${input}\n`);
     try {
       await runPrompt(input);

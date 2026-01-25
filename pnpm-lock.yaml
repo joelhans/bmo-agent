@@ -11,6 +11,9 @@ importers:
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3
+      neo-blessed:
+        specifier: ^0.2.0
+        version: 0.2.0
       openai:
         specifier: ^6.1.0
         version: 6.9.0
@@ -30,6 +33,11 @@ packages:
   dotenv@17.2.3:
     resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
     engines: {node: '>=12'}
+
+  neo-blessed@0.2.0:
+    resolution: {integrity: sha512-C2kC4K+G2QnNQFXUIxTQvqmrdSIzGTX1ZRKeDW6ChmvPRw8rTkTEJzbEQHiHy06d36PCl/yMOCjquCRV8SpSQw==}
+    engines: {node: '>= 8.0.0'}
+    hasBin: true
 
   openai@6.9.0:
     resolution: {integrity: sha512-n2sJRYmM+xfJ0l3OfH8eNnIyv3nQY7L08gZQu3dw6wSdfPtKAk92L83M2NIP5SS8Cl/bsBBG3yKzEOjkx0O+7A==}
@@ -53,6 +61,8 @@ snapshots:
   '@types/node@16.18.126': {}
 
   dotenv@17.2.3: {}
+
+  neo-blessed@0.2.0: {}
 
   openai@6.9.0: {}
 
