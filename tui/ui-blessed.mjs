@@ -45,7 +45,7 @@ export async function createTuiUI(bus, opts = {}) {
   });
 
   const eventsBox = blessed.box({
-    label: ' Tools & Events ',
+    label: ' Tools ',
     top: 0,
     left: '70%',
     width: '30%',
@@ -103,15 +103,43 @@ export async function createTuiUI(bus, opts = {}) {
 
   let _pendingResolve = null;
 
-  screen.key(['C-c'], () => {
+  // Unified cleanup to restore terminal modes even on abrupt exits
+  let cleaned = false;
+  function cleanupTerminal() {
+    if (cleaned) return;
+    cleaned = true;
+    try {
+      const prog = screen.program;
+      try { prog.showCursor(); } catch (_) {}
+      try { prog.disableMouse(); } catch (_) {}
+      try { prog.normalBuffer(); } catch (_) {}
+    } catch (_) {}
+    try { screen.destroy(); } catch (_) {}
+  }
+
+  function hardExit(code = 0) {
+    cleanupTerminal();
+    try { process.exit(code); } catch (_) {}
+  }
+
+  // Ensure cleanup on process lifecycle events
+  process.once('beforeExit', () => cleanupTerminal());
+  process.once('exit', () => cleanupTerminal());
+  process.once('SIGINT', () => hardExit(0));
+  process.once('SIGTERM', () => hardExit(0));
+  process.once('uncaughtException', () => hardExit(1));
+
+  // Ctrl+C handling (both at screen and input level)
+  const ccHandler = () => {
     if (_pendingResolve) {
       const r = _pendingResolve; _pendingResolve = null;
       try { r('exit'); } catch (_) {}
     } else {
-      try { screen.destroy(); } catch (_) {}
-      process.exit(0);
+      hardExit(0);
     }
-  });
+  };
+  screen.key(['C-c'], ccHandler);
+  input.key(['C-c'], ccHandler);
 
   // Simple streaming buffer approach
   let chatBuffer = '';
@@ -167,11 +195,11 @@ export async function createTuiUI(bus, opts = {}) {
       screen.render();
       // Start capturing input explicitly
       input.readInput();
-      eventLine('input: focused (press Enter to submit)');
+      // No noisy focus/event logs here — Tools pane is for tool calls only.
     });
   }
 
-  function dispose() { try { screen.destroy(); } catch (_) {} }
+  function dispose() { cleanupTerminal(); }
 
   if (rawTerm !== safeTerm) { eventLine(`TERM '${rawTerm}' overridden → '${safeTerm}' for compatibility`); }
   eventLine('TUI ready');

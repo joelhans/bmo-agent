@@ -58,7 +58,21 @@ function logToFile(text) { try { fs.appendFileSync(logFilePath, text); } catch (
 function logSessionEnd(reason = "ended") { if (sessionEndLogged) return; sessionEndLogged = true; logToFile(`=== Agent session ${reason} at ${new Date().toISOString()} ===\n`); }
 logToFile(`=== Agent session started at ${new Date().toISOString()} ===\n`);
 console.log(`Session log: ${logFilePath}`);
-process.on("SIGINT", () => { console.log("\nGoodbye!"); logSessionEnd("ended (SIGINT)"); process.exit(0); });
+
+// Track whether TUI is active to avoid corrupting the screen with console logs
+let TUI_ACTIVE = false;
+
+process.on("SIGINT", () => {
+  if (TUI_ACTIVE) {
+    try { ui?.dispose?.(); } catch (_) {}
+    logSessionEnd("ended (SIGINT)");
+    process.exit(0);
+  } else {
+    console.log("\nGoodbye!");
+    logSessionEnd("ended (SIGINT)");
+    process.exit(0);
+  }
+});
 process.on("SIGTERM", () => { logSessionEnd("ended (SIGTERM)"); process.exit(0); });
 process.on("exit", () => logSessionEnd("ended (exit)"));
 
@@ -100,7 +114,8 @@ async function tryInitTui(bus) {
     const mod = await import(modUrl);
     if (typeof mod.createTuiUI !== 'function') { console.warn('TUI module missing createTuiUI; falling back to console UI'); return null; }
     const tui = await mod.createTuiUI(bus, {});
-    console.log('TUI: enabled (neo-blessed)');
+    // Avoid console logging that would corrupt the screen; use status bus instead
+    UIBus.emit('sys:status', 'TUI enabled (neo-blessed)');
     return tui;
   } catch (e) { console.warn('TUI init failed:', e.message); return null; }
 }
@@ -129,7 +144,9 @@ export async function reloadTools() {
       } else { errors.push(`${file}: missing schema, execute, or details()`); }
     } catch (e) { errors.push(`${file}: ${e.message}`); }
   }
-  console.log(`\x1b[36m[Tools loaded: ${loaded.join(", ")}]\x1b[0m`);
+  if (!TUI_ACTIVE) {
+    console.log(`\x1b[36m[Tools loaded: ${loaded.join(", ")}]\x1b[0m`);
+  }
   const result = { loaded, errors: errors.length ? errors : undefined };
   UIBus.emit('sys:reload_tools', result);
   return result;
@@ -146,7 +163,9 @@ async function executeTool(toolCall) {
   if (!impl) return JSON.stringify({ ok: false, error: `Unknown tool: ${name}` });
   let detailsText = '';
   try { detailsText = String(impl.details(parsedArgs) || ''); } catch (e) { detailsText = `details() error: ${String(e)}`; }
-  console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m ${detailsText}`);
+  if (!TUI_ACTIVE) {
+    console.log(`\x1b[33m[Tool Call: ${name}]\x1b[0m ${detailsText}`);
+  }
   logToFile(`[${new Date().toISOString()}] Tool call ${name} ${detailsText}\n`);
   UIBus.emit('tool:call_started', { name, details: detailsText });
   try { const out = await impl.execute(parsedArgs); UIBus.emit('tool:call_result', { name, ok: true }); return out; }
@@ -268,12 +287,16 @@ async function main() {
   if (argv[0] === 'key') { handleKeyCommand(argv.slice(1)); return; }
   await reloadTools();
   try { const libPath = path.join(getToolsDir(), "lib.mjs"); const libUrl = pathToFileURL(libPath).href + `?t=${Date.now()}`; const lib = await import(libUrl); lib.registerReloadCallback(reloadTools); if (!process.env.BMO_SOURCE && lib.BMO_SOURCE) process.env.BMO_SOURCE = lib.BMO_SOURCE; console.log(`Runtime: home=${BMO_HOME} source=${process.env.BMO_SOURCE || "(none)"}`); } catch (e) { console.warn("Warning: could not register reload callback:", e.message); console.log(`Runtime: home=${BMO_HOME} source=${process.env.BMO_SOURCE || "(none)"}`); }
-  ui = await tryInitTui(UIBus); if (!ui) ui = createConsoleUI(UIBus);
-  console.log("Chat with bmo (type 'exit' to quit)\nHint: set BMO_TUI=1 or pass --tui to enable the TUI (requires neo-blessed)\nTip: set BMO_MODEL to override model (default gpt-4o-mini)");
+  const tuiCandidate = await tryInitTui(UIBus);
+  if (tuiCandidate) { ui = tuiCandidate; TUI_ACTIVE = true; }
+  else { ui = createConsoleUI(UIBus); TUI_ACTIVE = false; }
+  if (!TUI_ACTIVE) {
+    console.log("Chat with bmo (type 'exit' to quit)\nHint: set BMO_TUI=1 or pass --tui to enable the TUI (requires neo-blessed)\nTip: set BMO_MODEL to override model (default gpt-4o-mini)");
+  }
   while (true) {
     const input = await ui.promptInput("You: ");
     const text = (input ?? '').trim();
-    if (text.toLowerCase() === "exit") { console.log("Goodbye!"); logSessionEnd("ended (command)"); ui.dispose(); break; }
+    if (text.toLowerCase() === "exit") { if (!TUI_ACTIVE) console.log("Goodbye!"); logSessionEnd("ended (command)"); ui.dispose(); break; }
     if (!text) { continue; }
     UIBus.emit('chat:user_input', text);
     logToFile(`You: ${text}\n`);
