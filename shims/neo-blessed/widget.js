@@ -38,10 +38,11 @@ widget.Table = widget.table = require('neo-blessed/lib/widgets/table.js');
 widget.ListTable = widget.listtable = require('neo-blessed/lib/widgets/listtable.js');
 // Omit Terminal widget entirely
 // widget.Terminal = widget.terminal = require('neo-blessed/lib/widgets/terminal.js');
-widget.Image = widget.image = require('neo-blessed/lib/widgets/image.js');
-widget.ANSIImage = widget.ansiimage = require('neo-blessed/lib/widgets/ansiimage.js');
-widget.OverlayImage = widget.overlayimage = require('neo-blessed/lib/widgets/overlayimage.js');
-widget.Video = widget.video = require('neo-blessed/lib/widgets/video.js');
+// Omit image/video widgets to avoid vendor deps we do not need
+// widget.Image = widget.image = require('neo-blessed/lib/widgets/image.js');
+// widget.ANSIImage = widget.ansiimage = require('neo-blessed/lib/widgets/ansiimage.js');
+// widget.OverlayImage = widget.overlayimage = require('neo-blessed/lib/widgets/overlayimage.js');
+// widget.Video = widget.video = require('neo-blessed/lib/widgets/video.js');
 widget.Layout = widget.layout = require('neo-blessed/lib/widgets/layout.js');
 
 widget.aliases = {

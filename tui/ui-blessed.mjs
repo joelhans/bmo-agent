@@ -161,9 +161,7 @@ export async function createTuiUI(bus, opts = {}) {
 
   function dispose() { cleanupTerminal(); }
 
-  const rawTerm = String(opts.term || process.env.BMO_TUI_TERM || process.env.TERM || 'xterm-256color');
-  const safeTerm2 = rawTerm.toLowerCase().includes('ghostty') ? 'xterm-256color' : rawTerm;
-  if (rawTerm !== safeTerm2) { eventLine(`TERM '${rawTerm}' overridden → '${safeTerm2}' for compatibility`); }
+  if (rawTerm !== safeTerm) { eventLine(`TERM '${rawTerm}' overridden → '${safeTerm}' for compatibility`); }
   eventLine('TUI ready');
   input.focus();
   screen.render();

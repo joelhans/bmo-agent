@@ -260,6 +260,8 @@ I tried to make a TUI. It did all sorts of madness.
 The longer I work at this, the more it's clear to me that context windows are
 important and bmo's inability to track the context window is creating problems.
 
+But... we finally got it working!
+
 ## Misc
 
 ### Experiment: Try 5.2-codex
