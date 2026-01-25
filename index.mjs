@@ -112,7 +112,7 @@ async function tryInitTui(bus) {
     const mod = await import('./tui/ui-blessed.mjs');
     if (typeof mod.createTuiUI !== 'function') { console.warn('TUI module missing createTuiUI; falling back to console UI'); return null; }
     const tui = await mod.createTuiUI(bus, {});
-    UIBus.emit('sys:status', 'TUI enabled (neo-blessed)');
+    UIBus.emit('sys:status', 'TUI enabled (bundle)');
     return tui;
   } catch (e1) {
     // Fallback to disk path for non-bundled installs
@@ -123,7 +123,7 @@ async function tryInitTui(bus) {
       const mod = await import(modUrl);
       if (typeof mod.createTuiUI !== 'function') { console.warn('TUI module missing createTuiUI; falling back to console UI'); return null; }
       const tui = await mod.createTuiUI(bus, {});
-      UIBus.emit('sys:status', 'TUI enabled (neo-blessed)');
+      UIBus.emit('sys:status', `TUI enabled (disk: ${tuiPath})`);
       return tui;
     } catch (e2) {
       console.warn('TUI init failed:', (e2 && e2.message) || (e1 && e1.message) || String(e2 || e1));
