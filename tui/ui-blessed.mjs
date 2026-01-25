@@ -23,6 +23,8 @@ export async function createTuiUI(bus, opts = {}) {
     dockBorders: true,
     fullUnicode: true,
     term: safeTerm,
+    autoPadding: true,
+    warnings: false,
   });
 
   // Layout
@@ -85,6 +87,9 @@ export async function createTuiUI(bus, opts = {}) {
     keys: true,
     mouse: true,
     style: { fg: 'white', bg: 'black' },
+    // cursor and scrollbar hints
+    scrollbar: { ch: ' ', inverse: true },
+    clickable: true,
   });
 
   screen.append(chatBox);
@@ -92,6 +97,9 @@ export async function createTuiUI(bus, opts = {}) {
   screen.append(status);
   screen.append(inputLabel);
   screen.append(input);
+
+  // Handy key to refocus input anytime
+  screen.key(['escape'], () => { try { input.focus(); screen.render(); } catch (_) {} });
 
   screen.key(['C-c'], () => {
     if (_pendingResolve) {
@@ -103,7 +111,7 @@ export async function createTuiUI(bus, opts = {}) {
     }
   });
 
-  // Simple streaming buffer approach (robust)
+  // Simple streaming buffer approach
   let chatBuffer = '';
   function chatAppend(text) {
     chatBuffer += text;
@@ -111,9 +119,7 @@ export async function createTuiUI(bus, opts = {}) {
     chatBox.setScrollPerc(100);
     screen.render();
   }
-  function chatNewline() {
-    chatAppend('\n');
-  }
+  function chatNewline() { chatAppend('\n'); }
   function eventLine(text) {
     const ts = new Date().toISOString().split('T')[1].replace('Z','');
     eventsBox.pushLine(`[${ts}] ${text}`);
@@ -122,73 +128,48 @@ export async function createTuiUI(bus, opts = {}) {
   }
 
   // Subscribe to bus events
-  bus.on('chat:user_input', (text) => {
-    chatAppend(`{green-fg}You{/green-fg}: ${text || ''}\n`);
-  });
-
-  bus.on('chat:assistant_start', () => {
-    chatAppend('{red-fg}bmo{/red-fg}: ');
-  });
-
-  bus.on('chat:assistant_delta', (chunk) => {
-    if (typeof chunk === 'string') chatAppend(chunk);
-  });
-
-  bus.on('chat:assistant_done', () => {
-    chatNewline();
-  });
-
-  bus.on('tool:call_started', ({ name, details }) => {
-    eventLine(`tool → ${name} ${details ? '(' + details + ')' : ''}`);
-  });
-  bus.on('tool:call_result', ({ name, ok, error }) => {
-    eventLine(`tool ✓ ${name} ${ok ? 'ok' : 'ERR'}${error ? ': ' + error : ''}`);
-  });
-  bus.on('sys:reload_tools', ({ loaded, errors, error }) => {
-    if (error) eventLine(`reload ERR: ${error}`);
-    if (loaded) eventLine(`reload loaded: ${loaded.join(', ')}`);
-    if (errors && errors.length) eventLine(`reload issues: ${errors.join('; ')}`);
-  });
-  bus.on('sys:status', (text) => {
-    if (typeof text === 'string') {
-      status.setContent(`{blue-fg}${text}{/blue-fg}`);
-      screen.render();
-    }
-  });
-  bus.on('sys:error', (text) => {
-    if (typeof text === 'string') {
-      chatAppend(`{red-fg}Error{/red-fg}: ${text}\n`);
-    }
-  });
+  bus.on('chat:user_input', (text) => { chatAppend(`{green-fg}You{/green-fg}: ${text || ''}\n`); });
+  bus.on('chat:assistant_start', () => { chatAppend('{red-fg}bmo{/red-fg}: '); });
+  bus.on('chat:assistant_delta', (chunk) => { if (typeof chunk === 'string') chatAppend(chunk); });
+  bus.on('chat:assistant_done', () => { chatNewline(); });
+  bus.on('tool:call_started', ({ name, details }) => { eventLine(`tool → ${name} ${details ? '(' + details + ')' : ''}`); });
+  bus.on('tool:call_result', ({ name, ok, error }) => { eventLine(`tool ✓ ${name} ${ok ? 'ok' : 'ERR'}${error ? ': ' + error : ''}`); });
+  bus.on('sys:reload_tools', ({ loaded, errors, error }) => { if (error) eventLine(`reload ERR: ${error}`); if (loaded) eventLine(`reload loaded: ${loaded.join(', ')}`); if (errors && errors.length) eventLine(`reload issues: ${errors.join('; ')}`); });
+  bus.on('sys:status', (text) => { if (typeof text === 'string') { status.setContent(`{blue-fg}${text}{/blue-fg}`); screen.render(); } });
+  bus.on('sys:error', (text) => { if (typeof text === 'string') { chatAppend(`{red-fg}Error{/red-fg}: ${text}\n`); } });
 
   // Input handling
   let _pendingResolve = null;
   async function promptInput(promptText = 'You: ') {
     inputLabel.setContent(`{green-fg}${promptText}{/green-fg}`);
     input.setValue('');
-    screen.render();
+    // Clean listeners to avoid stacking
+    input.removeAllListeners('submit');
+    input.removeAllListeners('cancel');
 
     return new Promise((resolve) => {
       _pendingResolve = resolve;
-      input.focus();
-      input.readInput((err, value) => {
+      const finish = (value) => {
         const out = (value ?? '').toString();
         _pendingResolve = null;
-        // Blur to ensure next promptInput can re-focus cleanly
+        try { input.cancel(); } catch (_) {}
         try { input.blur(); } catch (_) {}
         resolve(out);
-      });
+      };
+      input.once('submit', finish);
+      input.once('cancel', () => finish(''));
+      input.focus();
+      screen.render();
+      input.readInput();
+      eventLine('input: focused (press Enter to submit)');
     });
   }
 
-  function dispose() {
-    try { screen.destroy(); } catch (_) {}
-  }
+  function dispose() { try { screen.destroy(); } catch (_) {} }
 
-  if (rawTerm !== safeTerm) {
-    eventLine(`TERM '${rawTerm}' overridden → '${safeTerm}' for compatibility`);
-  }
-
+  if (rawTerm !== safeTerm) { eventLine(`TERM '${rawTerm}' overridden → '${safeTerm}' for compatibility`); }
+  eventLine('TUI ready');
+  input.focus();
   screen.render();
 
   return { promptInput, dispose };
