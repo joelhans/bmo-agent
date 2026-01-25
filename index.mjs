@@ -168,7 +168,7 @@ const PROVIDER_ENV_MAP = {
 })();
 
 // ============================================================================
-// UI Bus and Console UI Adapter (Phase 0)
+// UI Bus and Console UI Adapter (Phase 0/1)
 // ============================================================================
 const UIBus = {
   _listeners: new Map(),
@@ -231,6 +231,33 @@ function createConsoleUI(bus) {
 }
 
 let ui = null;
+
+async function tryInitTui(bus) {
+  const isTTY = process.stdout.isTTY && process.stdin.isTTY;
+  const force = process.env.BMO_TUI_FORCE === '1';
+  const flag = (process.env.BMO_TUI === '1') || process.argv.includes('--tui');
+  if (!(flag && (isTTY || force))) return null;
+
+  try {
+    const tuiPath = path.join(BMO_HOME, 'tui', 'ui-blessed.mjs');
+    if (!fs.existsSync(tuiPath)) {
+      console.warn('TUI module not found; falling back to console UI');
+      return null;
+    }
+    const modUrl = pathToFileURL(tuiPath).href + `?t=${Date.now()}`;
+    const mod = await import(modUrl);
+    if (typeof mod.createTuiUI !== 'function') {
+      console.warn('TUI module missing createTuiUI; falling back to console UI');
+      return null;
+    }
+    const tui = await mod.createTuiUI(bus, {});
+    console.log('TUI: enabled (neo-blessed)');
+    return tui;
+  } catch (e) {
+    console.warn('TUI init failed:', e.message);
+    return null;
+  }
+}
 
 // ============================================================================
 // Dynamic tool loader
@@ -452,7 +479,7 @@ export async function execute(args) {
       }
 
       if (notesPath && fs.existsSync(notesPath)) {
-        const notes = fs.readFileSync(notesPath, "utf-8");
+        const notes = fs.readFileSync(notesPath, "-utf-8");
         parts.push(`Project notes (${path.basename(notesPath)}):\n` + notes);
       }
     }
@@ -673,15 +700,16 @@ async function main() {
     console.log(`Runtime: home=${BMO_HOME} source=${process.env.BMO_SOURCE || "(none)"}`);
   }
 
-  // Init UI (Phase 0: console adapter)
-  ui = createConsoleUI(UIBus);
+  // Init UI: try TUI first when requested; fallback to console adapter
+  ui = await tryInitTui(UIBus);
+  if (!ui) ui = createConsoleUI(UIBus);
 
-  console.log("Chat with bmo (type 'exit' to quit)");
+  console.log("Chat with bmo (type 'exit' to quit)\nHint: set BMO_TUI=1 or pass --tui to enable the TUI (requires neo-blessed)");
   
   while (true) {
     const input = await ui.promptInput("\n\x1b[32mYou\x1b[0m: ");
     
-    if (input.toLowerCase() === "exit") {
+    if ((input || '').toLowerCase() === "exit") {
       console.log("Goodbye!");
       logSessionEnd("ended (command)");
       ui.dispose();
