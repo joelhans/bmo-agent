@@ -270,7 +270,15 @@ async function main() {
   try { const libPath = path.join(getToolsDir(), "lib.mjs"); const libUrl = pathToFileURL(libPath).href + `?t=${Date.now()}`; const lib = await import(libUrl); lib.registerReloadCallback(reloadTools); if (!process.env.BMO_SOURCE && lib.BMO_SOURCE) process.env.BMO_SOURCE = lib.BMO_SOURCE; console.log(`Runtime: home=${BMO_HOME} source=${process.env.BMO_SOURCE || "(none)"}`); } catch (e) { console.warn("Warning: could not register reload callback:", e.message); console.log(`Runtime: home=${BMO_HOME} source=${process.env.BMO_SOURCE || "(none)"}`); }
   ui = await tryInitTui(UIBus); if (!ui) ui = createConsoleUI(UIBus);
   console.log("Chat with bmo (type 'exit' to quit)\nHint: set BMO_TUI=1 or pass --tui to enable the TUI (requires neo-blessed)\nTip: set BMO_MODEL to override model (default gpt-4o-mini)");
-  while (true) { const input = await ui.promptInput("You: "); if ((input || '').toLowerCase() === "exit") { console.log("Goodbye!"); logSessionEnd("ended (command)"); ui.dispose(); break; } UIBus.emit('chat:user_input', input); logToFile(`You: ${input}\n`); await runPrompt(input); }
+  while (true) {
+    const input = await ui.promptInput("You: ");
+    const text = (input ?? '').trim();
+    if (text.toLowerCase() === "exit") { console.log("Goodbye!"); logSessionEnd("ended (command)"); ui.dispose(); break; }
+    if (!text) { continue; }
+    UIBus.emit('chat:user_input', text);
+    logToFile(`You: ${text}\n`);
+    await runPrompt(text);
+  }
 }
 
 main();
