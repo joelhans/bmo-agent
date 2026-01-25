@@ -6,6 +6,10 @@ import * as os from "os";
 import * as path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 
+// Statically import TUI module so bundlers include it (and neo-blessed) in single-file builds
+// In dev/running from source, this requires neo-blessed to be installed.
+import * as BundledTui from './tui/ui-blessed.mjs';
+
 // ============================================================================
 // BMO_HOME resolution
 // ============================================================================
@@ -108,27 +112,26 @@ async function tryInitTui(bus) {
   const flag = (process.env.BMO_TUI === '1') || process.argv.includes('--tui');
   if (!(flag && (isTTY || force))) return null;
   try {
-    // Prefer bundle-friendly relative import so packagers can include TUI and deps
-    const mod = await import('./tui/ui-blessed.mjs');
+    if (typeof BundledTui?.createTuiUI === 'function') {
+      const tui = await BundledTui.createTuiUI(bus, {});
+      UIBus.emit('sys:status', 'TUI enabled (bundled)');
+      return tui;
+    }
+  } catch (e1) {
+    // Continue to disk fallback
+  }
+  try {
+    const tuiPath = path.join(BMO_HOME, 'tui', 'ui-blessed.mjs');
+    if (!fs.existsSync(tuiPath)) { console.warn('TUI module not found; falling back to console UI'); return null; }
+    const modUrl = pathToFileURL(tuiPath).href + `?t=${Date.now()}`;
+    const mod = await import(modUrl);
     if (typeof mod.createTuiUI !== 'function') { console.warn('TUI module missing createTuiUI; falling back to console UI'); return null; }
     const tui = await mod.createTuiUI(bus, {});
-    UIBus.emit('sys:status', 'TUI enabled (bundle)');
+    UIBus.emit('sys:status', `TUI enabled (disk: ${tuiPath})`);
     return tui;
-  } catch (e1) {
-    // Fallback to disk path for non-bundled installs
-    try {
-      const tuiPath = path.join(BMO_HOME, 'tui', 'ui-blessed.mjs');
-      if (!fs.existsSync(tuiPath)) { console.warn('TUI module not found; falling back to console UI'); return null; }
-      const modUrl = pathToFileURL(tuiPath).href + `?t=${Date.now()}`;
-      const mod = await import(modUrl);
-      if (typeof mod.createTuiUI !== 'function') { console.warn('TUI module missing createTuiUI; falling back to console UI'); return null; }
-      const tui = await mod.createTuiUI(bus, {});
-      UIBus.emit('sys:status', `TUI enabled (disk: ${tuiPath})`);
-      return tui;
-    } catch (e2) {
-      console.warn('TUI init failed:', (e2 && e2.message) || (e1 && e1.message) || String(e2 || e1));
-      return null;
-    }
+  } catch (e2) {
+    console.warn('TUI init failed:', e2?.message || String(e2));
+    return null;
   }
 }
 
