@@ -123,11 +123,19 @@ export async function createTuiUI(bus, opts = {}) {
 
   // Input semantics:
   // - Enter submits
-  // - Shift+Enter inserts newline
+  // - Shift+Enter inserts newline via Ctrl+J escape (to avoid blessed treating S-enter oddly)
   // - Escape cancels
   const submitNow = () => { try { input.emit('submit', input.getValue()); } catch (_) {} };
   try { input.key(['enter'], submitNow); } catch(_){}
-  try { input.key(['S-enter'], () => { try { input.value = (input.value || '') + '\n'; input.screen.render(); } catch(_){} }); } catch(_){}
+  try {
+    input.key(['S-enter'], () => {
+      try {
+        input._listener('\n', { name: 'enter' });
+        updateInputHeight();
+      } catch(_){}
+    });
+  } catch(_){}
+  try { input.key(['C-j'], () => { try { input._listener('\n', { name: 'enter' }); updateInputHeight(); } catch(_){} }); } catch(_){}
   try { input.key(['escape'], () => { try { input.emit('cancel'); } catch(_){} }); } catch(_){}
 
   // Auto-grow/shrink input height based on content lines (clamped)
