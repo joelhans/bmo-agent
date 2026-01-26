@@ -98,7 +98,8 @@ export async function createTuiUI(bus, opts = {}) {
   screen.append(inputLabel);
   screen.append(input);
 
-  // Safety: always allow Ctrl+C to exit even when a widget is in readInput()
+  // Global safety: ensure Ctrl+C always exits, even if a widget is in readInput()
+  const ccHandler = () => { if (_pendingResolve) { const r = _pendingResolve; _pendingResolve = null; try { r('exit'); } catch (_) {} } else { hardExit(0); } };
   const prog = screen.program;
   if (prog && typeof prog.key === 'function') {
     try { prog.key(['C-c'], () => ccHandler()); } catch (_) {}
@@ -108,12 +109,19 @@ export async function createTuiUI(bus, opts = {}) {
   }
 
   // Key semantics for the input line
-  // - Enter submits
-  // - Shift+Enter also submits (avoid multi-line freeze in 1-line textbox)
-  // - Escape cancels current prompt
-  input.key(['enter'], () => { try { input.emit('submit', input.getValue()); } catch (_) {} });
-  input.key(['S-enter'], () => { try { input.emit('submit', input.getValue()); } catch (_) {} });
+  // - Enter or any newline submits
+  // - Shift+Enter submits as well (prevent multiline behavior in 1-line textbox)
+  // - Escape cancels
+  const submitNow = () => { try { input.emit('submit', input.getValue()); } catch (_) {} };
+  input.key(['enter'], submitNow);
+  input.key(['S-enter'], submitNow);
   input.key(['escape'], () => { try { input.emit('cancel'); } catch (_) {} });
+  // Also catch raw newline characters emitted by some terminals
+  input.on('keypress', (ch, key) => {
+    if (ch === '\n' || ch === '\r' || (key && (key.name === 'enter' || key.full === 'S-enter'))) {
+      submitNow();
+    }
+  });
 
   screen.key(['escape'], () => { try { input.focus(); screen.render(); } catch (_) {} });
 
@@ -124,10 +132,10 @@ export async function createTuiUI(bus, opts = {}) {
     if (cleaned) return;
     cleaned = true;
     try {
-      const prog = screen.program;
-      try { prog.showCursor(); } catch (_) {}
-      try { prog.disableMouse(); } catch (_) {}
-      try { prog.normalBuffer(); } catch (_) {}
+      const prog2 = screen.program;
+      try { prog2.showCursor(); } catch (_) {}
+      try { prog2.disableMouse(); } catch (_) {}
+      try { prog2.normalBuffer(); } catch (_) {}
     } catch (_) {}
     try { screen.destroy(); } catch (_) {}
   }
@@ -139,7 +147,6 @@ export async function createTuiUI(bus, opts = {}) {
   process.once('SIGTERM', () => hardExit(0));
   process.once('uncaughtException', () => hardExit(1));
 
-  const ccHandler = () => { if (_pendingResolve) { const r = _pendingResolve; _pendingResolve = null; try { r('exit'); } catch (_) {} } else { hardExit(0); } };
   screen.key(['C-c'], ccHandler);
   input.key(['C-c'], ccHandler);
 
@@ -167,7 +174,12 @@ export async function createTuiUI(bus, opts = {}) {
     return new Promise((resolve) => {
       _pendingResolve = resolve;
       let done = false;
-      const finish = (value) => { if (done) return; done = true; _pendingResolve = null; try { input.removeAllListeners('submit'); input.removeAllListeners('cancel'); } catch (_) {} try { input.blur(); } catch (_) {} resolve((value ?? '').toString()); };
+      const finish = (value) => {
+        if (done) return; done = true; _pendingResolve = null;
+        try { input.removeAllListeners('submit'); input.removeAllListeners('cancel'); input.removeAllListeners('keypress'); } catch (_) {}
+        try { input.blur(); } catch (_) {}
+        resolve((value ?? '').toString());
+      };
       input.once('submit', (val) => finish(val));
       input.once('cancel', () => finish(''));
       input.focus();
