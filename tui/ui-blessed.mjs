@@ -24,11 +24,11 @@ export async function createTuiUI(bus, opts = {}) {
     warnings: false,
   });
 
-  // For MVP stability: disable mouse tracking entirely unless explicitly enabled
-  const enableMouse = process.env.BMO_TUI_MOUSE === '1';
-  try { if (!enableMouse) screen.program.disableMouse(); } catch (_) {}
+  // Mouse: enable by default for selection/editing; we still ensure cleanup
+  const enableMouse = process.env.BMO_TUI_MOUSE !== '0';
+  try { if (enableMouse) screen.program.enableMouse(); else screen.program.disableMouse(); } catch (_) {}
 
-  // Layout (mouse disabled to avoid leaving terminal in mouse-report mode on crashes)
+  // Layout
   const chatBox = blessed.box({
     label: ' Chat ',
     top: 0,
@@ -37,7 +37,7 @@ export async function createTuiUI(bus, opts = {}) {
     height: '100%-3',
     tags: true,
     keys: true,
-    mouse: false,
+    mouse: true,
     scrollable: true,
     alwaysScroll: true,
     border: { type: 'line' },
@@ -53,7 +53,7 @@ export async function createTuiUI(bus, opts = {}) {
     height: '100%-3',
     tags: true,
     keys: true,
-    mouse: false,
+    mouse: true,
     scrollable: true,
     alwaysScroll: true,
     border: { type: 'line' },
@@ -81,16 +81,20 @@ export async function createTuiUI(bus, opts = {}) {
     content: '{green-fg}You{/green-fg}:',
   });
 
-  const input = blessed.textbox({
+  // Use a textarea for multiline editing with dynamic height
+  const input = blessed.textarea({
     bottom: 0,
     left: 0,
     height: 1,
     width: '100%',
     inputOnFocus: false,
     keys: true,
-    mouse: false,
+    mouse: true,
     style: { fg: 'white', bg: 'black' },
     clickable: true,
+    scrollable: true,
+    alwaysScroll: true,
+    vi: false,
   });
 
   screen.append(chatBox);
@@ -110,19 +114,40 @@ export async function createTuiUI(bus, opts = {}) {
   const ccHandler = () => { if (_pendingResolve) { const r = _pendingResolve; _pendingResolve = null; try { r('exit'); } catch (_) {} } else { hardExit(0); } };
 
   // Global safety: ensure Ctrl+C always exits, even inside readInput
-  try { screen.key(['C-c'], ccHandler); } catch(_){}
-  try { input.key(['C-c'], ccHandler); } catch(_){}
+  try { screen.key(['C-c'], ccHandler); input.key(['C-c'], ccHandler); } catch(_){}
   try { const prog = screen.program; if (prog?.key) prog.key(['C-c'], () => ccHandler()); if (prog?.on) prog.on('keypress', (ch, key) => { if (key && (key.full === 'C-c' || (key.name === 'c' && key.ctrl))) ccHandler(); }); } catch(_){}
 
   // Extra emergency exit: Ctrl+G cancels current prompt or exits
   const cg = () => { if (_pendingResolve) { const r=_pendingResolve; _pendingResolve=null; try{ r(''); }catch(_){} } else { hardExit(0); } };
   try { screen.key(['C-g'], cg); input.key(['C-g'], cg); } catch(_){}
 
-  // Input semantics: treat any newline as submit (avoid Shift+Enter hang)
+  // Input semantics:
+  // - Enter submits
+  // - Shift+Enter inserts newline
+  // - Escape cancels
   const submitNow = () => { try { input.emit('submit', input.getValue()); } catch (_) {} };
-  try { input.key(['enter','S-enter'], submitNow); } catch(_){}
-  try { input.on('keypress', (ch, key) => { if (ch === '\n' || ch === '\r' || (key && (key.name === 'enter'))) submitNow(); }); } catch(_){}
+  try { input.key(['enter'], submitNow); } catch(_){}
+  try { input.key(['S-enter'], () => { try { input.value = (input.value || '') + '\n'; input.screen.render(); } catch(_){} }); } catch(_){}
   try { input.key(['escape'], () => { try { input.emit('cancel'); } catch(_){} }); } catch(_){}
+
+  // Auto-grow/shrink input height based on content lines (clamped)
+  const maxInputLines = Math.max(3, parseInt(process.env.BMO_TUI_INPUT_MAX_LINES || '6', 10));
+  const minInputLines = 1;
+  function updateInputHeight() {
+    try {
+      const text = input.value || '';
+      const lines = text.split('\n').length;
+      const h = Math.max(minInputLines, Math.min(maxInputLines, lines));
+      input.height = h;
+      chatBox.height = `100%-${h+2}`; // +2 for status+label rows
+      eventsBox.height = `100%-${h+2}`;
+      screen.render();
+    } catch(_){}
+  }
+  try { input.on('keypress', () => updateInputHeight()); } catch(_){}
+  try { input.on('submit', () => updateInputHeight()); } catch(_){}
+
+  // Click-to-position support is provided by blessed textarea with mouse=true
 
   // ESC refocuses the input
   try { screen.key(['escape'], () => { try { input.focus(); screen.render(); } catch(_){} }); } catch(_){}
@@ -143,7 +168,15 @@ export async function createTuiUI(bus, opts = {}) {
   bus.on('sys:error', (text) => { if (typeof text === 'string') { chatAppend(`{red-fg}Error{/red-fg}: ${text}\n`); } });
 
   async function promptInput(promptText = 'You: ') {
-    try { inputLabel.setContent(`{green-fg}${promptText}{/green-fg}`); input.setValue(''); input.removeAllListeners('submit'); input.removeAllListeners('cancel'); input.removeAllListeners('keypress'); } catch(_){}
+    try {
+      inputLabel.setContent(`{green-fg}${promptText}{/green-fg}`);
+      input.value = '';
+      input.setValue('');
+      input.removeAllListeners('submit');
+      input.removeAllListeners('cancel');
+      input.removeAllListeners('keypress');
+    } catch(_){}
+    updateInputHeight();
     return new Promise((resolve) => {
       _pendingResolve = resolve;
       let done = false;
@@ -153,14 +186,20 @@ export async function createTuiUI(bus, opts = {}) {
         try { input.blur(); } catch(_){}
         resolve((value ?? '').toString());
       };
-      try { input.once('submit', (val) => finish(val)); input.once('cancel', () => finish('')); input.focus(); screen.render(); input.readInput(); } catch(_){}
+      try {
+        input.once('submit', (val) => finish(val));
+        input.once('cancel', () => finish(''));
+        input.focus();
+        screen.render();
+        input.readInput();
+      } catch(_){}
     });
   }
 
   function dispose() { cleanupTerminal(); }
 
   if (rawTerm !== safeTerm) { eventLine(`TERM '${rawTerm}' overridden → '${safeTerm}' for compatibility`); }
-  if (!enableMouse) { eventLine('Mouse disabled for stability (set BMO_TUI_MOUSE=1 to enable)'); }
+  if (!enableMouse) { eventLine('Mouse disabled via BMO_TUI_MOUSE=0'); }
   eventLine('TUI ready');
   try { input.focus(); screen.render(); } catch(_){}
 
