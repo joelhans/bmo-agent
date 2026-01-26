@@ -98,6 +98,23 @@ export async function createTuiUI(bus, opts = {}) {
   screen.append(inputLabel);
   screen.append(input);
 
+  // Safety: always allow Ctrl+C to exit even when a widget is in readInput()
+  const prog = screen.program;
+  if (prog && typeof prog.key === 'function') {
+    try { prog.key(['C-c'], () => ccHandler()); } catch (_) {}
+  }
+  if (prog && typeof prog.on === 'function') {
+    try { prog.on('keypress', (ch, key) => { if (key && (key.full === 'C-c' || (key.name === 'c' && key.ctrl))) ccHandler(); }); } catch (_) {}
+  }
+
+  // Key semantics for the input line
+  // - Enter submits
+  // - Shift+Enter also submits (avoid multi-line freeze in 1-line textbox)
+  // - Escape cancels current prompt
+  input.key(['enter'], () => { try { input.emit('submit', input.getValue()); } catch (_) {} });
+  input.key(['S-enter'], () => { try { input.emit('submit', input.getValue()); } catch (_) {} });
+  input.key(['escape'], () => { try { input.emit('cancel'); } catch (_) {} });
+
   screen.key(['escape'], () => { try { input.focus(); screen.render(); } catch (_) {} });
 
   let _pendingResolve = null;
