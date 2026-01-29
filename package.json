@@ -5,13 +5,17 @@
   "scripts": {
     "start": "node index.mjs",
     "start:watch": "node --watch index.mjs",
+    "tui": "node tui/index.mjs",
+    "tui:watch": "node --watch tui/index.mjs",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:cli": "bun build index.mjs --compile --outfile dist/bmo",
     "install-cli": "pnpm run build:cli && rm -rf ~/.local/bin/bmo-tools && mkdir -p ~/.local/bin/bmo-tools && cp dist/bmo ~/.local/bin/bmo && chmod +x ~/.local/bin/bmo && if command -v codesign >/dev/null 2>&1; then codesign --force --sign - ~/.local/bin/bmo; fi && cp -r tools/* ~/.local/bin/bmo-tools/ && echo 'Installed bmo to ~/.local/bin/bmo (tools in ~/.local/bin/bmo-tools/)'"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
-    "openai": "^6.1.0"
+    "ink": "^4.4.1",
+    "openai": "^6.1.0",
+    "react": "^18.2.0"
   },
   "devDependencies": {
     "@types/node": "^16.11.6",
