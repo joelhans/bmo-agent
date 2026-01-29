@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from 'ink';
 import App from './App.mjs';
 import { resetTTY } from './term.mjs';
+import { initSessionLogger } from '../lib/logger.mjs';
 
 // Guard: require TTY
 if (!process.stdin.isTTY) {
@@ -12,9 +13,13 @@ if (!process.stdin.isTTY) {
 // Reset any lingering terminal modes from prior runs.
 try { resetTTY({ stdin: process.stdin, stdout: process.stdout }); } catch (_) {}
 
-const instance = render(React.createElement(App));
+const logger = initSessionLogger();
+console.log(`Session log: ${logger.path}`);
+
+const instance = render(React.createElement(App, { logger }));
 
 const cleanup = () => {
+  try { logger.end('ended (exit)'); } catch (_) {}
   try { resetTTY({ stdin: process.stdin, stdout: process.stdout }); } catch (_) {}
 };
 

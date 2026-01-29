@@ -5,7 +5,7 @@ import InputPane from './components/InputPane.mjs';
 import StatusBar from './components/StatusBar.mjs';
 import { ChatEngine } from '../lib/chat.mjs';
 
-export default function App() {
+export default function App({ logger }) {
   const { exit } = useApp();
   const [status, setStatus] = useState({ ready: false, streaming: false, model: 'gpt-5', tools: 0 });
   const [messages, setMessages] = useState([]);
@@ -33,8 +33,11 @@ export default function App() {
 
   const onSubmit = async (text) => {
     setMessages(prev => [...prev, { role: 'user', content: text }]);
+    try { logger?.logUser(text); } catch (_) {}
     if (!engineRef.current) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Engine not ready. Ensure OPENAI_API_KEY is set, then restart the TUI.' }]);
+      const msg = 'Engine not ready. Ensure OPENAI_API_KEY is set, then restart the TUI.';
+      setMessages(prev => [...prev, { role: 'assistant', content: msg }]);
+      try { logger?.logAssistant(msg); } catch (_) {}
       return;
     }
     setStatus(s => ({ ...s, streaming: true }));
@@ -55,19 +58,26 @@ export default function App() {
         },
         onToolCall: (tc) => {
           setMessages(prev => [...prev, { role: 'tool', content: `[call] ${tc.function?.name || ''}` }]);
+          try { logger?.logToolCall(tc.function?.name || '', ''); } catch (_) {}
         },
         onToolResult: ({ id, result }) => {
           setMessages(prev => [...prev, { role: 'tool', content: `[result] ${String(result).slice(0, 400)}` }]);
+          try { logger?.logToolResult(String(result).slice(0, 400)); } catch (_) {}
         },
         onAssistantDone: () => {
           setStatus(s => ({ ...s, streaming: false }));
+          try { logger?.logAssistant(acc); } catch (_) {}
         },
         onError: (e) => {
-          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${String(e?.message || e)}` }]);
+          const msg = `Error: ${String(e?.message || e)}`;
+          setMessages(prev => [...prev, { role: 'assistant', content: msg }]);
+          try { logger?.logAssistant(msg); } catch (_) {}
         }
       });
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${String(e?.message || e)}` }]);
+      const msg = `Error: ${String(e?.message || e)}`;
+      setMessages(prev => [...prev, { role: 'assistant', content: msg }]);
+      try { logger?.logAssistant(msg); } catch (_) {}
     } finally {
       setStatus(s => ({ ...s, streaming: false }));
     }
