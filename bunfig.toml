@@ -1,0 +1,10 @@
+[alias]
+# Prefer ASM build of yoga to avoid runtime WASM resolution.
+"yoga-wasm-web/auto" = "yoga-wasm-web/asm"
+
+[compile]
+# Bundle yoga.wasm at bundle root as a fallback in case alias is not honored in some paths.
+# The right-hand side after ':' is the destination filename inside the bundle FS.
+assets = [
+  "node_modules/.pnpm/yoga-wasm-web@0.3.3/node_modules/yoga-wasm-web/dist/yoga.wasm:yoga.wasm"
+]

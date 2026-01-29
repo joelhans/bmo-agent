@@ -595,8 +595,9 @@ function handleKeyCommand(args) {
 // ============================================================================
 async function launchTui() {
   try {
-    // dynamic import ensures Bun packs these modules into the binary
-    await import('./tui/index.mjs');
+    const mod = await import('./tui/index.mjs');
+    if (typeof mod.runTui !== 'function') throw new Error('runTui() not exported');
+    await mod.runTui();
   } catch (e) {
     console.error('Failed to launch TUI:', e?.message || e);
     console.error('Falling back to classic CLI...');
