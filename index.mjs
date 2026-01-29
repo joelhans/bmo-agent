@@ -591,16 +591,23 @@ function handleKeyCommand(args) {
 }
 
 // ============================================================================
-// Main
+// TUI launcher (default when in a TTY)
 // ============================================================================
-async function main() {
-  // Handle CLI subcommands before loading tools
-  const argv = process.argv.slice(2);
-  if (argv[0] === 'key') {
-    handleKeyCommand(argv.slice(1));
-    return; // Do not start chat when handling key command
+async function launchTui() {
+  try {
+    // dynamic import ensures Bun packs these modules into the binary
+    await import('./tui/index.mjs');
+  } catch (e) {
+    console.error('Failed to launch TUI:', e?.message || e);
+    console.error('Falling back to classic CLI...');
+    await startClassicCli();
   }
+}
 
+// ============================================================================
+// Classic CLI (existing behavior)
+// ============================================================================
+async function startClassicCli() {
   // Load tools before starting
   await reloadTools();
   
@@ -641,6 +648,38 @@ async function main() {
       console.error("Tip: set OPENAI_API_KEY or run 'bmo key add <key>'.");
     }
   }
+}
+
+// ============================================================================
+// Main
+// ============================================================================
+async function main() {
+  // Handle CLI subcommands before launching UI
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'key') {
+    handleKeyCommand(argv.slice(1));
+    return; // Do not start chat when handling key command
+  }
+
+  // Explicit mode selectors
+  if (argv[0] === 'tui') {
+    await launchTui();
+    return;
+  }
+  if (argv[0] === 'cli') {
+    await startClassicCli();
+    return;
+  }
+
+  // Default behavior: if running in a TTY, prefer TUI; otherwise fallback to CLI
+  const inTty = !!(process.stdin.isTTY && process.stdout.isTTY);
+  if (inTty) {
+    await launchTui();
+    return;
+  }
+
+  // Non-TTY environments keep the classic CLI (readline stdin may still block; but consistent with prior behavior)
+  await startClassicCli();
 }
 
 main();
