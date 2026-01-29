@@ -5,6 +5,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { runTui } from './tui/index.mjs';
 
 // ============================================================================
 // BMO_HOME resolution
@@ -595,9 +596,7 @@ function handleKeyCommand(args) {
 // ============================================================================
 async function launchTui() {
   try {
-    const mod = await import('./tui/index.mjs');
-    if (typeof mod.runTui !== 'function') throw new Error('runTui() not exported');
-    await mod.runTui();
+    await runTui();
   } catch (e) {
     console.error('Failed to launch TUI:', e?.message || e);
     console.error('Falling back to classic CLI...');

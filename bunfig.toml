@@ -1,10 +1,13 @@
 [alias]
-# Prefer ASM build of yoga to avoid runtime WASM resolution.
-"yoga-wasm-web/auto" = "yoga-wasm-web/asm"
+# Route all Yoga auto imports through our shim that returns a Yoga object
+"yoga-wasm-web/auto" = "./tui/yoga-shim.mjs"
+# Also cover potential direct ink build imports by exact paths if any remain
+"ink/build/styles.js" = "./tui/yoga-shim.mjs"
+"ink/build/dom.js" = "./tui/yoga-shim.mjs"
+"ink/build/ink.js" = "./tui/yoga-shim.mjs"
+"ink/build/reconciler.js" = "./tui/yoga-shim.mjs"
+"ink/build/render-node-to-output.js" = "./tui/yoga-shim.mjs"
+"ink/build/get-max-width.js" = "./tui/yoga-shim.mjs"
 
 [compile]
-# Bundle yoga.wasm at bundle root as a fallback in case alias is not honored in some paths.
-# The right-hand side after ':' is the destination filename inside the bundle FS.
-assets = [
-  "node_modules/.pnpm/yoga-wasm-web@0.3.3/node_modules/yoga-wasm-web/dist/yoga.wasm:yoga.wasm"
-]
+assets = []
