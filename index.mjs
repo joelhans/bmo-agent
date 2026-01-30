@@ -416,6 +416,12 @@ function getOpenAIClient() {
   return openaiClient;
 }
 
+function resolveDefaultModel() {
+  return (process.env.BMO_MODEL && process.env.BMO_MODEL.trim())
+    || (process.env.OPENAI_MODEL && process.env.OPENAI_MODEL.trim())
+    || "gpt-5";
+}
+
 const conversationHistory = [];
 let systemPromptInitialized = false;
 
@@ -457,7 +463,7 @@ async function runPrompt(prompt) {
   while (true) {
     const client = getOpenAIClient();
     const stream = await client.chat.completions.create({
-      model: "gpt-4o",
+      model: resolveDefaultModel(),
       messages: conversationHistory,
       tools: toolSchemas,
       stream: true,

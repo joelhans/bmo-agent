@@ -7,7 +7,7 @@ import { ChatEngine } from '../lib/chat.mjs';
 
 export default function App({ logger }) {
   const { exit } = useApp();
-  const [status, setStatus] = useState({ ready: false, streaming: false, model: 'gpt-5', tools: 0 });
+  const [status, setStatus] = useState({ ready: false, streaming: false, model: '' });
   const [messages, setMessages] = useState([]);
   const engineRef = useRef(null);
 
@@ -19,8 +19,9 @@ export default function App({ logger }) {
     let mounted = true;
     (async () => {
       try {
-        engineRef.current = await ChatEngine.init();
-        if (mounted) setStatus(s => ({ ...s, ready: true }));
+        const engine = await ChatEngine.init();
+        engineRef.current = engine;
+        if (mounted) setStatus(s => ({ ...s, ready: true, model: engine.model }));
       } catch (e) {
         if (mounted) {
           setStatus(s => ({ ...s, ready: false }));
