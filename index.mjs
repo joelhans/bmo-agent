@@ -6,6 +6,10 @@ import * as os from "os";
 import * as path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { runTui } from './tui/index.mjs';
+import { resolveDefaultModel as _resolveDefaultModel } from './lib/config.mjs';
+
+// Re-export so lib/chat.mjs can import from ../index.mjs in both source and binary layouts
+export const resolveDefaultModel = _resolveDefaultModel;
 
 // ============================================================================
 // BMO_HOME resolution
@@ -414,12 +418,6 @@ function getOpenAIClient() {
     });
   }
   return openaiClient;
-}
-
-function resolveDefaultModel() {
-  return (process.env.BMO_MODEL && process.env.BMO_MODEL.trim())
-    || (process.env.OPENAI_MODEL && process.env.OPENAI_MODEL.trim())
-    || "gpt-5";
 }
 
 const conversationHistory = [];
