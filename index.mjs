@@ -457,7 +457,7 @@ async function runPrompt(prompt) {
   while (true) {
     const client = getOpenAIClient();
     const stream = await client.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: conversationHistory,
       tools: toolSchemas,
       stream: true,
