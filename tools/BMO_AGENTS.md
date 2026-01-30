@@ -160,3 +160,4 @@ Tool Registry (append entries below)
 - git_commit — stage and commit changes in the current working directory
 - progress — emit a concise progress/status message to the user for early feedback
 - safe_run — robust bash-wrapped shell runner with pipefail, timeout, and pager/color guards
+- sha256_file — compute SHA-256 hash of a file; inputs: filename (string), outputs: { sha256, bytes, path }
