@@ -1,6 +1,7 @@
 import { loadConfig } from "./config.ts";
 import { createLogger } from "./logger.ts";
 import { ensureDataDirs, resolvePaths } from "./paths.ts";
+import { startTui } from "./tui.ts";
 
 function generateSessionId(): string {
 	const now = new Date();
@@ -23,28 +24,7 @@ async function main(): Promise<void> {
 		logger.warn("OPENAI_API_KEY not set — LLM features will be unavailable");
 	}
 
-	console.log("bmo v0.1.0");
-	console.log("---");
-	console.log(`  BMO_HOME:  ${paths.bmoHome}`);
-	console.log(`  Data dir:  ${paths.dataDir}`);
-	console.log(`  Config:    ${paths.configFile}`);
-	console.log(`  Reasoning: ${config.models.reasoning}`);
-	console.log(`  Coding:    ${config.models.coding}`);
-	console.log(`  Gateway:   ${config.gateway.baseUrl}`);
-	if (paths.bmoSource) {
-		console.log(`  Source:    ${paths.bmoSource}`);
-	}
-	if (!apiKey) {
-		console.log("");
-		console.log("  WARNING: OPENAI_API_KEY is not set.");
-		console.log("  Set it in your environment to enable LLM features.");
-	}
-	console.log("---");
-
-	logger.info("banner printed, exiting cleanly");
-	await logger.flush();
-
-	// Phase 1+ will start the TUI here instead of exiting.
+	startTui(config, logger, sessionId);
 }
 
 main().catch((err) => {

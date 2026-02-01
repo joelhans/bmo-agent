@@ -35,7 +35,7 @@ export interface BmoConfig {
 
 export const DEFAULT_CONFIG: BmoConfig = {
 	gateway: {
-		baseUrl: "https://your-gateway.ngrok.app/v1",
+		baseUrl: "https://build-an-agent.ngrok.dev/",
 	},
 	models: {
 		reasoning: "anthropic/claude-opus-4-5-20250514",

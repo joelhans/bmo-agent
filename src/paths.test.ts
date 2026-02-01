@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { dirname } from "node:path";
 import { resolveBmoPath, resolvePaths } from "./paths.ts";
 
 describe("resolvePaths", () => {
@@ -12,6 +13,13 @@ describe("resolvePaths", () => {
 		process.env.BMO_HOME = "/tmp/test-bmo-home";
 		const paths = resolvePaths();
 		expect(paths.bmoHome).toBe("/tmp/test-bmo-home");
+	});
+
+	test("auto-detects project root in dev mode when BMO_HOME not set", () => {
+		delete process.env.BMO_HOME;
+		const paths = resolvePaths();
+		// import.meta.dir is src/, parent is the project root
+		expect(paths.bmoHome).toBe(dirname(import.meta.dir));
 	});
 
 	test("uses BMO_DATA env var when set", () => {

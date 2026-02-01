@@ -1,6 +1,7 @@
+import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 export interface ResolvedPaths {
 	bmoHome: string;
@@ -13,12 +14,26 @@ export interface ResolvedPaths {
 }
 
 /**
- * Resolve all bmo paths from environment variables with fallbacks.
- * Pure function — no I/O. Call ensureDataDirs() separately to create directories.
+ * Detect BMO_HOME when no env var is set.
+ * Dev mode: import.meta.dir is src/, parent is the project root (has package.json).
+ * Binary mode: import.meta.dir holds the compile-time path which won't exist
+ * on the deployment machine, so existsSync fails and we fall back to dataDir.
+ */
+function defaultBmoHome(dataDir: string): string {
+	const projectRoot = dirname(import.meta.dir);
+	if (existsSync(join(projectRoot, "package.json"))) {
+		return projectRoot;
+	}
+	return dataDir;
+}
+
+/**
+ * Resolve all bmo paths from environment variables with auto-detection fallbacks.
+ * Call ensureDataDirs() separately to create directories.
  */
 export function resolvePaths(): ResolvedPaths {
-	const bmoHome = process.env.BMO_HOME || join(homedir(), "src", "bmo-agent");
 	const dataDir = process.env.BMO_DATA || join(homedir(), ".local", "share", "bmo");
+	const bmoHome = process.env.BMO_HOME || defaultBmoHome(dataDir);
 	const bmoSource = process.env.BMO_SOURCE || null;
 
 	return {

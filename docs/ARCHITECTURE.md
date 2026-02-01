@@ -32,7 +32,8 @@ Core components
   - Skill list (names + descriptions) included in system prompt so bmo knows what's available.
 - Config & Paths
   - BMO_HOME: where bmo's code lives (tools/, skills/, docs/). The bmo:// prefix routes here.
-    - Resolution: BMO_HOME env var → fallback ~/src/bmo-agent.
+    - Resolution: BMO_HOME env var → auto-detect project root (dev mode) → fall back to data dir (binary mode).
+    - Auto-detection: in dev mode, import.meta.dir points to src/ and the parent directory has package.json. In binary mode, the compile-time path doesn't exist on the deployment machine, so detection fails and BMO_HOME defaults to the data dir. This means tools/skills/docs live alongside sessions/snapshots in binary installs — all in one writable location.
     - Contains: tools/, skills/, docs/, source code.
   - Data dir: where runtime state accumulates (sessions, snapshots, telemetry, config).
     - Resolution: BMO_DATA env var → fallback ~/.local/share/bmo (XDG-compliant).
