@@ -10,16 +10,18 @@ import {
 	TUI,
 } from "@mariozechner/pi-tui";
 import { runAgentLoop } from "./agent-loop.ts";
-import type { BmoConfig } from "./config.ts";
+import { type BmoConfig, saveConfig } from "./config.ts";
 import { createSessionTracker } from "./context.ts";
+import { formatInventoryForPrompt, generateInventory, saveInventory } from "./inventory.ts";
 import type { ChatMessage, LlmClient } from "./llm.ts";
 import type { Logger } from "./logger.ts";
 import type { ResolvedPaths } from "./paths.ts";
 import { assembleSystemPrompt } from "./prompt.ts";
 import type { SandboxConfig } from "./sandbox.ts";
-import type { SessionData } from "./session.ts";
+import type { LearningEvent, SessionData } from "./session.ts";
 import { saveSession } from "./session.ts";
 import { createLoadSkillTool, createSkillsRegistry } from "./skills.ts";
+import { createSnapshot, saveSnapshot } from "./snapshots.ts";
 import { selectTier } from "./tiering.ts";
 import { createReloadToolsTool, formatLoadResult, initialLoad } from "./tool-loader.ts";
 import { createRunCommandTool, createToolRegistry, formatToolCallSummary } from "./tools.ts";
@@ -233,14 +235,47 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	const loadSummary = formatLoadResult(loadResult, skillsRegistry.list().length);
 	logger.info(`Initial tool load: ${loadSummary}`);
 
-	// System prompt — includes skill and dynamic tool lists
+	// Increment maintenance session counter
+	config.maintenance.sessionsSinceLastMaintenance += 1;
+	await saveConfig(paths, config);
+
+	// Compute maintenance notice
+	let maintenanceNotice: string | undefined;
+	if (config.maintenance.sessionsSinceLastMaintenance >= config.maintenance.threshold) {
+		const count = config.maintenance.sessionsSinceLastMaintenance;
+		const last = config.maintenance.lastMaintenanceDate ?? "never";
+		maintenanceNotice =
+			`MAINTENANCE DUE: ${count} sessions since last maintenance (last: ${last}). ` +
+			"Run an introspection pass: review reflections, validate tool hypotheses, scan for patterns, " +
+			"update OPPORTUNITIES.md, write a state snapshot, append to EXPERIMENT.md. " +
+			"Call complete_maintenance when done.";
+	}
+
+	// Generate capability inventory
+	let inventorySummary: string | undefined;
+	try {
+		const inventory = await generateInventory(registry, skillsRegistry, paths.bmoHome);
+		inventorySummary = formatInventoryForPrompt(inventory);
+		saveInventory(paths.dataDir, inventory).catch((err: unknown) => {
+			const msg = err instanceof Error ? err.message : String(err);
+			logger.error(`Failed to save inventory: ${msg}`);
+		});
+	} catch (err: unknown) {
+		const msg = err instanceof Error ? err.message : String(err);
+		logger.error(`Failed to generate inventory: ${msg}`);
+	}
+
+	// System prompt — includes skill and dynamic tool lists, maintenance notice, inventory
 	function buildSystemPrompt(): string {
 		return assembleSystemPrompt({
 			bmoHome: paths.bmoHome,
 			dataDir: paths.dataDir,
 			cwd: process.cwd(),
+			bmoSource: paths.bmoSource ?? undefined,
 			skills: skillsRegistry.list(),
 			dynamicTools: registry.listDynamicNames(),
+			maintenanceNotice,
+			inventorySummary,
 		});
 	}
 
@@ -261,6 +296,116 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			{ builtin: true },
 		);
 	}
+	// Learning events accumulator
+	const learningEvents: LearningEvent[] = resumedSession?.learningEvents ? [...resumedSession.learningEvents] : [];
+
+	// Built-in tool: complete_maintenance
+	registry.register(
+		{
+			name: "complete_maintenance",
+			description:
+				"Mark a maintenance pass as complete. Resets the session counter and records the date. " +
+				"Also saves a state snapshot. Call this after finishing an introspection/maintenance pass.",
+			parameters: {
+				type: "object",
+				properties: {
+					summary: {
+						type: "string",
+						description: "Brief summary of what was done during maintenance",
+					},
+				},
+				required: ["summary"],
+			},
+			async execute(args) {
+				const summary = args.summary as string;
+				config.maintenance.sessionsSinceLastMaintenance = 0;
+				config.maintenance.lastMaintenanceDate = new Date().toISOString();
+				await saveConfig(paths, config);
+				maintenanceNotice = undefined;
+				rebuildSystemPrompt();
+
+				// Auto-snapshot on maintenance completion
+				try {
+					const snapshot = createSnapshot(sessionId, registry, skillsRegistry, config);
+					await saveSnapshot(paths.snapshotsDir, snapshot);
+					return {
+						output: `Maintenance complete. Counter reset, date recorded. Snapshot saved: ${snapshot.snapshotId}. Summary: ${summary}`,
+					};
+				} catch (err: unknown) {
+					const msg = err instanceof Error ? err.message : String(err);
+					return {
+						output: `Maintenance complete. Counter reset, date recorded. Snapshot failed: ${msg}. Summary: ${summary}`,
+					};
+				}
+			},
+		},
+		{ builtin: true },
+	);
+
+	// Built-in tool: save_snapshot
+	registry.register(
+		{
+			name: "save_snapshot",
+			description:
+				"Save a state snapshot capturing current tools, skills, config (sanitized), and metrics. " +
+				"Useful during maintenance or for tracking evolution over time.",
+			parameters: {
+				type: "object",
+				properties: {},
+			},
+			async execute() {
+				const snapshot = createSnapshot(sessionId, registry, skillsRegistry, config);
+				await saveSnapshot(paths.snapshotsDir, snapshot);
+				return {
+					output: `Snapshot saved: ${snapshot.snapshotId} (${snapshot.metrics.totalTools} tools, ${snapshot.metrics.totalSkills} skills)`,
+				};
+			},
+		},
+		{ builtin: true },
+	);
+
+	// Built-in tool: log_learning_event
+	registry.register(
+		{
+			name: "log_learning_event",
+			description:
+				"Record a structured learning event from user interactions. " +
+				"Call when detecting corrections, preferences, or recurring patterns.",
+			parameters: {
+				type: "object",
+				properties: {
+					type: {
+						type: "string",
+						enum: ["correction", "preference", "pattern"],
+						description: "Type of learning event",
+					},
+					description: {
+						type: "string",
+						description: "What was learned",
+					},
+					context: {
+						type: "string",
+						description: "Context in which this was observed",
+					},
+				},
+				required: ["type", "description", "context"],
+			},
+			async execute(args) {
+				const event: LearningEvent = {
+					timestamp: new Date().toISOString(),
+					type: args.type as LearningEvent["type"],
+					description: args.description as string,
+					context: args.context as string,
+				};
+				learningEvents.push(event);
+				return {
+					output: `Learning event recorded: [${event.type}] ${event.description}`,
+				};
+			},
+		},
+		{ builtin: true },
+	);
+
 	const messages: ChatMessage[] = resumedSession
 		? [...resumedSession.messages]
 		: [{ role: "system", content: systemPrompt }];
@@ -270,10 +415,28 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	let lastUsedModel = config.models.coding;
 
 	function rebuildSystemPrompt(): void {
-		const newPrompt = buildSystemPrompt();
-		if (messages.length > 0 && messages[0].role === "system") {
-			messages[0].content = newPrompt;
-		}
+		// Regenerate inventory (fire-and-forget save)
+		generateInventory(registry, skillsRegistry, paths.bmoHome)
+			.then((inv) => {
+				inventorySummary = formatInventoryForPrompt(inv);
+				const newPrompt = buildSystemPrompt();
+				if (messages.length > 0 && messages[0].role === "system") {
+					messages[0].content = newPrompt;
+				}
+				saveInventory(paths.dataDir, inv).catch((err: unknown) => {
+					const msg = err instanceof Error ? err.message : String(err);
+					logger.error(`Failed to save inventory: ${msg}`);
+				});
+			})
+			.catch((err: unknown) => {
+				const msg = err instanceof Error ? err.message : String(err);
+				logger.error(`Failed to regenerate inventory: ${msg}`);
+				// Still rebuild prompt without updated inventory
+				const newPrompt = buildSystemPrompt();
+				if (messages.length > 0 && messages[0].role === "system") {
+					messages[0].content = newPrompt;
+				}
+			});
 	}
 
 	if (resumedSession) {
@@ -316,6 +479,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 				totalCost: stats.totalCost,
 			},
 			reflection: reflection ?? resumedSession?.reflection ?? null,
+			learningEvents: learningEvents.length > 0 ? learningEvents : undefined,
 		};
 	}
 

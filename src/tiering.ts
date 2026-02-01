@@ -19,6 +19,10 @@ const REASONING_KEYWORDS = [
 	"explain why",
 	"how should i structure",
 	"review",
+	"maintenance",
+	"introspect",
+	"battery check",
+	"self-improvement",
 ];
 
 /**

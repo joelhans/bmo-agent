@@ -50,6 +50,22 @@ describe("selectTier", () => {
 		expect(selectTier({ userMessage: "try again", lastResponseWasError: true })).toBe("reasoning");
 	});
 
+	test("returns reasoning for maintenance keyword", () => {
+		expect(selectTier({ userMessage: "run maintenance check", lastResponseWasError: false })).toBe("reasoning");
+	});
+
+	test("returns reasoning for introspect keyword", () => {
+		expect(selectTier({ userMessage: "introspect on recent sessions", lastResponseWasError: false })).toBe("reasoning");
+	});
+
+	test("returns reasoning for battery check keyword", () => {
+		expect(selectTier({ userMessage: "do a battery check", lastResponseWasError: false })).toBe("reasoning");
+	});
+
+	test("returns reasoning for self-improvement keyword", () => {
+		expect(selectTier({ userMessage: "self-improvement pass", lastResponseWasError: false })).toBe("reasoning");
+	});
+
 	test("case insensitive matching", () => {
 		expect(selectTier({ userMessage: "Debug the auth flow", lastResponseWasError: false })).toBe("reasoning");
 		expect(selectTier({ userMessage: "REFACTOR this module", lastResponseWasError: false })).toBe("reasoning");

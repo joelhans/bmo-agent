@@ -54,20 +54,36 @@ describe("assembleSystemPrompt", () => {
 		expect(prompt).toContain("front-matter");
 	});
 
-	test("includes creating tools section", () => {
-		expect(prompt).toContain("Creating tools");
+	test("includes self-improvement tool creation instructions", () => {
+		expect(prompt).toContain("Write an .mjs module to bmo://tools/");
+		expect(prompt).toContain("reload_tools");
 	});
 
-	test("does not include self-improvement loop content", () => {
-		expect(prompt).not.toContain("Self\u2011improvement loop");
-		expect(prompt).not.toContain("self\u2011improving");
-		expect(prompt).not.toContain("hypothesis");
+	test("includes self-improvement loop content", () => {
+		expect(prompt).toContain("Self\u2011improvement loop");
+		expect(prompt).toContain("self\u2011improving");
+		expect(prompt).toContain("hypothesis");
 	});
 
-	test("does not include lifecycle content", () => {
-		expect(prompt).not.toContain("Lifecycle");
-		expect(prompt).not.toContain("IMPROVEMENTS.md");
-		expect(prompt).not.toContain("OPPORTUNITIES.md");
+	test("includes lifecycle content", () => {
+		expect(prompt).toContain("Lifecycle");
+		expect(prompt).toContain("IMPROVEMENTS.md");
+		expect(prompt).toContain("OPPORTUNITIES.md");
+	});
+
+	test("includes git commit policy", () => {
+		expect(prompt).toContain("Git commit policy");
+		expect(prompt).toContain("Never auto\u2011commit");
+	});
+
+	test("includes heuristics sections", () => {
+		expect(prompt).toContain("Heuristics for building or changing tools");
+		expect(prompt).toContain("Heuristics for writing skills");
+	});
+
+	test("includes user signal capture instructions", () => {
+		expect(prompt).toContain("log_learning_event");
+		expect(prompt).toContain("correction");
 	});
 });
 
@@ -115,5 +131,52 @@ describe("assembleSystemPrompt with dynamic tools", () => {
 	test("does not include tool section when dynamicTools omitted", () => {
 		const prompt = assembleSystemPrompt(baseOpts);
 		expect(prompt).not.toContain("Dynamic tools loaded");
+	});
+});
+
+describe("assembleSystemPrompt with maintenanceNotice", () => {
+	test("includes maintenance notice when provided", () => {
+		const prompt = assembleSystemPrompt({
+			...baseOpts,
+			maintenanceNotice: "MAINTENANCE DUE: 5 sessions since last check.",
+		});
+		expect(prompt).toContain("MAINTENANCE DUE: 5 sessions since last check.");
+	});
+
+	test("does not include maintenance section when undefined", () => {
+		const prompt = assembleSystemPrompt(baseOpts);
+		expect(prompt).not.toContain("MAINTENANCE DUE");
+	});
+});
+
+describe("assembleSystemPrompt with inventorySummary", () => {
+	test("includes inventory summary when provided", () => {
+		const prompt = assembleSystemPrompt({
+			...baseOpts,
+			inventorySummary:
+				"Capability inventory (auto-generated)\nTools (3 built-in): run_command, load_skill, reload_tools",
+		});
+		expect(prompt).toContain("Capability inventory (auto-generated)");
+		expect(prompt).toContain("Tools (3 built-in)");
+	});
+
+	test("does not include inventory section when undefined", () => {
+		const prompt = assembleSystemPrompt(baseOpts);
+		expect(prompt).not.toContain("Capability inventory");
+	});
+});
+
+describe("assembleSystemPrompt with bmoSource", () => {
+	test("includes BMO_SOURCE in environment when provided", () => {
+		const prompt = assembleSystemPrompt({
+			...baseOpts,
+			bmoSource: "/home/user/src/bmo",
+		});
+		expect(prompt).toContain("BMO_SOURCE: /home/user/src/bmo");
+	});
+
+	test("does not include BMO_SOURCE environment line when undefined", () => {
+		const prompt = assembleSystemPrompt(baseOpts);
+		expect(prompt).not.toContain("- BMO_SOURCE:");
 	});
 });

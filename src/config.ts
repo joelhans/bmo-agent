@@ -101,6 +101,13 @@ function deepMerge<T extends Record<string, unknown>>(target: T, source: Record<
 }
 
 /**
+ * Save config.json to data dir.
+ */
+export async function saveConfig(paths: ResolvedPaths, config: BmoConfig): Promise<void> {
+	await writeFile(paths.configFile, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
+}
+
+/**
  * Load config.json from data dir. If missing, create with defaults.
  * If present, deep-merge user values over defaults so new fields
  * always have defaults even with an older config file.

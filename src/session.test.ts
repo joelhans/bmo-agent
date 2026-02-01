@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { SessionData } from "./session.ts";
+import type { LearningEvent, SessionData } from "./session.ts";
 import { formatSessionList, listSessions, loadSession, saveSession } from "./session.ts";
 
 function makeSession(overrides: Partial<SessionData> = {}): SessionData {
@@ -100,6 +100,36 @@ describe("loadSession", () => {
 		await saveSession(tempDir, session);
 		const loaded = await loadSession(tempDir, session.id);
 		expect(loaded?.reflection).toBeNull();
+	});
+
+	test("preserves learningEvents when present", async () => {
+		const events: LearningEvent[] = [
+			{
+				timestamp: "2026-02-01T12:00:00.000Z",
+				type: "correction",
+				description: "User corrected file path",
+				context: "Was using /tmp instead of /var/tmp",
+			},
+			{
+				timestamp: "2026-02-01T12:05:00.000Z",
+				type: "preference",
+				description: "User prefers tabs over spaces",
+				context: "Formatting discussion",
+			},
+		];
+		const session = makeSession({ learningEvents: events });
+		await saveSession(tempDir, session);
+		const loaded = await loadSession(tempDir, session.id);
+		expect(loaded?.learningEvents).toHaveLength(2);
+		expect(loaded?.learningEvents?.[0].type).toBe("correction");
+		expect(loaded?.learningEvents?.[1].type).toBe("preference");
+	});
+
+	test("handles sessions without learningEvents (backward compat)", async () => {
+		const session = makeSession();
+		await saveSession(tempDir, session);
+		const loaded = await loadSession(tempDir, session.id);
+		expect(loaded?.learningEvents).toBeUndefined();
 	});
 });
 

@@ -6,6 +6,13 @@ import type { ChatMessage } from "./llm.ts";
 // Types
 // ---------------------------------------------------------------------------
 
+export interface LearningEvent {
+	timestamp: string;
+	type: "correction" | "preference" | "pattern";
+	description: string;
+	context: string;
+}
+
 export interface SessionData {
 	id: string;
 	startedAt: string;
@@ -19,6 +26,7 @@ export interface SessionData {
 		totalCost: number;
 	};
 	reflection: string | null;
+	learningEvents?: LearningEvent[];
 }
 
 export interface SessionSummary {
