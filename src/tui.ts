@@ -13,8 +13,11 @@ import type { BmoConfig } from "./config.ts";
 import { createSessionTracker, truncateToFit } from "./context.ts";
 import type { ChatMessage, LlmClient } from "./llm.ts";
 import type { Logger } from "./logger.ts";
+import type { ResolvedPaths } from "./paths.ts";
+import { assembleSystemPrompt } from "./prompt.ts";
 import type { SessionData } from "./session.ts";
 import { saveSession } from "./session.ts";
+import { selectTier } from "./tiering.ts";
 
 // ---------------------------------------------------------------------------
 // ANSI color helpers (no chalk dependency)
@@ -47,8 +50,6 @@ const editorTheme = {
 // ---------------------------------------------------------------------------
 
 const MAX_MESSAGES = 500;
-
-const SYSTEM_PROMPT = "You are bmo, a fast and pragmatic coding assistant. Be concise and helpful.";
 
 class ChatView extends Container implements Focusable {
 	private editor: Editor;
@@ -170,11 +171,12 @@ export interface StartTuiOptions {
 	sessionId: string;
 	llm: LlmClient;
 	sessionsDir: string;
+	paths: ResolvedPaths;
 	resumedSession?: SessionData;
 }
 
 export function startTui(opts: StartTuiOptions): void {
-	const { config, logger, sessionId, llm, sessionsDir, resumedSession } = opts;
+	const { config, logger, sessionId, llm, sessionsDir, paths, resumedSession } = opts;
 
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
@@ -183,11 +185,14 @@ export function startTui(opts: StartTuiOptions): void {
 	tui.addChild(chatView);
 	tui.setFocus(chatView as unknown as Component);
 
+	const systemPrompt = assembleSystemPrompt(paths.bmoHome, paths.dataDir, process.cwd());
 	const messages: ChatMessage[] = resumedSession
 		? [...resumedSession.messages]
-		: [{ role: "system", content: SYSTEM_PROMPT }];
+		: [{ role: "system", content: systemPrompt }];
 	const session = createSessionTracker(resumedSession?.usage);
 	const sessionStartedAt = resumedSession?.startedAt ?? new Date().toISOString();
+	let lastResponseWasError = false;
+	let lastUsedModel = config.models.coding;
 
 	if (resumedSession) {
 		for (const msg of resumedSession.messages) {
@@ -200,7 +205,7 @@ export function startTui(opts: StartTuiOptions): void {
 	}
 
 	function defaultStatus(): string {
-		return session.formatStatus(sessionId, config.context.coding.maxTokens, config.cost.sessionLimit);
+		return session.formatStatus(sessionId, lastUsedModel, config.context.coding.maxTokens, config.cost.sessionLimit);
 	}
 
 	function buildSessionData(reflection: string | null): SessionData {
@@ -210,7 +215,7 @@ export function startTui(opts: StartTuiOptions): void {
 			startedAt: sessionStartedAt,
 			lastActiveAt: new Date().toISOString(),
 			workingDirectory: process.cwd(),
-			model: config.models.coding,
+			model: lastUsedModel,
 			messages,
 			usage: {
 				totalPromptTokens: stats.totalPromptTokens,
@@ -230,12 +235,18 @@ export function startTui(opts: StartTuiOptions): void {
 			return;
 		}
 
+		const tier = selectTier({ userMessage: message, lastResponseWasError });
+		const model = config.models[tier];
+		const ctx = config.context[tier];
+		lastUsedModel = model;
+		logger.info(`tier: ${tier} → ${model}`);
+
 		messages.push({ role: "user", content: message });
 		chatView.addMessage("user", message);
 		chatView.setInputEnabled(false);
 		chatView.setStatus(`${defaultStatus()} | thinking...`);
 
-		const dropped = truncateToFit(messages, config.context.coding.maxTokens, config.context.coding.responseHeadroom);
+		const dropped = truncateToFit(messages, ctx.maxTokens, ctx.responseHeadroom);
 		if (dropped > 0) {
 			logger.info(`context: dropped ${dropped} messages to fit within token budget`);
 		}
@@ -244,12 +255,12 @@ export function startTui(opts: StartTuiOptions): void {
 		let fullResponse = "";
 
 		try {
-			for await (const event of llm.stream(messages, config.models.coding)) {
+			for await (const event of llm.stream(messages, model)) {
 				if (event.type === "text") {
 					fullResponse += event.text;
 					chatView.appendToAssistantMessage(event.text);
 				} else if (event.type === "usage") {
-					session.recordUsage(config.models.coding, event.promptTokens, event.completionTokens);
+					session.recordUsage(model, event.promptTokens, event.completionTokens);
 					logger.info(
 						`tokens: prompt=${event.promptTokens} completion=${event.completionTokens}` +
 							` cost=$${session.getStats().totalCost.toFixed(4)}`,
@@ -259,10 +270,12 @@ export function startTui(opts: StartTuiOptions): void {
 
 			messages.push({ role: "assistant", content: fullResponse });
 			logger.info(`assistant: ${fullResponse.slice(0, 200)}${fullResponse.length > 200 ? "..." : ""}`);
+			lastResponseWasError = false;
 		} catch (err: unknown) {
 			const errorMessage = err instanceof Error ? err.message : String(err);
 			logger.error(`LLM error: ${errorMessage}`);
 			chatView.addMessage("system", `Error: ${errorMessage}`);
+			lastResponseWasError = true;
 		} finally {
 			chatView.setInputEnabled(true);
 			chatView.setStatus(defaultStatus());

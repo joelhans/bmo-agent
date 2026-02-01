@@ -149,9 +149,10 @@ describe("createSessionTracker", () => {
 	test("formatStatus produces expected format", () => {
 		const tracker = createSessionTracker();
 		tracker.recordUsage("openai/gpt-4o", 1200, 300);
-		const status = tracker.formatStatus("abc123", 200_000, 2.0);
+		const status = tracker.formatStatus("abc123", "openai/gpt-4o-mini", 200_000, 2.0);
 		expect(status).toContain("bmo v0.1.0");
 		expect(status).toContain("session: abc123");
+		expect(status).toContain("openai/gpt-4o-mini");
 		expect(status).toContain("tokens:");
 		expect(status).toContain("$");
 		expect(status).toContain("/$2.00");

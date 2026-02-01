@@ -70,7 +70,7 @@ async function main(): Promise<void> {
 		logger.info(`resuming session ${cliArgs.resumeSessionId}`);
 	}
 
-	startTui({ config, logger, sessionId, llm, sessionsDir: paths.sessionsDir, resumedSession });
+	startTui({ config, logger, sessionId, llm, sessionsDir: paths.sessionsDir, paths, resumedSession });
 }
 
 main().catch((err) => {

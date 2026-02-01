@@ -47,7 +47,7 @@ export const DEFAULT_CONFIG: BmoConfig = {
 	},
 	models: {
 		reasoning: "openai/gpt-4o",
-		coding: "openai/gpt-4o",
+		coding: "openai/gpt-4o-mini",
 	},
 	context: {
 		reasoning: { maxTokens: 200_000, responseHeadroom: 8192 },
