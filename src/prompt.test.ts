@@ -55,8 +55,18 @@ describe("assembleSystemPrompt", () => {
 	});
 
 	test("includes self-improvement tool creation instructions", () => {
-		expect(prompt).toContain("Write an .mjs module to bmo://tools/");
+		expect(prompt).toContain("Write an .mjs module to BMO_HOME/tools/");
 		expect(prompt).toContain("reload_tools");
+	});
+
+	test("instructs calling tools directly by name after reload", () => {
+		expect(prompt).toContain("calling the tool DIRECTLY BY NAME");
+		expect(prompt).toContain("NOT via run_command");
+	});
+
+	test("clarifies bmo:// is not a shell-resolvable path", () => {
+		expect(prompt).toContain("shell does NOT understand bmo://");
+		expect(prompt).toContain("always use the absolute BMO_HOME path");
 	});
 
 	test("includes self-improvement loop content", () => {
