@@ -16,6 +16,7 @@ import type { ChatMessage, LlmClient } from "./llm.ts";
 import type { Logger } from "./logger.ts";
 import type { ResolvedPaths } from "./paths.ts";
 import { assembleSystemPrompt } from "./prompt.ts";
+import type { SandboxConfig } from "./sandbox.ts";
 import type { SessionData } from "./session.ts";
 import { saveSession } from "./session.ts";
 import { createLoadSkillTool, createSkillsRegistry } from "./skills.ts";
@@ -209,15 +210,26 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	const registry = createToolRegistry();
 	registry.register(createRunCommandTool(config), { builtin: true });
 
+	// Sandbox config for dynamic tool execution
+	const sandboxConfig: SandboxConfig = {
+		defaultTimeoutMs: config.sandbox.defaultTimeoutMs,
+		memoryLimitMb: config.sandbox.memoryLimitMb,
+		outputLimitBytes: config.sandbox.outputLimitBytes,
+		projectDir: process.cwd(),
+		bmoHome: paths.bmoHome,
+	};
+
 	// Skills registry
 	const skillsRegistry = createSkillsRegistry(paths.skillsDir);
 
 	// Built-in tools: load_skill and reload_tools
 	registry.register(createLoadSkillTool(skillsRegistry), { builtin: true });
-	registry.register(createReloadToolsTool(paths.toolsDir, registry, skillsRegistry), { builtin: true });
+	registry.register(createReloadToolsTool(paths.toolsDir, registry, skillsRegistry, sandboxConfig), {
+		builtin: true,
+	});
 
 	// Initial tool/skill scan
-	const loadResult = await initialLoad(paths.toolsDir, registry, skillsRegistry);
+	const loadResult = await initialLoad(paths.toolsDir, registry, skillsRegistry, sandboxConfig);
 	const loadSummary = formatLoadResult(loadResult, skillsRegistry.list().length);
 	logger.info(`Initial tool load: ${loadSummary}`);
 
@@ -357,7 +369,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	chatView.onReload = () => {
 		chatView.addMessage("system", "Reloading tools and skills...");
 		registry.clearDynamic();
-		initialLoad(paths.toolsDir, registry, skillsRegistry)
+		initialLoad(paths.toolsDir, registry, skillsRegistry, sandboxConfig)
 			.then((result) => {
 				const summary = formatLoadResult(result, skillsRegistry.list().length);
 				rebuildSystemPrompt();

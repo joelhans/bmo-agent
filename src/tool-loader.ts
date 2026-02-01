@@ -1,5 +1,6 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { executeSandboxed, resolveCapabilities, type SandboxConfig, type ToolCapabilities } from "./sandbox.ts";
 import type { SkillsRegistry } from "./skills.ts";
 import type { ToolDefinition, ToolRegistry, ToolResult } from "./tools.ts";
 
@@ -12,6 +13,7 @@ interface ModuleToolExports {
 	description?: string;
 	run: (args: Record<string, unknown>) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
 	requires?: string[];
+	capabilities?: Partial<ToolCapabilities>;
 }
 
 // ---------------------------------------------------------------------------
@@ -29,6 +31,12 @@ async function isAvailable(binary: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
+// Resolve sandbox runner path
+// ---------------------------------------------------------------------------
+
+const RUNNER_PATH = join(import.meta.dir, "sandbox-runner.ts");
+
+// ---------------------------------------------------------------------------
 // Dynamic tool loading
 // ---------------------------------------------------------------------------
 
@@ -41,8 +49,13 @@ export interface LoadResult {
 /**
  * Scan toolsDir for *.mjs files, dynamically import each, validate exports,
  * check dependencies, and register as ToolDefinitions in the registry.
+ * Dynamic tools execute in a sandboxed subprocess.
  */
-export async function loadDynamicTools(toolsDir: string, registry: ToolRegistry): Promise<LoadResult> {
+export async function loadDynamicTools(
+	toolsDir: string,
+	registry: ToolRegistry,
+	sandboxConfig: SandboxConfig,
+): Promise<LoadResult> {
 	const result: LoadResult = { loaded: [], unavailable: [], errors: [] };
 
 	let entries: string[];
@@ -91,28 +104,14 @@ export async function loadDynamicTools(toolsDir: string, registry: ToolRegistry)
 			}
 
 			const description = typeof mod.description === "string" ? mod.description : `Dynamic tool: ${toolName}`;
+			const caps = resolveCapabilities(mod.capabilities);
 
-			const runFn = mod.run;
 			const tool: ToolDefinition = {
 				name: toolName,
 				description,
 				parameters: mod.schema,
 				async execute(args): Promise<ToolResult> {
-					try {
-						const res = await runFn(args);
-						if (res.ok) {
-							return {
-								output: typeof res.result === "string" ? res.result : JSON.stringify(res.result, null, 2),
-							};
-						}
-						return {
-							output: res.error ?? "Tool returned ok: false with no error message",
-							isError: true,
-						};
-					} catch (err: unknown) {
-						const msg = err instanceof Error ? err.message : String(err);
-						return { output: `Tool execution error: ${msg}`, isError: true };
-					}
+					return executeSandboxed(filePath, args, caps, sandboxConfig, RUNNER_PATH);
 				},
 			};
 
@@ -160,6 +159,7 @@ export function createReloadToolsTool(
 	toolsDir: string,
 	registry: ToolRegistry,
 	skillsRegistry: SkillsRegistry,
+	sandboxConfig: SandboxConfig,
 ): ToolDefinition {
 	return {
 		name: "reload_tools",
@@ -173,7 +173,7 @@ export function createReloadToolsTool(
 		},
 		async execute(): Promise<ToolResult> {
 			registry.clearDynamic();
-			const loadResult = await loadDynamicTools(toolsDir, registry);
+			const loadResult = await loadDynamicTools(toolsDir, registry, sandboxConfig);
 			await skillsRegistry.scan();
 			const skillCount = skillsRegistry.list().length;
 			const summary = formatLoadResult(loadResult, skillCount);
@@ -190,7 +190,8 @@ export async function initialLoad(
 	toolsDir: string,
 	registry: ToolRegistry,
 	skillsRegistry: SkillsRegistry,
+	sandboxConfig: SandboxConfig,
 ): Promise<LoadResult> {
 	await skillsRegistry.scan();
-	return loadDynamicTools(toolsDir, registry);
+	return loadDynamicTools(toolsDir, registry, sandboxConfig);
 }

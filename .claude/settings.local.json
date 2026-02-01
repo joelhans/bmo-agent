@@ -15,7 +15,8 @@
       "Bash(git -C /var/home/joel/src/bmo-agent-v2 log --oneline -5)",
       "Bash(git -C /var/home/joel/src/bmo-agent-v2 add -A)",
       "Bash(git -C /var/home/joel/src/bmo-agent-v2 commit -m \"$\\(cat <<''EOF''\nPhase 0: project scaffold with path resolution, config, and runtime banner\n\n- package.json with bun scripts \\(dev, build, test, lint\\)\n- TypeScript config \\(bun-recommended, strict\\)\n- Biome for linting and formatting\n- Path resolution: BMO_HOME, BMO_DATA env vars with fallbacks\n- config.json: load from data dir, deep-merge over defaults, create on first run\n- Micro-batched session logger\n- Runtime banner showing resolved paths, model names, gateway URL\n- Tests for path resolution\n- Empty tools/ and skills/ directories for Phase 3+\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git -C /var/home/joel/src/bmo-agent-v2 status)"
+      "Bash(git -C /var/home/joel/src/bmo-agent-v2 status)",
+      "Bash(ls:*)"
     ]
   }
 }

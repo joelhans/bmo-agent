@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { SandboxConfig } from "./sandbox.ts";
 import { createSkillsRegistry } from "./skills.ts";
 import { createReloadToolsTool, formatLoadResult, initialLoad, loadDynamicTools } from "./tool-loader.ts";
 import { createToolRegistry } from "./tools.ts";
@@ -11,6 +12,14 @@ import { createToolRegistry } from "./tools.ts";
 
 const tmpToolsDir = join(import.meta.dir, "..", ".test-tools-tmp");
 const tmpSkillsDir = join(import.meta.dir, "..", ".test-skills-loader-tmp");
+
+const sandboxConfig: SandboxConfig = {
+	defaultTimeoutMs: 5000,
+	memoryLimitMb: 256,
+	outputLimitBytes: 1_048_576,
+	projectDir: tmpToolsDir,
+	bmoHome: tmpToolsDir,
+};
 
 beforeAll(async () => {
 	await mkdir(tmpToolsDir, { recursive: true });
@@ -74,6 +83,19 @@ export async function run() {
 `,
 	);
 
+	// Tool with capabilities declared
+	await writeFile(
+		join(tmpToolsDir, "caps_tool.mjs"),
+		`
+export const schema = { type: "object", properties: {} };
+export const description = "Tool with capabilities";
+export const capabilities = { network: true, env: true };
+export async function run() {
+	return { ok: true, result: "has caps" };
+}
+`,
+	);
+
 	// Not a .mjs file (should be skipped)
 	await writeFile(join(tmpToolsDir, "readme.txt"), "Not a tool module.");
 
@@ -101,7 +123,7 @@ afterAll(async () => {
 describe("loadDynamicTools", () => {
 	test("loads valid .mjs tool module", async () => {
 		const registry = createToolRegistry();
-		const result = await loadDynamicTools(tmpToolsDir, registry);
+		const result = await loadDynamicTools(tmpToolsDir, registry, sandboxConfig);
 		expect(result.loaded).toContain("echo_test");
 		expect(registry.get("echo_test")).toBeDefined();
 		expect(registry.get("echo_test")?.description).toBe("Echoes text back");
@@ -109,7 +131,7 @@ describe("loadDynamicTools", () => {
 
 	test("reports error for module missing schema", async () => {
 		const registry = createToolRegistry();
-		const result = await loadDynamicTools(tmpToolsDir, registry);
+		const result = await loadDynamicTools(tmpToolsDir, registry, sandboxConfig);
 		const error = result.errors.find((e) => e.name === "no_schema");
 		expect(error).toBeDefined();
 		expect(error?.error).toContain("schema");
@@ -117,7 +139,7 @@ describe("loadDynamicTools", () => {
 
 	test("reports error for module missing run", async () => {
 		const registry = createToolRegistry();
-		const result = await loadDynamicTools(tmpToolsDir, registry);
+		const result = await loadDynamicTools(tmpToolsDir, registry, sandboxConfig);
 		const error = result.errors.find((e) => e.name === "no_run");
 		expect(error).toBeDefined();
 		expect(error?.error).toContain("run");
@@ -125,7 +147,7 @@ describe("loadDynamicTools", () => {
 
 	test("reports unavailable for module with unmet requires", async () => {
 		const registry = createToolRegistry();
-		const result = await loadDynamicTools(tmpToolsDir, registry);
+		const result = await loadDynamicTools(tmpToolsDir, registry, sandboxConfig);
 		const unavail = result.unavailable.find((u) => u.name === "needs_dep");
 		expect(unavail).toBeDefined();
 		expect(unavail?.reason).toContain("nonexistent_binary_xyz_999");
@@ -133,37 +155,44 @@ describe("loadDynamicTools", () => {
 
 	test("skips non-.mjs files", async () => {
 		const registry = createToolRegistry();
-		const result = await loadDynamicTools(tmpToolsDir, registry);
+		const result = await loadDynamicTools(tmpToolsDir, registry, sandboxConfig);
 		const allNames = [...result.loaded, ...result.errors.map((e) => e.name), ...result.unavailable.map((u) => u.name)];
 		expect(allNames).not.toContain("readme");
 	});
 
 	test("handles missing tools directory gracefully", async () => {
 		const registry = createToolRegistry();
-		const result = await loadDynamicTools("/nonexistent/path", registry);
+		const result = await loadDynamicTools("/nonexistent/path", registry, sandboxConfig);
 		expect(result.loaded).toEqual([]);
 		expect(result.errors).toEqual([]);
 		expect(result.unavailable).toEqual([]);
 	});
 
-	test("loaded tool execute wraps run() correctly for ok: true", async () => {
+	test("loaded tool execute runs in sandbox for ok: true", async () => {
 		const registry = createToolRegistry();
-		await loadDynamicTools(tmpToolsDir, registry);
+		await loadDynamicTools(tmpToolsDir, registry, sandboxConfig);
 		const tool = registry.get("echo_test");
 		expect(tool).toBeDefined();
 		const result = await tool?.execute({ text: "hello" });
-		expect(result.output).toBe("echoed: hello");
-		expect(result.isError).toBeFalsy();
+		expect(result?.output).toBe("echoed: hello");
+		expect(result?.isError).toBeFalsy();
 	});
 
-	test("loaded tool execute wraps run() correctly for ok: false", async () => {
+	test("loaded tool execute runs in sandbox for ok: false", async () => {
 		const registry = createToolRegistry();
-		await loadDynamicTools(tmpToolsDir, registry);
+		await loadDynamicTools(tmpToolsDir, registry, sandboxConfig);
 		const tool = registry.get("failing_tool");
 		expect(tool).toBeDefined();
 		const result = await tool?.execute({});
-		expect(result.output).toBe("intentional failure");
-		expect(result.isError).toBe(true);
+		expect(result?.output).toBe("intentional failure");
+		expect(result?.isError).toBe(true);
+	});
+
+	test("loads tool with capabilities export", async () => {
+		const registry = createToolRegistry();
+		const result = await loadDynamicTools(tmpToolsDir, registry, sandboxConfig);
+		expect(result.loaded).toContain("caps_tool");
+		expect(registry.get("caps_tool")?.description).toBe("Tool with capabilities");
 	});
 });
 
@@ -223,11 +252,11 @@ describe("createReloadToolsTool", () => {
 		);
 
 		// Load dynamic tools
-		await loadDynamicTools(tmpToolsDir, registry);
+		await loadDynamicTools(tmpToolsDir, registry, sandboxConfig);
 		expect(registry.get("echo_test")).toBeDefined();
 
 		// Create reload tool and execute
-		const reloadTool = createReloadToolsTool(tmpToolsDir, registry, skillsRegistry);
+		const reloadTool = createReloadToolsTool(tmpToolsDir, registry, skillsRegistry, sandboxConfig);
 		const result = await reloadTool.execute({});
 
 		// Built-in should survive
@@ -249,7 +278,7 @@ describe("initialLoad", () => {
 		const registry = createToolRegistry();
 		const skillsRegistry = createSkillsRegistry(tmpSkillsDir);
 
-		const result = await initialLoad(tmpToolsDir, registry, skillsRegistry);
+		const result = await initialLoad(tmpToolsDir, registry, skillsRegistry, sandboxConfig);
 
 		expect(result.loaded).toContain("echo_test");
 		expect(skillsRegistry.list()).toHaveLength(1);
