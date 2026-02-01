@@ -38,7 +38,14 @@ const DEFAULT_PRICING: ModelPricing = { promptPer1M: 15.0, completionPer1M: 75.0
  * Intentionally overestimates — safer to truncate early than hit API limits.
  */
 export function estimateTokens(message: ChatMessage): number {
-	return Math.ceil(message.content.length / 3.5) + 4;
+	let chars = (message.content ?? "").length;
+	if (message.tool_calls) {
+		chars += JSON.stringify(message.tool_calls).length;
+	}
+	if (message.tool_call_id) {
+		chars += message.tool_call_id.length;
+	}
+	return Math.ceil(chars / 3.5) + 4;
 }
 
 /**
@@ -69,12 +76,33 @@ export function truncateToFit(messages: ChatMessage[], maxTokens: number, respon
 	let dropped = 0;
 
 	while (messages.length > 1 && estimateTokensForMessages(messages) > budget) {
+		const msg = messages[1];
+
+		// Drop orphan tool result messages
+		if (msg.role === "tool") {
+			messages.splice(1, 1);
+			dropped++;
+			continue;
+		}
+
+		// Drop assistant messages with tool_calls as a group
+		// (assistant + all following tool result messages)
+		if (msg.role === "assistant" && msg.tool_calls) {
+			messages.splice(1, 1);
+			dropped++;
+			while (messages.length > 1 && messages[1].role === "tool") {
+				messages.splice(1, 1);
+				dropped++;
+			}
+			continue;
+		}
+
+		// Standard drop: remove message at index 1
 		messages.splice(1, 1);
 		dropped++;
 
-		// If the next non-system message is an assistant reply to the one
-		// we just removed, drop it too to keep pairs together.
-		if (messages.length > 1 && messages[1].role === "assistant") {
+		// If the next non-system message is an assistant reply, drop it too
+		if (messages.length > 1 && messages[1].role === "assistant" && !messages[1].tool_calls) {
 			messages.splice(1, 1);
 			dropped++;
 		}

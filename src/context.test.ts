@@ -23,6 +23,27 @@ describe("estimateTokens", () => {
 		// 350 chars → ceil(350 / 3.5) + 4 = 100 + 4 = 104
 		expect(estimateTokens({ role: "user", content })).toBe(104);
 	});
+
+	test("handles null content", () => {
+		expect(estimateTokens({ role: "assistant", content: null })).toBe(4);
+	});
+
+	test("includes tool_calls in estimate", () => {
+		const msg: ChatMessage = {
+			role: "assistant",
+			content: null,
+			tool_calls: [{ id: "call_1", function: { name: "run_command", arguments: '{"command":"ls"}' } }],
+		};
+		const estimate = estimateTokens(msg);
+		expect(estimate).toBeGreaterThan(4);
+	});
+
+	test("includes tool_call_id in estimate", () => {
+		const msg: ChatMessage = { role: "tool", content: "output", tool_call_id: "call_1" };
+		const withId = estimateTokens(msg);
+		const without = estimateTokens({ role: "tool", content: "output" });
+		expect(withId).toBeGreaterThan(without);
+	});
 });
 
 describe("estimateTokensForMessages", () => {
@@ -76,6 +97,44 @@ describe("truncateToFit", () => {
 		const msgs: ChatMessage[] = [
 			{ role: "system", content: "sys" },
 			{ role: "assistant", content: "a".repeat(2000) },
+			{ role: "user", content: "hi" },
+			{ role: "assistant", content: "yo" },
+		];
+		const dropped = truncateToFit(msgs, 200, 50);
+		expect(dropped).toBeGreaterThan(0);
+		expect(msgs[0].role).toBe("system");
+	});
+
+	test("drops tool-call group together", () => {
+		const msgs: ChatMessage[] = [
+			{ role: "system", content: "sys" },
+			{ role: "user", content: "a".repeat(500) },
+			{
+				role: "assistant",
+				content: null,
+				tool_calls: [{ id: "c1", function: { name: "run_command", arguments: `{"command":"${"x".repeat(500)}"}` } }],
+			},
+			{ role: "tool", content: "b".repeat(500), tool_call_id: "c1" },
+			{ role: "assistant", content: "done" },
+			{ role: "user", content: "ok" },
+			{ role: "assistant", content: "bye" },
+		];
+		const dropped = truncateToFit(msgs, 300, 50);
+		expect(dropped).toBeGreaterThan(0);
+		// No orphan tool messages should remain
+		expect(msgs[0].role).toBe("system");
+		for (let i = 1; i < msgs.length; i++) {
+			if (msgs[i].role === "tool") {
+				// If a tool message exists, the preceding message must have tool_calls
+				expect(msgs[i - 1].tool_calls).toBeDefined();
+			}
+		}
+	});
+
+	test("drops orphan tool message at index 1", () => {
+		const msgs: ChatMessage[] = [
+			{ role: "system", content: "sys" },
+			{ role: "tool", content: "a".repeat(2000), tool_call_id: "c1" },
 			{ role: "user", content: "hi" },
 			{ role: "assistant", content: "yo" },
 		];

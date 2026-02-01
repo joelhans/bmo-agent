@@ -9,8 +9,9 @@ import {
 	Text,
 	TUI,
 } from "@mariozechner/pi-tui";
+import { runAgentLoop } from "./agent-loop.ts";
 import type { BmoConfig } from "./config.ts";
-import { createSessionTracker, truncateToFit } from "./context.ts";
+import { createSessionTracker } from "./context.ts";
 import type { ChatMessage, LlmClient } from "./llm.ts";
 import type { Logger } from "./logger.ts";
 import type { ResolvedPaths } from "./paths.ts";
@@ -18,6 +19,7 @@ import { assembleSystemPrompt } from "./prompt.ts";
 import type { SessionData } from "./session.ts";
 import { saveSession } from "./session.ts";
 import { selectTier } from "./tiering.ts";
+import { createRunCommandTool, createToolRegistry, formatToolCallSummary } from "./tools.ts";
 
 // ---------------------------------------------------------------------------
 // ANSI color helpers (no chalk dependency)
@@ -101,7 +103,7 @@ class ChatView extends Container implements Focusable {
 			return;
 		}
 		if (matchesKey(data, Key.f5)) {
-			// Placeholder for reload_tools (Phase 3)
+			// Placeholder for reload_tools (Phase 3b)
 			return;
 		}
 		this.editor.handleInput(data);
@@ -136,6 +138,21 @@ class ChatView extends Container implements Focusable {
 		if (!this.currentMessage) return;
 		this.currentMessageText += text;
 		this.currentMessage.setText(this.currentMessageText);
+		this.tui.requestRender();
+	}
+
+	addToolCall(summary: string): void {
+		this.output.addChild(new Text(dim(`  [tool] ${summary}`), 1, 0));
+		this.messageCount++;
+		this.trimOutput();
+		this.tui.requestRender();
+	}
+
+	addToolResult(result: string, isError?: boolean): void {
+		const styled = isError ? red(result) : gray(result);
+		this.output.addChild(new Text(styled, 1, 0));
+		this.messageCount++;
+		this.trimOutput();
 		this.tui.requestRender();
 	}
 
@@ -185,6 +202,10 @@ export function startTui(opts: StartTuiOptions): void {
 	tui.addChild(chatView);
 	tui.setFocus(chatView as unknown as Component);
 
+	// Tool registry
+	const registry = createToolRegistry();
+	registry.register(createRunCommandTool(config));
+
 	const systemPrompt = assembleSystemPrompt(paths.bmoHome, paths.dataDir, process.cwd());
 	const messages: ChatMessage[] = resumedSession
 		? [...resumedSession.messages]
@@ -197,7 +218,18 @@ export function startTui(opts: StartTuiOptions): void {
 	if (resumedSession) {
 		for (const msg of resumedSession.messages) {
 			if (msg.role === "system") continue;
-			chatView.addMessage(msg.role, msg.content);
+			if (msg.role === "tool") {
+				chatView.addToolResult(msg.content ?? "");
+				continue;
+			}
+			if (msg.role === "assistant" && msg.tool_calls) {
+				for (const tc of msg.tool_calls) {
+					chatView.addToolCall(formatToolCallSummary(tc.function.name, tc.function.arguments));
+				}
+				if (msg.content) chatView.addMessage("assistant", msg.content);
+				continue;
+			}
+			chatView.addMessage(msg.role, msg.content ?? "");
 		}
 		chatView.addMessage("system", `Resumed session ${sessionId}`);
 	} else {
@@ -237,49 +269,26 @@ export function startTui(opts: StartTuiOptions): void {
 
 		const tier = selectTier({ userMessage: message, lastResponseWasError });
 		const model = config.models[tier];
-		const ctx = config.context[tier];
+		const contextConfig = config.context[tier];
 		lastUsedModel = model;
 		logger.info(`tier: ${tier} → ${model}`);
 
 		messages.push({ role: "user", content: message });
 		chatView.addMessage("user", message);
-		chatView.setInputEnabled(false);
-		chatView.setStatus(`${defaultStatus()} | thinking...`);
 
-		const dropped = truncateToFit(messages, ctx.maxTokens, ctx.responseHeadroom);
-		if (dropped > 0) {
-			logger.info(`context: dropped ${dropped} messages to fit within token budget`);
-		}
+		const result = await runAgentLoop({
+			logger,
+			llm,
+			registry,
+			messages,
+			session,
+			model,
+			contextConfig,
+			display: chatView,
+			defaultStatus: defaultStatus(),
+		});
 
-		chatView.beginAssistantMessage();
-		let fullResponse = "";
-
-		try {
-			for await (const event of llm.stream(messages, model)) {
-				if (event.type === "text") {
-					fullResponse += event.text;
-					chatView.appendToAssistantMessage(event.text);
-				} else if (event.type === "usage") {
-					session.recordUsage(model, event.promptTokens, event.completionTokens);
-					logger.info(
-						`tokens: prompt=${event.promptTokens} completion=${event.completionTokens}` +
-							` cost=$${session.getStats().totalCost.toFixed(4)}`,
-					);
-				}
-			}
-
-			messages.push({ role: "assistant", content: fullResponse });
-			logger.info(`assistant: ${fullResponse.slice(0, 200)}${fullResponse.length > 200 ? "..." : ""}`);
-			lastResponseWasError = false;
-		} catch (err: unknown) {
-			const errorMessage = err instanceof Error ? err.message : String(err);
-			logger.error(`LLM error: ${errorMessage}`);
-			chatView.addMessage("system", `Error: ${errorMessage}`);
-			lastResponseWasError = true;
-		} finally {
-			chatView.setInputEnabled(true);
-			chatView.setStatus(defaultStatus());
-		}
+		lastResponseWasError = result.lastResponseWasError;
 
 		// Auto-save after each assistant turn
 		try {

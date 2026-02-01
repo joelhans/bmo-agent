@@ -29,22 +29,3 @@ Example
 
 ---
 
-## Phase 2 Deferrals
-
-### Anthropic provider config entry
-- Date: 2026-02-01
-- Observation: No code changes needed for Anthropic support — ngrok AI gateway acts as OpenAI-compatible proxy. Just needs a config.json entry with the gateway URL and API key env var.
-- Recommendation: Document the config entry for users (provider name, baseUrl pointing at ngrok gateway, apiKeyEnv).
-- Impact: Low (works today via manual config edit)
-- Effort: S
-- Owner: human
-- Status: todo
-
-### Tier-aware context budget in status line
-- Date: 2026-02-01
-- Observation: `defaultStatus()` always shows `config.context.coding.maxTokens` regardless of which tier was last used. When reasoning tier is active, the displayed budget may not match the actual context limit.
-- Recommendation: Track the last-used tier's context config and pass it to `formatStatus`.
-- Impact: Low (cosmetic; coding tier is default and most common)
-- Effort: S
-- Owner: core
-- Status: todo
