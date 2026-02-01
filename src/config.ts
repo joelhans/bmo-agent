@@ -2,9 +2,14 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import type { ResolvedPaths } from "./paths.ts";
 
+export interface ProviderConfig {
+	baseUrl: string;
+	apiKeyEnv: string;
+}
+
 export interface BmoConfig {
-	gateway: {
-		baseUrl: string;
+	providers: {
+		[name: string]: ProviderConfig;
 	};
 	models: {
 		reasoning: string;
@@ -34,12 +39,15 @@ export interface BmoConfig {
 }
 
 export const DEFAULT_CONFIG: BmoConfig = {
-	gateway: {
-		baseUrl: "https://build-an-agent.ngrok.dev/",
+	providers: {
+		openai: {
+			baseUrl: "https://api.openai.com/v1",
+			apiKeyEnv: "OPENAI_API_KEY",
+		},
 	},
 	models: {
-		reasoning: "anthropic/claude-opus-4-5-20250514",
-		coding: "anthropic/claude-haiku-3-5-20250620",
+		reasoning: "openai/gpt-4o",
+		coding: "openai/gpt-4o",
 	},
 	context: {
 		reasoning: { maxTokens: 200_000, responseHeadroom: 8192 },

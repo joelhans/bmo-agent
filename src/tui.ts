@@ -10,7 +10,11 @@ import {
 	TUI,
 } from "@mariozechner/pi-tui";
 import type { BmoConfig } from "./config.ts";
+import { createSessionTracker, truncateToFit } from "./context.ts";
+import type { ChatMessage, LlmClient } from "./llm.ts";
 import type { Logger } from "./logger.ts";
+import type { SessionData } from "./session.ts";
+import { saveSession } from "./session.ts";
 
 // ---------------------------------------------------------------------------
 // ANSI color helpers (no chalk dependency)
@@ -44,12 +48,17 @@ const editorTheme = {
 
 const MAX_MESSAGES = 500;
 
+const SYSTEM_PROMPT = "You are bmo, a fast and pragmatic coding assistant. Be concise and helpful.";
+
 class ChatView extends Container implements Focusable {
 	private editor: Editor;
 	private output: Container;
 	private statusLine: Text;
 	private messageCount = 0;
 	private tui: TUI;
+
+	private currentMessage: Text | null = null;
+	private currentMessageText = "";
 
 	onExit?: () => void;
 	onSubmit?: (message: string) => void;
@@ -109,18 +118,40 @@ class ChatView extends Container implements Focusable {
 
 		this.output.addChild(new Text(styled, 1, 0));
 		this.messageCount++;
-
-		while (this.messageCount > MAX_MESSAGES && this.output.children.length > 0) {
-			this.output.removeChild(this.output.children[0]);
-			this.messageCount--;
-		}
-
+		this.trimOutput();
 		this.tui.requestRender();
+	}
+
+	beginAssistantMessage(): void {
+		this.currentMessageText = "";
+		this.currentMessage = new Text("", 1, 0);
+		this.output.addChild(this.currentMessage);
+		this.messageCount++;
+		this.trimOutput();
+		this.tui.requestRender();
+	}
+
+	appendToAssistantMessage(text: string): void {
+		if (!this.currentMessage) return;
+		this.currentMessageText += text;
+		this.currentMessage.setText(this.currentMessageText);
+		this.tui.requestRender();
+	}
+
+	setInputEnabled(enabled: boolean): void {
+		this.editor.disableSubmit = !enabled;
 	}
 
 	setStatus(text: string): void {
 		this.statusLine.setText(dim(text));
 		this.tui.requestRender();
+	}
+
+	private trimOutput(): void {
+		while (this.messageCount > MAX_MESSAGES && this.output.children.length > 0) {
+			this.output.removeChild(this.output.children[0]);
+			this.messageCount--;
+		}
 	}
 }
 
@@ -128,7 +159,23 @@ class ChatView extends Container implements Focusable {
 // startTui — wire everything up and start the TUI event loop
 // ---------------------------------------------------------------------------
 
-export function startTui(_config: BmoConfig, logger: Logger, sessionId: string): void {
+const REFLECTION_PROMPT =
+	"Write a brief reflection on this conversation (3-5 sentences). " +
+	"What was the user's task? What went well? What was slow, awkward, or failed? " +
+	"What would you do differently next time?";
+
+export interface StartTuiOptions {
+	config: BmoConfig;
+	logger: Logger;
+	sessionId: string;
+	llm: LlmClient;
+	sessionsDir: string;
+	resumedSession?: SessionData;
+}
+
+export function startTui(opts: StartTuiOptions): void {
+	const { config, logger, sessionId, llm, sessionsDir, resumedSession } = opts;
+
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
 
@@ -136,16 +183,146 @@ export function startTui(_config: BmoConfig, logger: Logger, sessionId: string):
 	tui.addChild(chatView);
 	tui.setFocus(chatView as unknown as Component);
 
-	chatView.addMessage("system", "bmo v0.1.0 — type a message and press Enter. Ctrl+C to exit.");
+	const messages: ChatMessage[] = resumedSession
+		? [...resumedSession.messages]
+		: [{ role: "system", content: SYSTEM_PROMPT }];
+	const session = createSessionTracker(resumedSession?.usage);
+	const sessionStartedAt = resumedSession?.startedAt ?? new Date().toISOString();
+
+	if (resumedSession) {
+		for (const msg of resumedSession.messages) {
+			if (msg.role === "system") continue;
+			chatView.addMessage(msg.role, msg.content);
+		}
+		chatView.addMessage("system", `Resumed session ${sessionId}`);
+	} else {
+		chatView.addMessage("system", "bmo v0.1.0 — type a message and press Enter. Ctrl+C to exit.");
+	}
+
+	function defaultStatus(): string {
+		return session.formatStatus(sessionId, config.context.coding.maxTokens, config.cost.sessionLimit);
+	}
+
+	function buildSessionData(reflection: string | null): SessionData {
+		const stats = session.getStats();
+		return {
+			id: sessionId,
+			startedAt: sessionStartedAt,
+			lastActiveAt: new Date().toISOString(),
+			workingDirectory: process.cwd(),
+			model: config.models.coding,
+			messages,
+			usage: {
+				totalPromptTokens: stats.totalPromptTokens,
+				totalCompletionTokens: stats.totalCompletionTokens,
+				totalCost: stats.totalCost,
+			},
+			reflection: reflection ?? resumedSession?.reflection ?? null,
+		};
+	}
+
+	async function handleUserMessage(message: string): Promise<void> {
+		logger.info(`user: ${message}`);
+
+		if (session.isOverBudget(config.cost.sessionLimit)) {
+			const limit = config.cost.sessionLimit.toFixed(2);
+			chatView.addMessage("system", `Session cost limit reached ($${limit}). Start a new session.`);
+			return;
+		}
+
+		messages.push({ role: "user", content: message });
+		chatView.addMessage("user", message);
+		chatView.setInputEnabled(false);
+		chatView.setStatus(`${defaultStatus()} | thinking...`);
+
+		const dropped = truncateToFit(messages, config.context.coding.maxTokens, config.context.coding.responseHeadroom);
+		if (dropped > 0) {
+			logger.info(`context: dropped ${dropped} messages to fit within token budget`);
+		}
+
+		chatView.beginAssistantMessage();
+		let fullResponse = "";
+
+		try {
+			for await (const event of llm.stream(messages, config.models.coding)) {
+				if (event.type === "text") {
+					fullResponse += event.text;
+					chatView.appendToAssistantMessage(event.text);
+				} else if (event.type === "usage") {
+					session.recordUsage(config.models.coding, event.promptTokens, event.completionTokens);
+					logger.info(
+						`tokens: prompt=${event.promptTokens} completion=${event.completionTokens}` +
+							` cost=$${session.getStats().totalCost.toFixed(4)}`,
+					);
+				}
+			}
+
+			messages.push({ role: "assistant", content: fullResponse });
+			logger.info(`assistant: ${fullResponse.slice(0, 200)}${fullResponse.length > 200 ? "..." : ""}`);
+		} catch (err: unknown) {
+			const errorMessage = err instanceof Error ? err.message : String(err);
+			logger.error(`LLM error: ${errorMessage}`);
+			chatView.addMessage("system", `Error: ${errorMessage}`);
+		} finally {
+			chatView.setInputEnabled(true);
+			chatView.setStatus(defaultStatus());
+		}
+
+		// Auto-save after each assistant turn
+		try {
+			await saveSession(sessionsDir, buildSessionData(null));
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : String(err);
+			logger.error(`Failed to save session: ${msg}`);
+		}
+	}
 
 	chatView.onSubmit = (message: string) => {
-		logger.info(`user: ${message}`);
-		chatView.addMessage("user", message);
-		chatView.addMessage("assistant", message);
+		handleUserMessage(message).catch((err) => {
+			logger.error(`Unhandled error: ${err}`);
+		});
 	};
 
 	chatView.onExit = async () => {
 		logger.info("session ended by user");
+
+		const hasUserMessages = messages.some((m) => m.role === "user");
+		let reflection: string | null = null;
+
+		if (hasUserMessages) {
+			chatView.setStatus("Reflecting...");
+			chatView.setInputEnabled(false);
+
+			try {
+				const reflectionMessages: ChatMessage[] = [...messages, { role: "user", content: REFLECTION_PROMPT }];
+				chatView.beginAssistantMessage();
+				let reflectionText = "";
+
+				for await (const event of llm.stream(reflectionMessages, config.models.coding)) {
+					if (event.type === "text") {
+						reflectionText += event.text;
+						chatView.appendToAssistantMessage(event.text);
+					} else if (event.type === "usage") {
+						session.recordUsage(config.models.coding, event.promptTokens, event.completionTokens);
+					}
+				}
+
+				reflection = reflectionText;
+				logger.info(`reflection: ${reflectionText.slice(0, 200)}${reflectionText.length > 200 ? "..." : ""}`);
+			} catch (err: unknown) {
+				const msg = err instanceof Error ? err.message : String(err);
+				logger.error(`Reflection failed: ${msg}`);
+			}
+		}
+
+		// Final save (with reflection if generated)
+		try {
+			await saveSession(sessionsDir, buildSessionData(reflection));
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : String(err);
+			logger.error(`Failed to save session: ${msg}`);
+		}
+
 		tui.stop();
 		await logger.flush();
 		process.exit(0);
