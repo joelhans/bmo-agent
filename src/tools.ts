@@ -26,18 +26,27 @@ export type ToolSchema = {
 // ---------------------------------------------------------------------------
 
 export interface ToolRegistry {
-	register(tool: ToolDefinition): void;
+	register(tool: ToolDefinition, options?: { builtin?: boolean }): void;
 	get(name: string): ToolDefinition | undefined;
 	getSchemas(): ToolSchema[];
 	listNames(): string[];
+	listDynamicNames(): string[];
+	clearDynamic(): void;
 }
 
 export function createToolRegistry(): ToolRegistry {
 	const tools = new Map<string, ToolDefinition>();
+	const builtins = new Set<string>();
 
 	return {
-		register(tool) {
+		register(tool, options) {
+			if (!options?.builtin && builtins.has(tool.name)) {
+				return; // refuse to overwrite a built-in with a dynamic tool
+			}
 			tools.set(tool.name, tool);
+			if (options?.builtin) {
+				builtins.add(tool.name);
+			}
 		},
 		get(name) {
 			return tools.get(name);
@@ -50,6 +59,16 @@ export function createToolRegistry(): ToolRegistry {
 		},
 		listNames() {
 			return [...tools.keys()];
+		},
+		listDynamicNames() {
+			return [...tools.keys()].filter((name) => !builtins.has(name));
+		},
+		clearDynamic() {
+			for (const name of tools.keys()) {
+				if (!builtins.has(name)) {
+					tools.delete(name);
+				}
+			}
 		},
 	};
 }

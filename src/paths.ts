@@ -11,6 +11,8 @@ export interface ResolvedPaths {
 	summariesDir: string;
 	configFile: string;
 	bmoSource: string | null;
+	toolsDir: string;
+	skillsDir: string;
 }
 
 /**
@@ -44,6 +46,8 @@ export function resolvePaths(): ResolvedPaths {
 		summariesDir: join(dataDir, "summaries"),
 		configFile: join(dataDir, "config.json"),
 		bmoSource,
+		toolsDir: join(bmoHome, "tools"),
+		skillsDir: join(bmoHome, "skills"),
 	};
 }
 

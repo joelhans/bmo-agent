@@ -22,6 +22,13 @@ describe("resolvePaths", () => {
 		expect(paths.bmoHome).toBe(dirname(import.meta.dir));
 	});
 
+	test("toolsDir and skillsDir resolve under bmoHome", () => {
+		process.env.BMO_HOME = "/tmp/test-bmo-home";
+		const paths = resolvePaths();
+		expect(paths.toolsDir).toBe("/tmp/test-bmo-home/tools");
+		expect(paths.skillsDir).toBe("/tmp/test-bmo-home/skills");
+	});
+
 	test("uses BMO_DATA env var when set", () => {
 		process.env.BMO_DATA = "/tmp/test-bmo-data";
 		const paths = resolvePaths();

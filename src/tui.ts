@@ -18,7 +18,9 @@ import type { ResolvedPaths } from "./paths.ts";
 import { assembleSystemPrompt } from "./prompt.ts";
 import type { SessionData } from "./session.ts";
 import { saveSession } from "./session.ts";
+import { createLoadSkillTool, createSkillsRegistry } from "./skills.ts";
 import { selectTier } from "./tiering.ts";
+import { createReloadToolsTool, formatLoadResult, initialLoad } from "./tool-loader.ts";
 import { createRunCommandTool, createToolRegistry, formatToolCallSummary } from "./tools.ts";
 
 // ---------------------------------------------------------------------------
@@ -65,6 +67,7 @@ class ChatView extends Container implements Focusable {
 
 	onExit?: () => void;
 	onSubmit?: (message: string) => void;
+	onReload?: () => void;
 
 	private _focused = false;
 
@@ -103,7 +106,7 @@ class ChatView extends Container implements Focusable {
 			return;
 		}
 		if (matchesKey(data, Key.f5)) {
-			// Placeholder for reload_tools (Phase 3b)
+			this.onReload?.();
 			return;
 		}
 		this.editor.handleInput(data);
@@ -192,7 +195,7 @@ export interface StartTuiOptions {
 	resumedSession?: SessionData;
 }
 
-export function startTui(opts: StartTuiOptions): void {
+export async function startTui(opts: StartTuiOptions): Promise<void> {
 	const { config, logger, sessionId, llm, sessionsDir, paths, resumedSession } = opts;
 
 	const terminal = new ProcessTerminal();
@@ -202,11 +205,50 @@ export function startTui(opts: StartTuiOptions): void {
 	tui.addChild(chatView);
 	tui.setFocus(chatView as unknown as Component);
 
-	// Tool registry
+	// Tool registry — built-in tools survive reload
 	const registry = createToolRegistry();
-	registry.register(createRunCommandTool(config));
+	registry.register(createRunCommandTool(config), { builtin: true });
 
-	const systemPrompt = assembleSystemPrompt(paths.bmoHome, paths.dataDir, process.cwd());
+	// Skills registry
+	const skillsRegistry = createSkillsRegistry(paths.skillsDir);
+
+	// Built-in tools: load_skill and reload_tools
+	registry.register(createLoadSkillTool(skillsRegistry), { builtin: true });
+	registry.register(createReloadToolsTool(paths.toolsDir, registry, skillsRegistry), { builtin: true });
+
+	// Initial tool/skill scan
+	const loadResult = await initialLoad(paths.toolsDir, registry, skillsRegistry);
+	const loadSummary = formatLoadResult(loadResult, skillsRegistry.list().length);
+	logger.info(`Initial tool load: ${loadSummary}`);
+
+	// System prompt — includes skill and dynamic tool lists
+	function buildSystemPrompt(): string {
+		return assembleSystemPrompt({
+			bmoHome: paths.bmoHome,
+			dataDir: paths.dataDir,
+			cwd: process.cwd(),
+			skills: skillsRegistry.list(),
+			dynamicTools: registry.listDynamicNames(),
+		});
+	}
+
+	const systemPrompt = buildSystemPrompt();
+
+	// Wrap reload_tools to also rebuild system prompt in messages[0]
+	const originalReload = registry.get("reload_tools");
+	if (originalReload) {
+		registry.register(
+			{
+				...originalReload,
+				async execute(args) {
+					const result = await originalReload.execute(args);
+					rebuildSystemPrompt();
+					return result;
+				},
+			},
+			{ builtin: true },
+		);
+	}
 	const messages: ChatMessage[] = resumedSession
 		? [...resumedSession.messages]
 		: [{ role: "system", content: systemPrompt }];
@@ -214,6 +256,13 @@ export function startTui(opts: StartTuiOptions): void {
 	const sessionStartedAt = resumedSession?.startedAt ?? new Date().toISOString();
 	let lastResponseWasError = false;
 	let lastUsedModel = config.models.coding;
+
+	function rebuildSystemPrompt(): void {
+		const newPrompt = buildSystemPrompt();
+		if (messages.length > 0 && messages[0].role === "system") {
+			messages[0].content = newPrompt;
+		}
+	}
 
 	if (resumedSession) {
 		for (const msg of resumedSession.messages) {
@@ -303,6 +352,23 @@ export function startTui(opts: StartTuiOptions): void {
 		handleUserMessage(message).catch((err) => {
 			logger.error(`Unhandled error: ${err}`);
 		});
+	};
+
+	chatView.onReload = () => {
+		chatView.addMessage("system", "Reloading tools and skills...");
+		registry.clearDynamic();
+		initialLoad(paths.toolsDir, registry, skillsRegistry)
+			.then((result) => {
+				const summary = formatLoadResult(result, skillsRegistry.list().length);
+				rebuildSystemPrompt();
+				chatView.addMessage("system", summary);
+				logger.info(`F5 reload: ${summary}`);
+			})
+			.catch((err: unknown) => {
+				const msg = err instanceof Error ? err.message : String(err);
+				chatView.addMessage("system", `Reload failed: ${msg}`);
+				logger.error(`F5 reload failed: ${msg}`);
+			});
 	};
 
 	chatView.onExit = async () => {

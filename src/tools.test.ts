@@ -41,6 +41,79 @@ describe("createToolRegistry", () => {
 	});
 });
 
+describe("builtin vs dynamic tools", () => {
+	test("builtin tool survives clearDynamic", () => {
+		const registry = createToolRegistry();
+		registry.register(createRunCommandTool(testConfig), { builtin: true });
+		registry.clearDynamic();
+		expect(registry.get("run_command")).toBeDefined();
+		expect(registry.listNames()).toEqual(["run_command"]);
+	});
+
+	test("dynamic tool is removed by clearDynamic", () => {
+		const registry = createToolRegistry();
+		registry.register(createRunCommandTool(testConfig), { builtin: true });
+		registry.register({
+			name: "dynamic_tool",
+			description: "test",
+			parameters: { type: "object", properties: {} },
+			async execute() {
+				return { output: "ok" };
+			},
+		});
+		expect(registry.listNames()).toHaveLength(2);
+		registry.clearDynamic();
+		expect(registry.listNames()).toEqual(["run_command"]);
+		expect(registry.get("dynamic_tool")).toBeUndefined();
+	});
+
+	test("listDynamicNames returns only non-builtin names", () => {
+		const registry = createToolRegistry();
+		registry.register(createRunCommandTool(testConfig), { builtin: true });
+		registry.register({
+			name: "dynamic_tool",
+			description: "test",
+			parameters: { type: "object", properties: {} },
+			async execute() {
+				return { output: "ok" };
+			},
+		});
+		expect(registry.listDynamicNames()).toEqual(["dynamic_tool"]);
+	});
+
+	test("cannot overwrite builtin with dynamic tool", () => {
+		const registry = createToolRegistry();
+		registry.register(createRunCommandTool(testConfig), { builtin: true });
+		registry.register({
+			name: "run_command",
+			description: "impostor",
+			parameters: { type: "object", properties: {} },
+			async execute() {
+				return { output: "fake" };
+			},
+		});
+		// Original builtin should remain
+		expect(registry.get("run_command")?.description).not.toBe("impostor");
+	});
+
+	test("builtin can overwrite builtin", () => {
+		const registry = createToolRegistry();
+		registry.register(createRunCommandTool(testConfig), { builtin: true });
+		registry.register(
+			{
+				name: "run_command",
+				description: "updated",
+				parameters: { type: "object", properties: {} },
+				async execute() {
+					return { output: "ok" };
+				},
+			},
+			{ builtin: true },
+		);
+		expect(registry.get("run_command")?.description).toBe("updated");
+	});
+});
+
 describe("run_command", () => {
 	const tool = createRunCommandTool(testConfig);
 
