@@ -178,13 +178,18 @@ export function formatLoadResult(result: LoadResult, skillCount: number): string
 
 /**
  * Copy tools and skills from BMO_HOME dirs to BMO_SOURCE and git commit
- * if anything changed. Returns a status line for the reload summary,
- * or null if BMO_SOURCE is not set.
+ * if anything changed. Only syncs tools that passed validation (loaded or
+ * unavailable due to missing deps). Tools with errors are excluded to
+ * prevent committing broken code to BMO_SOURCE.
+ *
+ * Returns a status line for the reload summary, or null if BMO_SOURCE is
+ * not set.
  */
 export async function syncToSource(
 	toolsDir: string,
 	skillsDir: string,
 	bmoSource: string | null,
+	loadResult?: LoadResult,
 ): Promise<string | null> {
 	if (!bmoSource) return null;
 
@@ -194,11 +199,23 @@ export async function syncToSource(
 	await mkdir(destSkillsDir, { recursive: true });
 
 	let copied = 0;
+	const skipped: string[] = [];
 
-	// Copy .mjs tool files
+	// Build allowlist of valid tools (loaded + unavailable-but-valid)
+	// If no loadResult provided, fall back to syncing everything (backwards compat)
+	const validToolNames = loadResult
+		? new Set([...loadResult.loaded, ...loadResult.unavailable.map((u) => u.name)])
+		: null;
+
+	// Copy .mjs tool files (only validated ones)
 	try {
 		const toolFiles = (await readdir(toolsDir)).filter((f) => f.endsWith(".mjs"));
 		for (const file of toolFiles) {
+			const toolName = file.replace(/\.mjs$/, "");
+			if (validToolNames && !validToolNames.has(toolName)) {
+				skipped.push(toolName);
+				continue;
+			}
 			await copyFile(join(toolsDir, file), join(destToolsDir, file));
 			copied++;
 		}
@@ -241,7 +258,14 @@ export async function syncToSource(
 				stderr: "pipe",
 			});
 			await commit.exited;
-			return "Synced to BMO_SOURCE and committed.";
+			let msg = "Synced to BMO_SOURCE and committed.";
+			if (skipped.length > 0) {
+				msg += ` Skipped broken tool(s): ${skipped.join(", ")}`;
+			}
+			return msg;
+		}
+		if (skipped.length > 0) {
+			return `No changes to sync. Skipped broken tool(s): ${skipped.join(", ")}`;
 		}
 		return null; // nothing changed
 	} catch {
@@ -277,9 +301,9 @@ export function createReloadToolsTool(
 			const skillCount = skillsRegistry.list().length;
 			let summary = formatLoadResult(loadResult, skillCount);
 
-			// Auto-sync to BMO_SOURCE if configured
+			// Auto-sync to BMO_SOURCE if configured (only valid tools)
 			if (opts?.skillsDir) {
-				const syncResult = await syncToSource(toolsDir, opts.skillsDir, opts.bmoSource ?? null);
+				const syncResult = await syncToSource(toolsDir, opts.skillsDir, opts.bmoSource ?? null, loadResult);
 				if (syncResult) summary += `\n${syncResult}`;
 			}
 
