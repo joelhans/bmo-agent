@@ -61,7 +61,7 @@ JS module tool format (.mjs files in BMO_HOME/tools/)
 - Optional export: requires (string array of external binary deps)
 - After writing a .mjs tool, call reload_tools. The tool then becomes a first-class tool call — invoke it directly by name, NOT via run_command or node.
 
-Skills format (.md files in bmo://skills/)
+Skills format (.md files in BMO_HOME/skills/)
 - YAML front-matter: name, description, triggers (keyword list)
 - Markdown body: when to use, best practices, examples, pitfalls
 
