@@ -4,7 +4,7 @@ import type { ChatMessage } from "./llm.ts";
 // Pricing
 // ---------------------------------------------------------------------------
 
-interface ModelPricing {
+export interface ModelPricing {
 	promptPer1M: number;
 	completionPer1M: number;
 }
@@ -27,6 +27,37 @@ const MODEL_PRICING: Record<string, ModelPricing> = {
 
 // Conservative default: assume expensive (Opus-tier) so cost overestimates.
 const DEFAULT_PRICING: ModelPricing = { promptPer1M: 15.0, completionPer1M: 75.0 };
+
+/**
+ * Resolve pricing for a model string.
+ *
+ * Resolution order:
+ * 1. Exact match in config overrides
+ * 2. Exact match in built-in MODEL_PRICING table
+ * 3. If model has 2+ slashes (gateway format like "ngrok/openai/gpt-4o"),
+ *    strip the first segment and retry steps 1-2
+ * 4. Fall back to DEFAULT_PRICING
+ */
+export function resolvePricing(model: string, overrides?: Record<string, ModelPricing>): ModelPricing {
+	// 1. Exact match in overrides
+	if (overrides?.[model]) return overrides[model];
+
+	// 2. Exact match in built-in table
+	if (MODEL_PRICING[model]) return MODEL_PRICING[model];
+
+	// 3. Strip gateway prefix if present (2+ slashes means gateway/provider/model)
+	const firstSlash = model.indexOf("/");
+	if (firstSlash !== -1) {
+		const rest = model.slice(firstSlash + 1);
+		if (rest.includes("/")) {
+			if (overrides?.[rest]) return overrides[rest];
+			if (MODEL_PRICING[rest]) return MODEL_PRICING[rest];
+		}
+	}
+
+	// 4. Default
+	return DEFAULT_PRICING;
+}
 
 // ---------------------------------------------------------------------------
 // Token estimation
@@ -150,7 +181,10 @@ export interface InitialUsage {
 	totalCost: number;
 }
 
-export function createSessionTracker(initial?: InitialUsage): SessionTracker {
+export function createSessionTracker(
+	initial?: InitialUsage,
+	pricingOverrides?: Record<string, ModelPricing>,
+): SessionTracker {
 	let totalPromptTokens = initial?.totalPromptTokens ?? 0;
 	let totalCompletionTokens = initial?.totalCompletionTokens ?? 0;
 	let totalCost = initial?.totalCost ?? 0;
@@ -164,7 +198,7 @@ export function createSessionTracker(initial?: InitialUsage): SessionTracker {
 			totalPromptTokens += promptTokens;
 			totalCompletionTokens += completionTokens;
 
-			const pricing = MODEL_PRICING[model] ?? DEFAULT_PRICING;
+			const pricing = resolvePricing(model, pricingOverrides);
 			totalCost +=
 				(promptTokens / 1_000_000) * pricing.promptPer1M + (completionTokens / 1_000_000) * pricing.completionPer1M;
 		},

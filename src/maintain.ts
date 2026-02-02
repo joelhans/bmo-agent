@@ -288,7 +288,7 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 	];
 
 	// Session tracker with maintenance budget
-	const session = createSessionTracker();
+	const session = createSessionTracker(undefined, config.cost.modelPricing);
 	const display = new ConsoleDisplay();
 	const model = config.models.reasoning;
 	const contextConfig = config.context.reasoning;

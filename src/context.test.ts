@@ -4,6 +4,7 @@ import {
 	estimateTokens,
 	estimateTokensForMessages,
 	formatTokenCount,
+	resolvePricing,
 	truncateToFit,
 } from "./context.ts";
 import type { ChatMessage } from "./llm.ts";
@@ -243,5 +244,79 @@ describe("createSessionTracker", () => {
 		expect(updated.totalPromptTokens).toBe(3000);
 		expect(updated.totalCompletionTokens).toBe(1500);
 		expect(updated.totalCost).toBeGreaterThan(0.05);
+	});
+});
+
+describe("resolvePricing", () => {
+	test("known model returns built-in pricing", () => {
+		const pricing = resolvePricing("openai/gpt-4o");
+		expect(pricing.promptPer1M).toBe(2.5);
+		expect(pricing.completionPer1M).toBe(10.0);
+	});
+
+	test("unknown model returns default pricing", () => {
+		const pricing = resolvePricing("unknown/model");
+		expect(pricing.promptPer1M).toBe(15.0);
+		expect(pricing.completionPer1M).toBe(75.0);
+	});
+
+	test("gateway prefix is stripped to resolve built-in pricing", () => {
+		const pricing = resolvePricing("ngrok/openai/gpt-4o");
+		expect(pricing.promptPer1M).toBe(2.5);
+		expect(pricing.completionPer1M).toBe(10.0);
+	});
+
+	test("config overrides take priority over built-in table", () => {
+		const overrides = {
+			"openai/gpt-4o": { promptPer1M: 1.0, completionPer1M: 5.0 },
+		};
+		const pricing = resolvePricing("openai/gpt-4o", overrides);
+		expect(pricing.promptPer1M).toBe(1.0);
+		expect(pricing.completionPer1M).toBe(5.0);
+	});
+
+	test("config overrides work for gateway-prefixed model (exact match)", () => {
+		const overrides = {
+			"ngrok/openai/gpt-4o": { promptPer1M: 0.5, completionPer1M: 2.0 },
+		};
+		const pricing = resolvePricing("ngrok/openai/gpt-4o", overrides);
+		expect(pricing.promptPer1M).toBe(0.5);
+		expect(pricing.completionPer1M).toBe(2.0);
+	});
+
+	test("stripped name falls through to config overrides", () => {
+		const overrides = {
+			"custom/my-model": { promptPer1M: 3.0, completionPer1M: 12.0 },
+		};
+		const pricing = resolvePricing("gateway/custom/my-model", overrides);
+		expect(pricing.promptPer1M).toBe(3.0);
+		expect(pricing.completionPer1M).toBe(12.0);
+	});
+
+	test("empty overrides behave like no overrides", () => {
+		const pricing = resolvePricing("openai/gpt-4o", {});
+		expect(pricing.promptPer1M).toBe(2.5);
+		expect(pricing.completionPer1M).toBe(10.0);
+	});
+});
+
+describe("createSessionTracker with pricing overrides", () => {
+	test("custom model with override uses correct cost", () => {
+		const overrides = {
+			"custom/my-model": { promptPer1M: 1.0, completionPer1M: 4.0 },
+		};
+		const tracker = createSessionTracker(undefined, overrides);
+		tracker.recordUsage("custom/my-model", 1_000_000, 1_000_000);
+		const stats = tracker.getStats();
+		// 1.0 + 4.0 = 5.0
+		expect(stats.totalCost).toBeCloseTo(5.0, 2);
+	});
+
+	test("gateway model resolves through to built-in pricing", () => {
+		const tracker = createSessionTracker(undefined, {});
+		// ngrok/openai/gpt-4o → openai/gpt-4o → $2.50 prompt + $10.00 completion
+		tracker.recordUsage("ngrok/openai/gpt-4o", 1_000_000, 1_000_000);
+		const stats = tracker.getStats();
+		expect(stats.totalCost).toBeCloseTo(12.5, 2);
 	});
 });

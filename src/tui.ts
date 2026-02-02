@@ -421,7 +421,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	const messages: ChatMessage[] = resumedSession
 		? [...resumedSession.messages]
 		: [{ role: "system", content: systemPrompt }];
-	const session = createSessionTracker(resumedSession?.usage);
+	const session = createSessionTracker(resumedSession?.usage, config.cost.modelPricing);
 	const sessionStartedAt = resumedSession?.startedAt ?? new Date().toISOString();
 	let lastResponseWasError = false;
 	let lastUsedModel = config.models.coding;
@@ -541,6 +541,17 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		});
 
 		lastResponseWasError = result.lastResponseWasError;
+
+		// 80% budget warning
+		const stats = session.getStats();
+		const warningThreshold = config.cost.sessionLimit * 0.8;
+		if (stats.totalCost >= warningThreshold && stats.totalCost < config.cost.sessionLimit) {
+			const pct = ((stats.totalCost / config.cost.sessionLimit) * 100).toFixed(0);
+			chatView.addMessage(
+				"system",
+				`Warning: session cost ($${stats.totalCost.toFixed(2)}) has reached ${pct}% of the $${config.cost.sessionLimit.toFixed(2)} limit.`,
+			);
+		}
 
 		// Merge telemetry (tool calls + new learning events)
 		if (toolCallRecords.length > 0) {

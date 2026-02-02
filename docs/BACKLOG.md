@@ -40,10 +40,10 @@ The LLM struggles with echo escaping when writing `.mjs` files via `run_command`
 
 ## System Prompt & Session Limits
 
-### 7. Session cost limit is $2.00
-For complex self-improvement sessions with reasoning-tier escalation, this is too low. The session stops accepting input with a message.
+### 7. Session cost limit is $2.00 ✓
+The limit is configurable via `config.cost.sessionLimit` in `config.json`. A warning message now fires at 80% of the limit after each agent loop turn. The hard stop remains at 100%.
 
-**Fix:** Make the limit configurable in `config.json` (it may already be — verify). Consider a warning at 80% rather than a hard stop.
+**Remaining:** None.
 
 ### 8. No mechanism for announcing updates after rebuild
 The prompt says "announce update available" after a binary rebuild, but there's no actual detection — it's just instructional text. You still have to restart manually.
@@ -96,12 +96,12 @@ Self-written content (skills, tool descriptions) is loaded into LLM context with
 
 ## CLI & Configuration
 
-### 15. Multi-provider model switching
-The LLM client uses the OpenAI SDK for all providers, routing via `baseURL`. This works for OpenAI-compatible APIs but not for Anthropic's native API. Cost tracking in `context.ts` falls back to expensive Opus-tier pricing for unknown models.
+### 15. Multi-provider model switching ✓ (pricing)
+The LLM client uses the OpenAI SDK for all providers, routing via `baseURL`. Gateway-prefixed models (e.g. `"ngrok/openai/gpt-4o"`) now automatically resolve to built-in pricing by stripping the gateway prefix. Users can also set per-model pricing via `config.cost.modelPricing` for custom or unknown models.
 
-**Status:** Multi-provider routing works for OpenAI-compatible endpoints. Anthropic native API unsupported. `MODEL_PRICING` table covers common models but unknown models overestimate cost.
+**Status:** Pricing resolution implemented. Anthropic native API transport still unsupported (OpenAI-compatible endpoints only).
 
-**Fix:** (a) Add Anthropic SDK as an alternative transport in `llm.ts`, selected by provider name. (b) Allow `MODEL_PRICING` overrides in config.json so users can add custom model costs without code changes.
+**Remaining:** (a) Add Anthropic SDK as an alternative transport in `llm.ts`, selected by provider name.
 
 ## Stretch
 

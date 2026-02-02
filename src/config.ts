@@ -23,6 +23,7 @@ export interface BmoConfig {
 		sessionLimit: number;
 		selfImprovementLimit: number;
 		selfImprovementRetries: number;
+		modelPricing?: Record<string, { promptPer1M: number; completionPer1M: number }>;
 	};
 	sandbox: {
 		defaultTimeoutMs: number;
