@@ -42,7 +42,6 @@ const MAX_ITERATIONS = 20;
 
 export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastResponseWasError: boolean }> {
 	const { logger, llm, registry, messages, session, model, contextConfig, display, defaultStatus } = opts;
-	const schemas = registry.getSchemas();
 
 	display.setInputEnabled(false);
 	display.setStatus(`${defaultStatus} | thinking...`);
@@ -53,6 +52,9 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 			if (dropped > 0) {
 				logger.info(`context: dropped ${dropped} messages to fit within token budget`);
 			}
+
+			// Fetch schemas fresh each iteration — tools may have been added/removed by reload_tools
+			const schemas = registry.getSchemas();
 
 			// Accumulate streaming response
 			let textContent = "";
