@@ -243,22 +243,6 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	const loadSummary = formatLoadResult(loadResult, skillsRegistry.list().length);
 	logger.info(`Initial tool load: ${loadSummary}`);
 
-	// Increment maintenance session counter
-	config.maintenance.sessionsSinceLastMaintenance += 1;
-	await saveConfig(paths, config);
-
-	// Compute maintenance notice
-	let maintenanceNotice: string | undefined;
-	if (config.maintenance.sessionsSinceLastMaintenance >= config.maintenance.threshold) {
-		const count = config.maintenance.sessionsSinceLastMaintenance;
-		const last = config.maintenance.lastMaintenanceDate ?? "never";
-		maintenanceNotice =
-			`MAINTENANCE DUE: ${count} sessions since last maintenance (last: ${last}). ` +
-			"Run an introspection pass: review reflections, validate tool hypotheses, scan for patterns, " +
-			"update OPPORTUNITIES.md, write a state snapshot, append to EXPERIMENT.md. " +
-			"Call complete_maintenance when done.";
-	}
-
 	// Generate capability inventory
 	let inventorySummary: string | undefined;
 	try {
@@ -273,7 +257,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		logger.error(`Failed to generate inventory: ${msg}`);
 	}
 
-	// System prompt — includes skill and dynamic tool lists, maintenance notice, inventory
+	// System prompt — includes skill and dynamic tool lists, inventory
 	function buildSystemPrompt(): string {
 		return assembleSystemPrompt({
 			bmoHome: paths.bmoHome,
@@ -282,7 +266,6 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			bmoSource: paths.bmoSource ?? undefined,
 			skills: skillsRegistry.list(),
 			dynamicTools: registry.listDynamicNames(),
-			maintenanceNotice,
 			inventorySummary,
 		});
 	}
@@ -329,7 +312,6 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 				config.maintenance.sessionsSinceLastMaintenance = 0;
 				config.maintenance.lastMaintenanceDate = new Date().toISOString();
 				await saveConfig(paths, config);
-				maintenanceNotice = undefined;
 				rebuildSystemPrompt();
 
 				// Auto-snapshot on maintenance completion

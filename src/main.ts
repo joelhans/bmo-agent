@@ -6,9 +6,10 @@ if (process.argv.includes("--sandbox-runner")) {
 	process.exit(0);
 }
 
-import { loadConfig } from "./config.ts";
+import { loadConfig, saveConfig } from "./config.ts";
 import { createLlmClient } from "./llm.ts";
 import { createLogger } from "./logger.ts";
+import { runMaintenance } from "./maintain.ts";
 import { ensureDataDirs, resolvePaths, resolveSourceDir } from "./paths.ts";
 import { createSecretMasker } from "./secrets.ts";
 import { formatSessionList, listSessions, loadSession } from "./session.ts";
@@ -21,10 +22,17 @@ function generateSessionId(): string {
 	return `${date}-${rand}`;
 }
 
-function parseCliArgs(): { listSessions: boolean; resumeSessionId: string | null } {
+function parseCliArgs(): {
+	listSessions: boolean;
+	resumeSessionId: string | null;
+	maintain: boolean;
+	noMaintain: boolean;
+} {
 	const args = process.argv.slice(2);
 	let list = false;
 	let resumeId: string | null = null;
+	let maintain = false;
+	let noMaintain = false;
 
 	for (let i = 0; i < args.length; i++) {
 		if (args[i] === "--sessions") {
@@ -32,10 +40,14 @@ function parseCliArgs(): { listSessions: boolean; resumeSessionId: string | null
 		} else if (args[i] === "--session" && i + 1 < args.length) {
 			resumeId = args[i + 1] ?? null;
 			i++;
+		} else if (args[i] === "--maintain") {
+			maintain = true;
+		} else if (args[i] === "--no-maintain") {
+			noMaintain = true;
 		}
 	}
 
-	return { listSessions: list, resumeSessionId: resumeId };
+	return { listSessions: list, resumeSessionId: resumeId, maintain, noMaintain };
 }
 
 async function main(): Promise<void> {
@@ -70,6 +82,32 @@ async function main(): Promise<void> {
 	}
 
 	const llm = createLlmClient(config);
+
+	// --maintain: run maintenance and exit (not a user session, don't increment counter)
+	if (cliArgs.maintain) {
+		const maintSessionId = `maint-${generateSessionId()}`;
+		console.log("Running maintenance pass...");
+		const result = await runMaintenance({ config, logger, sessionId: maintSessionId, llm, paths });
+		console.log(`\nMaintenance ${result.success ? "completed" : "failed"}: ${result.summary}`);
+		console.log(`Cost: $${result.cost.toFixed(4)}`);
+		await logger.flush();
+		process.exit(result.success ? 0 : 1);
+	}
+
+	// Increment maintenance session counter (this is a user session)
+	config.maintenance.sessionsSinceLastMaintenance += 1;
+	await saveConfig(paths, config);
+
+	// Auto-trigger maintenance if threshold reached
+	if (!cliArgs.noMaintain && config.maintenance.sessionsSinceLastMaintenance >= config.maintenance.threshold) {
+		const count = config.maintenance.sessionsSinceLastMaintenance;
+		console.log(`Maintenance due (${count} sessions). Running maintenance pass...`);
+		const maintSessionId = `maint-${generateSessionId()}`;
+		const result = await runMaintenance({ config, logger, sessionId: maintSessionId, llm, paths });
+		console.log(`\nMaintenance ${result.success ? "completed" : "failed"}: ${result.summary}`);
+		console.log(`Cost: $${result.cost.toFixed(4)}\n`);
+		// Fall through to TUI regardless of maintenance result
+	}
 
 	// Load resumed session if --session was provided
 	let resumedSession: import("./session.ts").SessionData | undefined;
