@@ -21,7 +21,6 @@ export interface CapabilityInventory {
 
 const KNOWN_LIMITATIONS: string[] = [
 	"sandbox filesystem enforcement is advisory",
-	"no tool usage telemetry",
 	"no external tool descriptor support yet",
 ];
 

@@ -12,6 +12,14 @@ import type { LearningEvent, SessionData } from "./session.ts";
 import { saveSession } from "./session.ts";
 import { createLoadSkillTool, createSkillsRegistry } from "./skills.ts";
 import { createSnapshot, saveSnapshot } from "./snapshots.ts";
+import {
+	formatTelemetryForPrompt,
+	loadTelemetry,
+	mergeLearnings,
+	mergeToolCalls,
+	saveTelemetry,
+	type ToolCallRecord,
+} from "./telemetry.ts";
 import { createReloadToolsTool, formatLoadResult, initialLoad } from "./tool-loader.ts";
 import { createRunCommandTool, createToolRegistry } from "./tools.ts";
 
@@ -73,7 +81,8 @@ const MAINTENANCE_MESSAGE = `Run a maintenance pass:
 3. Scan learning events from the same session JSON files — each may contain a "learningEvents" array with objects like {type, description, context}. Look for recurring corrections or patterns.
 4. Update OPPORTUNITIES.md with actionable findings.
 5. Append an entry to EXPERIMENT.md (date, session range, tool/skill delta, hypothesis scorecard, key metrics, narrative).
-6. Call complete_maintenance with a summary of what you found.`;
+6. Review the tool telemetry section in the system prompt — note any tools with high failure rates or unusually slow execution times.
+7. Call complete_maintenance with a summary of what you found.`;
 
 // ---------------------------------------------------------------------------
 // runMaintenance
@@ -246,6 +255,10 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		logger.error(`Failed to generate inventory: ${msg}`);
 	}
 
+	// Load cross-session telemetry (verbose for maintenance)
+	const telemetryStore = await loadTelemetry(paths.dataDir);
+	const telemetrySummary = formatTelemetryForPrompt(telemetryStore, true) || undefined;
+
 	// Build maintenance notice
 	const count = config.maintenance.sessionsSinceLastMaintenance;
 	const last = config.maintenance.lastMaintenanceDate ?? "never";
@@ -265,6 +278,7 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		dynamicTools: registry.listDynamicNames(),
 		maintenanceNotice,
 		inventorySummary,
+		telemetrySummary,
 	});
 
 	// Messages
@@ -281,6 +295,7 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 	const sessionStartedAt = new Date().toISOString();
 
 	// Run the agent loop
+	const toolCallRecords: ToolCallRecord[] = [];
 	const result = await runAgentLoop({
 		logger,
 		llm,
@@ -291,7 +306,17 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		contextConfig,
 		display,
 		defaultStatus: "maintenance",
+		toolCallRecords,
+		sessionId,
 	});
+
+	// Merge telemetry
+	if (toolCallRecords.length > 0) {
+		mergeToolCalls(telemetryStore, toolCallRecords);
+	}
+	if (learningEvents.length > 0) {
+		mergeLearnings(telemetryStore, learningEvents, sessionId);
+	}
 
 	const stats = session.getStats();
 
@@ -318,6 +343,17 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
 		logger.error(`Failed to save maintenance session: ${msg}`);
+	}
+
+	// Save telemetry
+	if (toolCallRecords.length > 0 || learningEvents.length > 0) {
+		try {
+			await saveTelemetry(paths.dataDir, telemetryStore);
+			logger.info("Maintenance telemetry saved");
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : String(err);
+			logger.error(`Failed to save telemetry: ${msg}`);
+		}
 	}
 
 	return {

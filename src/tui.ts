@@ -23,6 +23,15 @@ import type { LearningEvent, SessionData } from "./session.ts";
 import { saveSession } from "./session.ts";
 import { createLoadSkillTool, createSkillsRegistry } from "./skills.ts";
 import { createSnapshot, saveSnapshot } from "./snapshots.ts";
+import {
+	formatTelemetryForPrompt,
+	loadTelemetry,
+	mergeLearnings,
+	mergeToolCalls,
+	saveTelemetry,
+	type TelemetryStore,
+	type ToolCallRecord,
+} from "./telemetry.ts";
 import { selectTier } from "./tiering.ts";
 import { createReloadToolsTool, formatLoadResult, initialLoad } from "./tool-loader.ts";
 import { createRunCommandTool, createToolRegistry, formatToolCallSummary } from "./tools.ts";
@@ -257,8 +266,20 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		logger.error(`Failed to generate inventory: ${msg}`);
 	}
 
-	// System prompt — includes skill and dynamic tool lists, inventory
+	// Load cross-session telemetry
+	let telemetryStore: TelemetryStore;
+	try {
+		telemetryStore = await loadTelemetry(paths.dataDir);
+	} catch (err: unknown) {
+		const msg = err instanceof Error ? err.message : String(err);
+		logger.error(`Failed to load telemetry: ${msg}`);
+		telemetryStore = { updatedAt: new Date().toISOString(), toolStats: {}, recentLearnings: [] };
+	}
+	let learningEventsMergedCount = resumedSession?.learningEvents?.length ?? 0;
+
+	// System prompt — includes skill and dynamic tool lists, inventory, telemetry
 	function buildSystemPrompt(): string {
+		const telemetrySummary = formatTelemetryForPrompt(telemetryStore) || undefined;
 		return assembleSystemPrompt({
 			bmoHome: paths.bmoHome,
 			dataDir: paths.dataDir,
@@ -267,6 +288,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			skills: skillsRegistry.list(),
 			dynamicTools: registry.listDynamicNames(),
 			inventorySummary,
+			telemetrySummary,
 		});
 	}
 
@@ -501,6 +523,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		messages.push({ role: "user", content: message });
 		chatView.addMessage("user", message);
 
+		const toolCallRecords: ToolCallRecord[] = [];
 		const result = await runAgentLoop({
 			logger,
 			llm,
@@ -511,9 +534,21 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			contextConfig,
 			display: chatView,
 			defaultStatus: defaultStatus(),
+			toolCallRecords,
+			sessionId,
 		});
 
 		lastResponseWasError = result.lastResponseWasError;
+
+		// Merge telemetry (tool calls + new learning events)
+		if (toolCallRecords.length > 0) {
+			mergeToolCalls(telemetryStore, toolCallRecords);
+		}
+		const newLearnings = learningEvents.slice(learningEventsMergedCount);
+		if (newLearnings.length > 0) {
+			mergeLearnings(telemetryStore, newLearnings, sessionId);
+			learningEventsMergedCount = learningEvents.length;
+		}
 
 		// Auto-save after each assistant turn
 		try {
@@ -521,6 +556,14 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		} catch (err: unknown) {
 			const msg = err instanceof Error ? err.message : String(err);
 			logger.error(`Failed to save session: ${msg}`);
+		}
+
+		// Save telemetry alongside session
+		if (toolCallRecords.length > 0 || newLearnings.length > 0) {
+			saveTelemetry(paths.dataDir, telemetryStore).catch((err: unknown) => {
+				const msg = err instanceof Error ? err.message : String(err);
+				logger.error(`Failed to save telemetry: ${msg}`);
+			});
 		}
 	}
 

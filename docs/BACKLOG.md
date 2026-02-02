@@ -1,6 +1,6 @@
-# Phase 6: Self-Improvement Safety & Quality of Life
+# bmo — Backlog
 
-Backlog of known footguns, annoyances, and structural gaps discovered during bmo self-improvement sessions.
+Known footguns, annoyances, and structural gaps discovered during bmo self-improvement sessions.
 
 ## Sync & Persistence
 
@@ -27,11 +27,6 @@ The LLM struggles with echo escaping when writing `.mjs` files via `run_command`
 **Fix:** Add a `write_file` built-in tool that accepts content as a string parameter, bypassing shell escaping entirely.
 
 ## System Prompt & Session Limits
-
-### 6. Maintenance notice never goes away
-The maintenance counter keeps incrementing and the notice is injected into every system prompt. The LLM ignores it in favor of the user's actual task.
-
-**Fix:** Either auto-run maintenance silently, cap the notice frequency, or remove it from the system prompt and only surface it as a startup message.
 
 ### 7. Session cost limit is $2.00
 For complex self-improvement sessions with reasoning-tier escalation, this is too low. The session stops accepting input with a message.
@@ -64,13 +59,6 @@ Two bmo instances sharing the same `BMO_HOME` will step on each other's `tools/`
 
 ## Self-Improvement Loop
 
-### 12. Maintenance protocol doesn't actually run
-The battery-check infrastructure exists (counter, threshold, `complete_maintenance` tool, system prompt notice) but the LLM consistently ignores the maintenance notice in favor of the user's task. The experiment journal (`docs/EXPERIMENT.md`) remains empty because no maintenance pass has ever completed.
-
-**Status:** Scaffolding complete (`src/config.ts`, `src/snapshots.ts`, `tui.ts:310-351`). Blocked by item #6 (notice ignored).
-
-**Fix:** Decouple maintenance from the user-facing session. Options: (a) run maintenance as a separate non-interactive session on startup when threshold is reached, (b) make it a CLI subcommand (`bmo maintain`), (c) auto-run a minimal pass (snapshot + journal entry) without LLM involvement.
-
 ### 13. Pruning has no data
 The system prompt tells the LLM to prune obsolete tools/skills, but there's no usage tracking to identify candidates. Without telemetry, "unused" is unknowable.
 
@@ -90,9 +78,7 @@ No persistent tracking of tool execution success/failure rates. Learning events 
 ### 15. Background analyzer doesn't exist
 The architecture describes a periodic analyzer that reads session logs (reflections, learning events, tool metrics) and writes OPPORTUNITIES.md entries. Nothing like this exists. Without it, telemetry (#14), reflections, and hypotheses accumulate but are never acted on.
 
-**Status:** Not implemented. OPPORTUNITIES.md exists as a template but nothing writes to it programmatically.
-
-**Fix:** Implement as a CLI subcommand (`bmo analyze`) or as part of the maintenance pass (#12). Reads recent sessions, aggregates tool metrics, scans reflections for patterns, validates hypotheses against telemetry, and writes structured entries to OPPORTUNITIES.md.
+**Status:** Partially addressed by `bmo --maintain`, which runs an LLM-driven maintenance pass that reads sessions and updates OPPORTUNITIES.md. A lighter-weight non-LLM analyzer could complement this.
 
 ### 16. User signal capture is manual only
 The architecture describes automatic detection of user corrections (re-edits a file, says "no/wrong/instead"). Only the manual `log_learning_event` tool exists — bmo has to decide to call it.
@@ -107,6 +93,20 @@ Self-written content (skills, tool descriptions) is loaded into LLM context with
 **Status:** Not implemented. `secrets.ts` handles API key masking (different concern). Not needed for the self-improvement loop to function, but matters once tools/skills are shared or if the LLM writes adversarial content by accident.
 
 **Fix:** Add a `sanitizeContent()` function applied when loading skills and tool descriptions. Strip or flag lines matching injection patterns. Log stripped content for review.
+
+## CLI & Configuration
+
+### 25. Key management subcommand
+No way to add API keys from the CLI. Users must manually set environment variables.
+
+**Fix:** Add `bmo key add <provider> <key>` that stores the key in config (or a separate keys file with `0600` permissions). Design question: plaintext in config.json vs. separate keys file vs. system keyring.
+
+### 26. Multi-provider model switching
+The LLM client uses the OpenAI SDK for all providers, routing via `baseURL`. This works for OpenAI-compatible APIs but not for Anthropic's native API. Cost tracking in `context.ts` falls back to expensive Opus-tier pricing for unknown models.
+
+**Status:** Multi-provider routing works for OpenAI-compatible endpoints. Anthropic native API unsupported. `MODEL_PRICING` table covers common models but unknown models overestimate cost.
+
+**Fix:** (a) Add Anthropic SDK as an alternative transport in `llm.ts`, selected by provider name. (b) Allow `MODEL_PRICING` overrides in config.json so users can add custom model costs without code changes.
 
 ## Build & Distribution
 

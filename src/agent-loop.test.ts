@@ -3,6 +3,7 @@ import type { AgentDisplay } from "./agent-loop.ts";
 import { runAgentLoop } from "./agent-loop.ts";
 import { createSessionTracker } from "./context.ts";
 import type { ChatMessage, LlmClient, LlmEvent } from "./llm.ts";
+import type { ToolCallRecord } from "./telemetry.ts";
 import type { ToolRegistry } from "./tools.ts";
 import { createToolRegistry } from "./tools.ts";
 
@@ -231,5 +232,117 @@ describe("runAgentLoop", () => {
 		});
 
 		expect(display.log).toContain("input:true");
+	});
+
+	test("pushes tool call records for successful calls", async () => {
+		const messages: ChatMessage[] = [{ role: "system", content: "sys" }];
+		const display = createMockDisplay();
+		const llm = createMockLlm([toolCallResponse("c1", "echo_tool", '{"text":"hi"}'), textResponse("Done.")]);
+		const toolCallRecords: ToolCallRecord[] = [];
+
+		await runAgentLoop({
+			...baseOpts,
+			llm,
+			registry: createTestRegistry(),
+			messages,
+			display,
+			toolCallRecords,
+		});
+
+		expect(toolCallRecords).toHaveLength(1);
+		expect(toolCallRecords[0]?.toolName).toBe("echo_tool");
+		expect(toolCallRecords[0]?.success).toBe(true);
+		expect(toolCallRecords[0]?.durationMs).toBeGreaterThanOrEqual(0);
+		expect(toolCallRecords[0]?.timestamp).toBeTruthy();
+	});
+
+	test("pushes tool call records for unknown tool (failure)", async () => {
+		const messages: ChatMessage[] = [{ role: "system", content: "sys" }];
+		const display = createMockDisplay();
+		const llm = createMockLlm([toolCallResponse("c1", "nonexistent", '{"x":1}'), textResponse("ok")]);
+		const toolCallRecords: ToolCallRecord[] = [];
+
+		await runAgentLoop({
+			...baseOpts,
+			llm,
+			registry: createTestRegistry(),
+			messages,
+			display,
+			toolCallRecords,
+		});
+
+		expect(toolCallRecords).toHaveLength(1);
+		expect(toolCallRecords[0]?.toolName).toBe("nonexistent");
+		expect(toolCallRecords[0]?.success).toBe(false);
+		expect(toolCallRecords[0]?.durationMs).toBe(0);
+	});
+
+	test("pushes tool call records for invalid JSON args (failure)", async () => {
+		const messages: ChatMessage[] = [{ role: "system", content: "sys" }];
+		const display = createMockDisplay();
+		const llm = createMockLlm([toolCallResponse("c1", "echo_tool", "not json"), textResponse("ok")]);
+		const toolCallRecords: ToolCallRecord[] = [];
+
+		await runAgentLoop({
+			...baseOpts,
+			llm,
+			registry: createTestRegistry(),
+			messages,
+			display,
+			toolCallRecords,
+		});
+
+		expect(toolCallRecords).toHaveLength(1);
+		expect(toolCallRecords[0]?.toolName).toBe("echo_tool");
+		expect(toolCallRecords[0]?.success).toBe(false);
+		expect(toolCallRecords[0]?.durationMs).toBe(0);
+	});
+
+	test("does not push records when toolCallRecords is not provided", async () => {
+		const messages: ChatMessage[] = [{ role: "system", content: "sys" }];
+		const display = createMockDisplay();
+		const llm = createMockLlm([toolCallResponse("c1", "echo_tool", '{"text":"hi"}'), textResponse("Done.")]);
+
+		// No toolCallRecords — should not throw
+		const result = await runAgentLoop({
+			...baseOpts,
+			llm,
+			registry: createTestRegistry(),
+			messages,
+			display,
+		});
+
+		expect(result.lastResponseWasError).toBe(false);
+	});
+
+	test("pushes tool call records for execution errors", async () => {
+		const registry = createToolRegistry();
+		registry.register({
+			name: "failing_tool",
+			description: "Always fails",
+			parameters: { type: "object", properties: {}, required: [] },
+			async execute() {
+				throw new Error("boom");
+			},
+		});
+
+		const messages: ChatMessage[] = [{ role: "system", content: "sys" }];
+		const display = createMockDisplay();
+		const llm = createMockLlm([toolCallResponse("c1", "failing_tool", "{}"), textResponse("ok")]);
+		const toolCallRecords: ToolCallRecord[] = [];
+
+		await runAgentLoop({
+			...baseOpts,
+			llm,
+			registry,
+			messages,
+			display,
+			toolCallRecords,
+		});
+
+		expect(toolCallRecords).toHaveLength(1);
+		expect(toolCallRecords[0]?.toolName).toBe("failing_tool");
+		expect(toolCallRecords[0]?.success).toBe(false);
+		expect(toolCallRecords[0]?.durationMs).toBeGreaterThanOrEqual(0);
 	});
 });

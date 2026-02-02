@@ -1,6 +1,7 @@
 import { type SessionTracker, truncateToFit } from "./context.ts";
 import type { ChatMessage, LlmClient, ToolCallInfo } from "./llm.ts";
 import type { Logger } from "./logger.ts";
+import type { ToolCallRecord } from "./telemetry.ts";
 import type { ToolRegistry } from "./tools.ts";
 import { formatToolCallSummary } from "./tools.ts";
 
@@ -32,6 +33,8 @@ export interface AgentLoopOptions {
 	contextConfig: { maxTokens: number; responseHeadroom: number };
 	display: AgentDisplay;
 	defaultStatus: string;
+	toolCallRecords?: ToolCallRecord[];
+	sessionId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +119,12 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 					messages.push({ role: "tool", content: errorMsg, tool_call_id: tc.id });
 					display.addToolResult(errorMsg, true);
 					logger.error(errorMsg);
+					opts.toolCallRecords?.push({
+						timestamp: new Date().toISOString(),
+						toolName: tc.function.name,
+						durationMs: 0,
+						success: false,
+					});
 					continue;
 				}
 
@@ -127,19 +136,40 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 					messages.push({ role: "tool", content: errorMsg, tool_call_id: tc.id });
 					display.addToolResult(errorMsg, true);
 					logger.error(errorMsg);
+					opts.toolCallRecords?.push({
+						timestamp: new Date().toISOString(),
+						toolName: tc.function.name,
+						durationMs: 0,
+						success: false,
+					});
 					continue;
 				}
 
+				const startMs = performance.now();
 				try {
 					const result = await tool.execute(args);
+					const durationMs = Math.round(performance.now() - startMs);
 					messages.push({ role: "tool", content: result.output, tool_call_id: tc.id });
 					display.addToolResult(result.output, result.isError);
 					logger.info(`tool result: ${result.output.slice(0, 200)}${result.output.length > 200 ? "..." : ""}`);
+					opts.toolCallRecords?.push({
+						timestamp: new Date().toISOString(),
+						toolName: tc.function.name,
+						durationMs,
+						success: !result.isError,
+					});
 				} catch (err: unknown) {
+					const durationMs = Math.round(performance.now() - startMs);
 					const errorMsg = `Tool execution failed: ${err instanceof Error ? err.message : String(err)}`;
 					messages.push({ role: "tool", content: errorMsg, tool_call_id: tc.id });
 					display.addToolResult(errorMsg, true);
 					logger.error(errorMsg);
+					opts.toolCallRecords?.push({
+						timestamp: new Date().toISOString(),
+						toolName: tc.function.name,
+						durationMs,
+						success: false,
+					});
 				}
 			}
 

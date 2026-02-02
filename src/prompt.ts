@@ -107,6 +107,7 @@ export interface SystemPromptOptions {
 	dynamicTools?: string[];
 	maintenanceNotice?: string;
 	inventorySummary?: string;
+	telemetrySummary?: string;
 }
 
 /**
@@ -123,6 +124,10 @@ export function assembleSystemPrompt(opts: SystemPromptOptions): string {
 
 	if (opts.inventorySummary) {
 		sections.push(opts.inventorySummary);
+	}
+
+	if (opts.telemetrySummary) {
+		sections.push(opts.telemetrySummary);
 	}
 
 	if (opts.skills && opts.skills.length > 0) {

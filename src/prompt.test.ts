@@ -176,6 +176,22 @@ describe("assembleSystemPrompt with inventorySummary", () => {
 	});
 });
 
+describe("assembleSystemPrompt with telemetrySummary", () => {
+	test("includes telemetry summary when provided", () => {
+		const prompt = assembleSystemPrompt({
+			...baseOpts,
+			telemetrySummary: "Tool telemetry\n  run_command: 342 calls, 95% ok, ~1200ms avg",
+		});
+		expect(prompt).toContain("Tool telemetry");
+		expect(prompt).toContain("run_command: 342 calls, 95% ok");
+	});
+
+	test("does not include telemetry section when undefined", () => {
+		const prompt = assembleSystemPrompt(baseOpts);
+		expect(prompt).not.toContain("Tool telemetry");
+	});
+});
+
 describe("assembleSystemPrompt with bmoSource", () => {
 	test("includes BMO_SOURCE in environment when provided", () => {
 		const prompt = assembleSystemPrompt({

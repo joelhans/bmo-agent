@@ -18,7 +18,8 @@
       "Bash(git -C /var/home/joel/src/bmo-agent-v2 status)",
       "Bash(ls:*)",
       "Bash(git -C /var/home/joel/src/bmo-agent-v2 log --oneline -15)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npx biome:*)"
     ]
   }
 }
