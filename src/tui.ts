@@ -230,9 +230,13 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 
 	// Built-in tools: load_skill and reload_tools
 	registry.register(createLoadSkillTool(skillsRegistry), { builtin: true });
-	registry.register(createReloadToolsTool(paths.toolsDir, registry, skillsRegistry, sandboxConfig), {
-		builtin: true,
-	});
+	registry.register(
+		createReloadToolsTool(paths.toolsDir, registry, skillsRegistry, sandboxConfig, {
+			skillsDir: paths.skillsDir,
+			bmoSource: paths.bmoSource,
+		}),
+		{ builtin: true },
+	);
 
 	// Initial tool/skill scan
 	const loadResult = await initialLoad(paths.toolsDir, registry, skillsRegistry, sandboxConfig);

@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { copyFile, mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { executeSandboxed, resolveCapabilities, type SandboxConfig, type ToolCapabilities } from "./sandbox.ts";
 import type { SkillsRegistry } from "./skills.ts";
@@ -166,6 +166,83 @@ export function formatLoadResult(result: LoadResult, skillCount: number): string
 }
 
 // ---------------------------------------------------------------------------
+// Sync to BMO_SOURCE — auto-persist tools and skills to version control
+// ---------------------------------------------------------------------------
+
+/**
+ * Copy tools and skills from BMO_HOME dirs to BMO_SOURCE and git commit
+ * if anything changed. Returns a status line for the reload summary,
+ * or null if BMO_SOURCE is not set.
+ */
+export async function syncToSource(
+	toolsDir: string,
+	skillsDir: string,
+	bmoSource: string | null,
+): Promise<string | null> {
+	if (!bmoSource) return null;
+
+	const destToolsDir = join(bmoSource, "tools");
+	const destSkillsDir = join(bmoSource, "skills");
+	await mkdir(destToolsDir, { recursive: true });
+	await mkdir(destSkillsDir, { recursive: true });
+
+	let copied = 0;
+
+	// Copy .mjs tool files
+	try {
+		const toolFiles = (await readdir(toolsDir)).filter((f) => f.endsWith(".mjs"));
+		for (const file of toolFiles) {
+			await copyFile(join(toolsDir, file), join(destToolsDir, file));
+			copied++;
+		}
+	} catch {
+		// toolsDir may not exist yet
+	}
+
+	// Copy .md skill files
+	try {
+		const skillFiles = (await readdir(skillsDir)).filter((f) => f.endsWith(".md"));
+		for (const file of skillFiles) {
+			await copyFile(join(skillsDir, file), join(destSkillsDir, file));
+			copied++;
+		}
+	} catch {
+		// skillsDir may not exist yet
+	}
+
+	if (copied === 0) return null;
+
+	// Git add + commit (only if there are actual changes)
+	try {
+		const add = Bun.spawn(["git", "-C", bmoSource, "add", "tools/", "skills/"], {
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		await add.exited;
+
+		// Check if there's anything staged
+		const diff = Bun.spawn(["git", "-C", bmoSource, "diff", "--cached", "--quiet"], {
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const diffExit = await diff.exited;
+
+		if (diffExit !== 0) {
+			// There are staged changes — commit them
+			const commit = Bun.spawn(["git", "-C", bmoSource, "commit", "-m", "sync tools and skills from BMO_HOME"], {
+				stdout: "pipe",
+				stderr: "pipe",
+			});
+			await commit.exited;
+			return "Synced to BMO_SOURCE and committed.";
+		}
+		return null; // nothing changed
+	} catch {
+		return "Synced files to BMO_SOURCE but git commit failed.";
+	}
+}
+
+// ---------------------------------------------------------------------------
 // reload_tools tool
 // ---------------------------------------------------------------------------
 
@@ -174,6 +251,7 @@ export function createReloadToolsTool(
 	registry: ToolRegistry,
 	skillsRegistry: SkillsRegistry,
 	sandboxConfig: SandboxConfig,
+	opts?: { skillsDir?: string; bmoSource?: string | null },
 ): ToolDefinition {
 	return {
 		name: "reload_tools",
@@ -190,7 +268,14 @@ export function createReloadToolsTool(
 			const loadResult = await loadDynamicTools(toolsDir, registry, sandboxConfig);
 			await skillsRegistry.scan();
 			const skillCount = skillsRegistry.list().length;
-			const summary = formatLoadResult(loadResult, skillCount);
+			let summary = formatLoadResult(loadResult, skillCount);
+
+			// Auto-sync to BMO_SOURCE if configured
+			if (opts?.skillsDir) {
+				const syncResult = await syncToSource(toolsDir, opts.skillsDir, opts.bmoSource ?? null);
+				if (syncResult) summary += `\n${syncResult}`;
+			}
+
 			return { output: summary };
 		},
 	};

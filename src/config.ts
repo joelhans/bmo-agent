@@ -36,6 +36,7 @@ export interface BmoConfig {
 		lastMaintenanceDate: string | null;
 	};
 	toolResultTruncation: number;
+	sourceDir: string | null;
 }
 
 export const DEFAULT_CONFIG: BmoConfig = {
@@ -70,6 +71,7 @@ export const DEFAULT_CONFIG: BmoConfig = {
 		lastMaintenanceDate: null,
 	},
 	toolResultTruncation: 50_000,
+	sourceDir: null,
 };
 
 /**

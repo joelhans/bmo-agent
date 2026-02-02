@@ -9,7 +9,7 @@ if (process.argv.includes("--sandbox-runner")) {
 import { loadConfig } from "./config.ts";
 import { createLlmClient } from "./llm.ts";
 import { createLogger } from "./logger.ts";
-import { ensureDataDirs, resolvePaths } from "./paths.ts";
+import { ensureDataDirs, resolvePaths, resolveSourceDir } from "./paths.ts";
 import { createSecretMasker } from "./secrets.ts";
 import { formatSessionList, listSessions, loadSession } from "./session.ts";
 import { startTui } from "./tui.ts";
@@ -40,9 +40,12 @@ function parseCliArgs(): { listSessions: boolean; resumeSessionId: string | null
 
 async function main(): Promise<void> {
 	const cliArgs = parseCliArgs();
-	const paths = resolvePaths();
+	let paths = resolvePaths();
 	await ensureDataDirs(paths);
 	const config = await loadConfig(paths);
+
+	// Merge config.sourceDir into paths (env var BMO_SOURCE overrides config)
+	paths = resolveSourceDir(paths, config.sourceDir);
 
 	// --sessions: list and exit (no TUI needed)
 	if (cliArgs.listSessions) {

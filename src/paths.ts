@@ -67,6 +67,16 @@ export async function ensureDataDirs(paths: ResolvedPaths): Promise<void> {
 }
 
 /**
+ * Resolve BMO_SOURCE: config.sourceDir is the primary source.
+ * The BMO_SOURCE env var is only used as a fallback when config has no sourceDir.
+ */
+export function resolveSourceDir(paths: ResolvedPaths, configSourceDir: string | null): ResolvedPaths {
+	const source = configSourceDir || process.env.BMO_SOURCE || null;
+	if (source === paths.bmoSource) return paths;
+	return { ...paths, bmoSource: source };
+}
+
+/**
  * Resolve a bmo:// prefixed path to an absolute path under BMO_HOME.
  * Non-bmo paths are returned unchanged.
  */
