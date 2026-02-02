@@ -31,10 +31,23 @@ async function isAvailable(binary: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// Resolve sandbox runner path
+// Sandbox command — self-invocation for compiled binary support
 // ---------------------------------------------------------------------------
 
-const RUNNER_PATH = join(import.meta.dir, "sandbox-runner.ts");
+/**
+ * Build the command array to spawn a sandbox runner subprocess.
+ * In dev mode, uses [bun, <path-to-main.ts>, --sandbox-runner].
+ * In compiled binary mode, uses [/path/to/bmo, --sandbox-runner].
+ */
+export function getSandboxCommand(): string[] {
+	const mainTs = join(import.meta.dir, "main.ts");
+	const scriptArg = process.argv[1];
+	// Dev mode: process.argv[1] is a .ts/.js source file (not a compiled binary)
+	if (scriptArg && /\.[tj]sx?$/.test(scriptArg)) {
+		return [process.execPath, mainTs, "--sandbox-runner"];
+	}
+	return [process.execPath, "--sandbox-runner"];
+}
 
 // ---------------------------------------------------------------------------
 // Dynamic tool loading
@@ -106,12 +119,13 @@ export async function loadDynamicTools(
 			const description = typeof mod.description === "string" ? mod.description : `Dynamic tool: ${toolName}`;
 			const caps = resolveCapabilities(mod.capabilities);
 
+			const sandboxCommand = getSandboxCommand();
 			const tool: ToolDefinition = {
 				name: toolName,
 				description,
 				parameters: mod.schema,
 				async execute(args): Promise<ToolResult> {
-					return executeSandboxed(filePath, args, caps, sandboxConfig, RUNNER_PATH);
+					return executeSandboxed(filePath, args, caps, sandboxConfig, sandboxCommand);
 				},
 			};
 

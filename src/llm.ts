@@ -92,7 +92,8 @@ export function createLlmClient(config: BmoConfig): LlmClient {
 		const apiKey = process.env[provider.apiKeyEnv];
 		if (!apiKey) {
 			throw new Error(
-				`${provider.apiKeyEnv} is not set. Set it in your environment to use provider "${providerName}".`,
+				`API key not found. Set ${provider.apiKeyEnv} in your environment.\n` +
+					`  export ${provider.apiKeyEnv}=your-key-here`,
 			);
 		}
 
@@ -120,7 +121,23 @@ export function createLlmClient(config: BmoConfig): LlmClient {
 				}));
 			}
 
-			const response = await client.chat.completions.create(params);
+			let response: Awaited<ReturnType<typeof client.chat.completions.create>>;
+			try {
+				response = await client.chat.completions.create(params);
+			} catch (err: unknown) {
+				if (err instanceof OpenAI.APIError) {
+					if (err.status === 401) {
+						throw new Error(`Invalid API key for provider "${providerName}". Check ${providerName} credentials.`);
+					}
+					if (err.status === 429) {
+						throw new Error(`Rate limited by provider "${providerName}". Wait and retry.`);
+					}
+					if (err.status && err.status >= 500) {
+						throw new Error(`Provider "${providerName}" server error (${err.status}). Try again.`);
+					}
+				}
+				throw err;
+			}
 
 			let finishReason = "stop";
 

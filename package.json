@@ -5,7 +5,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "bun run src/main.ts",
-		"build": "bun build src/main.ts --outdir dist --target bun",
+		"build": "bun build src/main.ts --compile --outfile dist/bmo",
 		"test": "bun test",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",

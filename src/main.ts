@@ -1,7 +1,16 @@
+// Self-invocation: sandbox runner mode (must be checked before other imports
+// so the compiled binary can act as its own sandbox subprocess)
+if (process.argv.includes("--sandbox-runner")) {
+	const { runSandboxMain } = await import("./sandbox-runner.ts");
+	await runSandboxMain();
+	process.exit(0);
+}
+
 import { loadConfig } from "./config.ts";
 import { createLlmClient } from "./llm.ts";
 import { createLogger } from "./logger.ts";
 import { ensureDataDirs, resolvePaths } from "./paths.ts";
+import { createSecretMasker } from "./secrets.ts";
 import { formatSessionList, listSessions, loadSession } from "./session.ts";
 import { startTui } from "./tui.ts";
 
@@ -47,7 +56,8 @@ async function main(): Promise<void> {
 	}
 
 	const sessionId = cliArgs.resumeSessionId ?? generateSessionId();
-	const logger = createLogger(paths, sessionId);
+	const masker = createSecretMasker(config);
+	const logger = createLogger(paths, sessionId, masker);
 	logger.info("bmo starting up");
 
 	for (const [name, provider] of Object.entries(config.providers)) {
@@ -73,7 +83,19 @@ async function main(): Promise<void> {
 	await startTui({ config, logger, sessionId, llm, sessionsDir: paths.sessionsDir, paths, resumedSession });
 }
 
-main().catch((err) => {
-	console.error("Fatal error:", err);
+main().catch((err: unknown) => {
+	const msg = err instanceof Error ? err.message : String(err);
+
+	// Helpful hints for common failures
+	if (msg.includes("API key") || msg.includes("apiKeyEnv") || /[A-Z_]+_API_KEY/.test(msg)) {
+		console.error(`Fatal: ${msg}`);
+		console.error("Hint: set the required API key environment variable before starting bmo.");
+	} else if (msg.includes("JSON") && msg.includes("config")) {
+		console.error(`Fatal: failed to parse config.json — ${msg}`);
+		console.error("Hint: delete ~/.local/share/bmo/config.json to regenerate defaults.");
+	} else {
+		console.error(`Fatal error: ${msg}`);
+	}
+
 	process.exit(1);
 });

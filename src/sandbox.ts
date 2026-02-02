@@ -95,13 +95,13 @@ export async function executeSandboxed(
 	args: Record<string, unknown>,
 	caps: ToolCapabilities,
 	config: SandboxConfig,
-	runnerPath: string,
+	sandboxCommand: string[],
 ): Promise<SandboxResult> {
 	const env = buildSandboxEnv(caps, config);
 
 	// Note: ulimit -v is incompatible with Bun (large virtual address space at startup).
 	// Memory limiting deferred to a future phase. Timeout is the primary resource limit.
-	const proc = Bun.spawn(["bun", "run", runnerPath], {
+	const proc = Bun.spawn(sandboxCommand, {
 		env,
 		stdin: "pipe",
 		stdout: "pipe",

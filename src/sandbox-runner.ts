@@ -35,7 +35,7 @@ async function readStdin(): Promise<string> {
 	return Buffer.concat(chunks).toString("utf-8");
 }
 
-async function main(): Promise<void> {
+export async function runSandboxMain(): Promise<void> {
 	try {
 		const input = await readStdin();
 		const { toolPath, args } = JSON.parse(input) as { toolPath: string; args: Record<string, unknown> };
@@ -61,5 +61,3 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 }
-
-main();

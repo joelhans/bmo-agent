@@ -18,6 +18,7 @@ import type { Logger } from "./logger.ts";
 import type { ResolvedPaths } from "./paths.ts";
 import { assembleSystemPrompt } from "./prompt.ts";
 import type { SandboxConfig } from "./sandbox.ts";
+import { createSecretMasker } from "./secrets.ts";
 import type { LearningEvent, SessionData } from "./session.ts";
 import { saveSession } from "./session.ts";
 import { createLoadSkillTool, createSkillsRegistry } from "./skills.ts";
@@ -208,9 +209,12 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	tui.addChild(chatView);
 	tui.setFocus(chatView as unknown as Component);
 
+	// Secret masker — prevents API keys from leaking into logs and tool output
+	const masker = createSecretMasker(config);
+
 	// Tool registry — built-in tools survive reload
 	const registry = createToolRegistry();
-	registry.register(createRunCommandTool(config), { builtin: true });
+	registry.register(createRunCommandTool(config, masker), { builtin: true });
 
 	// Sandbox config for dynamic tool execution
 	const sandboxConfig: SandboxConfig = {
@@ -458,6 +462,16 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		chatView.addMessage("system", `Resumed session ${sessionId}`);
 	} else {
 		chatView.addMessage("system", "bmo v0.1.0 — type a message and press Enter. Ctrl+C to exit.");
+	}
+
+	// Check if at least one provider has a valid API key
+	const hasAnyKey = Object.values(config.providers).some((p) => !!process.env[p.apiKeyEnv]);
+	if (!hasAnyKey) {
+		const envVars = Object.values(config.providers).map((p) => p.apiKeyEnv);
+		chatView.addMessage(
+			"system",
+			`No API keys found. Set one of: ${envVars.join(", ")}\n` + `Example: export ${envVars[0]}=your-key-here`,
+		);
 	}
 
 	function defaultStatus(): string {

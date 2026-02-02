@@ -1,6 +1,7 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ResolvedPaths } from "./paths.ts";
+import type { SecretMasker } from "./secrets.ts";
 
 export interface Logger {
 	info(message: string): void;
@@ -12,14 +13,16 @@ export interface Logger {
 /**
  * Create a logger that writes timestamped lines to a session log file.
  * Micro-batched: multiple calls within the same microtask coalesce into one write.
+ * If a SecretMasker is provided, all messages are masked before writing.
  */
-export function createLogger(paths: ResolvedPaths, sessionId: string): Logger {
+export function createLogger(paths: ResolvedPaths, sessionId: string, masker?: SecretMasker): Logger {
 	const logFile = join(paths.sessionsDir, `${sessionId}.log`);
 	const buffer: string[] = [];
 	let flushPromise: Promise<void> | null = null;
 
 	function formatLine(level: string, message: string): string {
-		return `[${new Date().toISOString()}] [${level}] ${message}\n`;
+		const masked = masker ? masker.mask(message) : message;
+		return `[${new Date().toISOString()}] [${level}] ${masked}\n`;
 	}
 
 	function scheduleFlush(): void {

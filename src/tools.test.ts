@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { BmoConfig } from "./config.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
-import { createRunCommandTool, createToolRegistry, formatToolCallSummary } from "./tools.ts";
+import { checkDangerousCommand, createRunCommandTool, createToolRegistry, formatToolCallSummary } from "./tools.ts";
 
 const testConfig: BmoConfig = {
 	...DEFAULT_CONFIG,
@@ -144,6 +144,67 @@ describe("run_command", () => {
 	test("respects pipefail", async () => {
 		const result = await tool.execute({ command: "false | cat" });
 		expect(result.isError).toBe(true);
+	});
+});
+
+describe("checkDangerousCommand", () => {
+	test("blocks rm -rf /", () => {
+		expect(checkDangerousCommand("rm -rf /")).not.toBeNull();
+	});
+
+	test("blocks rm -f /", () => {
+		expect(checkDangerousCommand("rm -f /")).not.toBeNull();
+	});
+
+	test("blocks rm /", () => {
+		expect(checkDangerousCommand("rm /")).not.toBeNull();
+	});
+
+	test("blocks mkfs", () => {
+		expect(checkDangerousCommand("mkfs.ext4 /dev/sda1")).not.toBeNull();
+	});
+
+	test("blocks dd to block device", () => {
+		expect(checkDangerousCommand("dd if=/dev/zero of=/dev/sda")).not.toBeNull();
+	});
+
+	test("blocks redirect to block device", () => {
+		expect(checkDangerousCommand("echo hello > /dev/sda")).not.toBeNull();
+	});
+
+	test("blocks chmod -R 777 /", () => {
+		expect(checkDangerousCommand("chmod -R 777 /")).not.toBeNull();
+	});
+
+	test("blocks chown -R on root", () => {
+		expect(checkDangerousCommand("chown -R nobody:nobody /")).not.toBeNull();
+	});
+
+	test("allows normal rm on subdirectory", () => {
+		expect(checkDangerousCommand("rm -rf /tmp/test")).toBeNull();
+	});
+
+	test("allows normal ls", () => {
+		expect(checkDangerousCommand("ls -la")).toBeNull();
+	});
+
+	test("allows normal git commands", () => {
+		expect(checkDangerousCommand("git status")).toBeNull();
+	});
+
+	test("allows cat", () => {
+		expect(checkDangerousCommand("cat /etc/hosts")).toBeNull();
+	});
+
+	test("allows echo", () => {
+		expect(checkDangerousCommand("echo hello world")).toBeNull();
+	});
+
+	test("run_command returns blocked result for dangerous command", async () => {
+		const tool = createRunCommandTool(testConfig);
+		const result = await tool.execute({ command: "rm -rf /" });
+		expect(result.isError).toBe(true);
+		expect(result.output).toContain("Blocked");
 	});
 });
 

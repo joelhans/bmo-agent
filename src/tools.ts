@@ -1,4 +1,5 @@
 import type { BmoConfig } from "./config.ts";
+import type { SecretMasker } from "./secrets.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,10 +75,48 @@ export function createToolRegistry(): ToolRegistry {
 }
 
 // ---------------------------------------------------------------------------
+// Dangerous command guard
+// ---------------------------------------------------------------------------
+
+const DANGEROUS_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
+	{ pattern: /\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?\/(\s|$)/, reason: "Refuses to rm at filesystem root" },
+	{ pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\/(\s|$)/, reason: "Refuses recursive force-delete at root" },
+	{ pattern: /\bmkfs\b/, reason: "Refuses to create filesystem" },
+	{ pattern: /\bdd\b.*\bof=\/dev\//, reason: "Refuses to write directly to block devices" },
+	{ pattern: />\s*\/dev\/[sh]d[a-z]/, reason: "Refuses to overwrite block devices" },
+	{ pattern: /:()\{\s*:|:&\s*\};:/, reason: "Refuses fork bomb" },
+	{ pattern: /\bchmod\s+-R\s+777\s+\/(\s|$)/, reason: "Refuses recursive chmod 777 on root" },
+	{ pattern: /\bchown\s+-R\s+.*\s+\/(\s|$)/, reason: "Refuses recursive chown on root" },
+];
+
+/**
+ * Check if a command matches a known dangerous pattern.
+ * Returns an error message if dangerous, or null if safe.
+ */
+export function checkDangerousCommand(command: string): string | null {
+	for (const { pattern, reason } of DANGEROUS_PATTERNS) {
+		if (pattern.test(command)) {
+			return `Blocked: ${reason}`;
+		}
+	}
+	return null;
+}
+
+// ---------------------------------------------------------------------------
 // run_command
 // ---------------------------------------------------------------------------
 
-async function executeCommand(command: string, timeoutMs: number, truncationLimit: number): Promise<ToolResult> {
+async function executeCommand(
+	command: string,
+	timeoutMs: number,
+	truncationLimit: number,
+	masker?: SecretMasker,
+): Promise<ToolResult> {
+	const blocked = checkDangerousCommand(command);
+	if (blocked) {
+		return { output: blocked, isError: true };
+	}
+
 	const env = {
 		...process.env,
 		PAGER: "cat",
@@ -109,6 +148,7 @@ async function executeCommand(command: string, timeoutMs: number, truncationLimi
 			output = `${output.slice(0, truncationLimit)}\n[truncated — ${omitted} chars omitted]`;
 		}
 
+		if (masker) output = masker.mask(output);
 		return { output, isError: exitCode !== 0 };
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
@@ -116,7 +156,7 @@ async function executeCommand(command: string, timeoutMs: number, truncationLimi
 	}
 }
 
-export function createRunCommandTool(config: BmoConfig): ToolDefinition {
+export function createRunCommandTool(config: BmoConfig, masker?: SecretMasker): ToolDefinition {
 	return {
 		name: "run_command",
 		description:
@@ -139,7 +179,7 @@ export function createRunCommandTool(config: BmoConfig): ToolDefinition {
 		async execute(args) {
 			const command = args.command as string;
 			const timeoutMs = (args.timeout_ms as number | undefined) ?? config.sandbox.defaultTimeoutMs;
-			return executeCommand(command, timeoutMs, config.toolResultTruncation);
+			return executeCommand(command, timeoutMs, config.toolResultTruncation, masker);
 		},
 	};
 }

@@ -121,7 +121,7 @@ describe("buildSandboxEnv", () => {
 // ---------------------------------------------------------------------------
 
 const tmpDir = join(import.meta.dir, "..", ".test-sandbox-tmp");
-const runnerPath = join(import.meta.dir, "sandbox-runner.ts");
+const sandboxCommand = [process.execPath, join(import.meta.dir, "main.ts"), "--sandbox-runner"];
 
 const sandboxConfig: SandboxConfig = {
 	defaultTimeoutMs: 5000,
@@ -213,7 +213,7 @@ describe("executeSandboxed", () => {
 			{ text: "hello" },
 			DEFAULT_CAPABILITIES,
 			sandboxConfig,
-			runnerPath,
+			sandboxCommand,
 		);
 		expect(result.output).toBe("echoed: hello");
 		expect(result.isError).toBe(false);
@@ -225,7 +225,7 @@ describe("executeSandboxed", () => {
 			{},
 			DEFAULT_CAPABILITIES,
 			sandboxConfig,
-			runnerPath,
+			sandboxCommand,
 		);
 		expect(result.output).toBe("intentional failure");
 		expect(result.isError).toBe(true);
@@ -238,7 +238,7 @@ describe("executeSandboxed", () => {
 			{},
 			DEFAULT_CAPABILITIES,
 			shortTimeout,
-			runnerPath,
+			sandboxCommand,
 		);
 		expect(result.isError).toBe(true);
 		expect(result.output).toContain("timed out");
@@ -253,7 +253,7 @@ describe("executeSandboxed", () => {
 				{},
 				{ ...DEFAULT_CAPABILITIES, env: false },
 				sandboxConfig,
-				runnerPath,
+				sandboxCommand,
 			);
 			expect(result.output).not.toContain("sk-test-secret-sandbox");
 		} finally {
@@ -274,7 +274,7 @@ describe("executeSandboxed", () => {
 				{},
 				{ ...DEFAULT_CAPABILITIES, env: true },
 				sandboxConfig,
-				runnerPath,
+				sandboxCommand,
 			);
 			expect(result.output).toBe("sk-test-visible");
 		} finally {
@@ -292,7 +292,7 @@ describe("executeSandboxed", () => {
 			{},
 			{ ...DEFAULT_CAPABILITIES, network: false },
 			sandboxConfig,
-			runnerPath,
+			sandboxCommand,
 		);
 		expect(result.isError).toBe(true);
 		expect(result.output).toContain("sandbox");
@@ -305,7 +305,7 @@ describe("executeSandboxed", () => {
 			{},
 			DEFAULT_CAPABILITIES,
 			smallLimit,
-			runnerPath,
+			sandboxCommand,
 		);
 		// Truncated output won't parse as valid JSON, so it falls through to error handling
 		expect(result.isError).toBe(true);
@@ -318,7 +318,7 @@ describe("executeSandboxed", () => {
 			{},
 			DEFAULT_CAPABILITIES,
 			sandboxConfig,
-			runnerPath,
+			sandboxCommand,
 		);
 		expect(result.isError).toBe(true);
 	});

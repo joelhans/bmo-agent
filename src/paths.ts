@@ -13,6 +13,7 @@ export interface ResolvedPaths {
 	bmoSource: string | null;
 	toolsDir: string;
 	skillsDir: string;
+	docsDir: string;
 }
 
 /**
@@ -48,6 +49,7 @@ export function resolvePaths(): ResolvedPaths {
 		bmoSource,
 		toolsDir: join(bmoHome, "tools"),
 		skillsDir: join(bmoHome, "skills"),
+		docsDir: join(bmoHome, "docs"),
 	};
 }
 
@@ -59,6 +61,9 @@ export async function ensureDataDirs(paths: ResolvedPaths): Promise<void> {
 	await mkdir(paths.sessionsDir, { recursive: true });
 	await mkdir(paths.snapshotsDir, { recursive: true });
 	await mkdir(paths.summariesDir, { recursive: true });
+	await mkdir(paths.toolsDir, { recursive: true });
+	await mkdir(paths.skillsDir, { recursive: true });
+	await mkdir(paths.docsDir, { recursive: true });
 }
 
 /**
