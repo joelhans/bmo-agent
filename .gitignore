@@ -3,3 +3,6 @@ dist/
 bun.lock
 *.log
 .DS_Store
+.env
+.env.*
+*.tsbuildinfo

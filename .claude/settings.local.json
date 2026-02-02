@@ -19,7 +19,9 @@
       "Bash(ls:*)",
       "Bash(git -C /var/home/joel/src/bmo-agent-v2 log --oneline -15)",
       "Bash(grep:*)",
-      "Bash(npx biome:*)"
+      "Bash(npx biome:*)",
+      "Bash(./node_modules/.bin/biome check:*)",
+      "Bash(test:*)"
     ]
   }
 }

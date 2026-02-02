@@ -478,7 +478,9 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		const envVars = Object.values(config.providers).map((p) => p.apiKeyEnv);
 		chatView.addMessage(
 			"system",
-			`No API keys found. Set one of: ${envVars.join(", ")}\n` + `Example: export ${envVars[0]}=your-key-here`,
+			`No API keys found. Set one of: ${envVars.join(", ")}\n` +
+				`Example: export ${envVars[0]}=your-key-here\n` +
+				`Or use: bmo key add <provider> <key>`,
 		);
 	}
 

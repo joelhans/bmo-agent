@@ -7,6 +7,7 @@ if (process.argv.includes("--sandbox-runner")) {
 }
 
 import { loadConfig, saveConfig } from "./config.ts";
+import { addKey, formatKeyList, injectKeys, listKeys, loadKeys, removeKey } from "./keys.ts";
 import { createLlmClient } from "./llm.ts";
 import { createLogger } from "./logger.ts";
 import { runMaintenance } from "./maintain.ts";
@@ -22,20 +23,55 @@ function generateSessionId(): string {
 	return `${date}-${rand}`;
 }
 
+type KeyCommand =
+	| { action: "add"; provider: string; key: string }
+	| { action: "remove"; provider: string }
+	| { action: "list" }
+	| null;
+
 function parseCliArgs(): {
 	listSessions: boolean;
 	resumeSessionId: string | null;
 	maintain: boolean;
 	noMaintain: boolean;
+	keyCommand: KeyCommand;
 } {
 	const args = process.argv.slice(2);
 	let list = false;
 	let resumeId: string | null = null;
 	let maintain = false;
 	let noMaintain = false;
+	let keyCommand: KeyCommand = null;
 
 	for (let i = 0; i < args.length; i++) {
-		if (args[i] === "--sessions") {
+		if (args[i] === "key") {
+			const subAction = args[i + 1];
+			if (subAction === "list") {
+				keyCommand = { action: "list" };
+			} else if (subAction === "add") {
+				const provider = args[i + 2];
+				const key = args[i + 3];
+				if (!provider || !key) {
+					console.error("Usage: bmo key add <provider> <key>");
+					process.exit(1);
+				}
+				keyCommand = { action: "add", provider, key };
+			} else if (subAction === "remove") {
+				const provider = args[i + 2];
+				if (!provider) {
+					console.error("Usage: bmo key remove <provider>");
+					process.exit(1);
+				}
+				keyCommand = { action: "remove", provider };
+			} else {
+				console.error("Usage: bmo key <add|remove|list>");
+				console.error("  bmo key list                    List all provider keys");
+				console.error("  bmo key add <provider> <key>    Store a key for a provider");
+				console.error("  bmo key remove <provider>       Remove a stored key");
+				process.exit(1);
+			}
+			break;
+		} else if (args[i] === "--sessions") {
 			list = true;
 		} else if (args[i] === "--session" && i + 1 < args.length) {
 			resumeId = args[i + 1] ?? null;
@@ -47,7 +83,7 @@ function parseCliArgs(): {
 		}
 	}
 
-	return { listSessions: list, resumeSessionId: resumeId, maintain, noMaintain };
+	return { listSessions: list, resumeSessionId: resumeId, maintain, noMaintain, keyCommand };
 }
 
 async function main(): Promise<void> {
@@ -58,6 +94,34 @@ async function main(): Promise<void> {
 
 	// Merge config.sourceDir into paths (env var BMO_SOURCE overrides config)
 	paths = resolveSourceDir(paths, config.sourceDir);
+
+	// key subcommand: dispatch and exit
+	if (cliArgs.keyCommand) {
+		const cmd = cliArgs.keyCommand;
+		if (cmd.action === "list") {
+			const keys = await loadKeys(paths.dataDir);
+			const statuses = listKeys(config, keys);
+			console.log(formatKeyList(statuses));
+		} else if (cmd.action === "add") {
+			const result = await addKey(paths.dataDir, config, cmd.provider, cmd.key);
+			if (!result.ok) {
+				console.error(`Error: ${result.reason}`);
+				process.exit(1);
+			}
+			console.log(`Key stored for provider "${cmd.provider}".`);
+		} else if (cmd.action === "remove") {
+			const result = await removeKey(paths.dataDir, cmd.provider);
+			if (!result.ok) {
+				console.error(`Error: ${result.reason}`);
+				process.exit(1);
+			}
+			console.log(`Key removed for provider "${cmd.provider}".`);
+		}
+		process.exit(0);
+	}
+
+	// Inject stored keys into process.env (before masker/logger so they pick them up)
+	await injectKeys(paths.dataDir, config);
 
 	// --sessions: list and exit (no TUI needed)
 	if (cliArgs.listSessions) {
@@ -129,7 +193,7 @@ main().catch((err: unknown) => {
 	// Helpful hints for common failures
 	if (msg.includes("API key") || msg.includes("apiKeyEnv") || /[A-Z_]+_API_KEY/.test(msg)) {
 		console.error(`Fatal: ${msg}`);
-		console.error("Hint: set the required API key environment variable before starting bmo.");
+		console.error("Hint: set the required API key via environment variable or `bmo key add <provider> <key>`.");
 	} else if (msg.includes("JSON") && msg.includes("config")) {
 		console.error(`Fatal: failed to parse config.json — ${msg}`);
 		console.error("Hint: delete ~/.local/share/bmo/config.json to regenerate defaults.");
