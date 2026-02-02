@@ -100,8 +100,7 @@ async function main(): Promise<void> {
 
 	// Auto-trigger maintenance if threshold reached
 	if (!cliArgs.noMaintain && config.maintenance.sessionsSinceLastMaintenance >= config.maintenance.threshold) {
-		const count = config.maintenance.sessionsSinceLastMaintenance;
-		console.log(`Maintenance due (${count} sessions). Running maintenance pass...`);
+		console.log("hey. i need to change my batteries, ok? one sec...");
 		const maintSessionId = `maint-${generateSessionId()}`;
 		const result = await runMaintenance({ config, logger, sessionId: maintSessionId, llm, paths });
 		console.log(`\nMaintenance ${result.success ? "completed" : "failed"}: ${result.summary}`);
