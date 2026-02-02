@@ -9,7 +9,8 @@
 		"test": "bun test",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"format": "biome format --write ."
+		"format": "biome format --write .",
+		"smoke": "bash scripts/smoke-test.sh"
 	},
 	"dependencies": {
 		"@mariozechner/pi-tui": "^0.50.8",

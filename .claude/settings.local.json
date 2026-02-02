@@ -21,7 +21,10 @@
       "Bash(grep:*)",
       "Bash(npx biome:*)",
       "Bash(./node_modules/.bin/biome check:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(git -C /Users/joelhans/src/bmo-agent log --oneline -10)",
+      "Bash(chmod:*)",
+      "Bash(bash scripts/smoke-test.sh:*)"
     ]
   }
 }
