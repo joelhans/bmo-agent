@@ -46,7 +46,14 @@ export function getSandboxCommand(): string[] {
 	if (scriptArg && /\.[tj]sx?$/.test(scriptArg)) {
 		return [process.execPath, mainTs, "--sandbox-runner"];
 	}
-	return [process.execPath, "--sandbox-runner"];
+	// On Linux, if the binary was replaced on disk while running (e.g. rebuild),
+	// /proc/self/exe appends " (deleted)" to the path. The new binary exists at
+	// the original path, so strip the suffix.
+	let exe = process.execPath;
+	if (exe.endsWith(" (deleted)")) {
+		exe = exe.slice(0, -" (deleted)".length);
+	}
+	return [exe, "--sandbox-runner"];
 }
 
 // ---------------------------------------------------------------------------
