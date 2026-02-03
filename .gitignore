@@ -6,3 +6,4 @@ bun.lock
 .env
 .env.*
 *.tsbuildinfo
+*.bun-build
