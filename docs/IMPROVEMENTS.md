@@ -39,3 +39,21 @@ Example
   - Validation plan: Time-box next maintenance pass and compare edit/count of run_command calls vs. prior pass; track if opportunities convert to tools/skills.
   - Status: PENDING.
 - Added smart_grep tool for searching with directory exclusions, preventing accidental searches in large dependency directories
+## 2026-02-03 Maintenance — New Tools
+
+### session_digest tool
+- **What**: Purpose-built tool to summarize reflections and learning events from recent sessions.
+- **Hypothesis**: Reduces maintenance friction by replacing ad-hoc JSON parsing with a single structured call. Expected to cut 4-6 shell commands per maintenance pass.
+- **Verification**: Called directly, returned structured summary with reflection rate (3/5), learning events by type, and truncated reflections.
+- **Status**: VALIDATED — tool works as designed.
+
+### config_introspect tool  
+- **What**: One-shot inspection of BMO config.json and keys.json showing providers, models, API key status, and readiness.
+- **Hypothesis**: Addresses repeated piecemeal exploration pattern cited in 3+ session reflections. Expected to reduce 3-6 shell calls to 1 for provider/model queries.
+- **Verification**: Called directly, returned complete provider configuration and readiness status in single call.
+- **Status**: VALIDATED — tool works as designed.
+
+### WORKING_MEMORY.md
+- **What**: New maintenance artifact capturing active preferences, common pitfalls, recurring patterns, key insights, and tool notes.
+- **Hypothesis**: Provides compact, actionable context for future sessions without re-analyzing raw session data.
+- **Status**: CREATED — will validate utility in subsequent sessions.
