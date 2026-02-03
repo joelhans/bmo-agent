@@ -29,3 +29,23 @@ Example
 - Key metrics: token efficiency 12% better than sessions 10-20; avg session cost $0.42; tool success rate 94%
 - Narrative: search_code tool eliminated repeated grep invocations and reduced token usage for code search tasks. The hypothesis that file_stats_simple was redundant was validated — file_stats.mjs handles all use cases. One hypothesis invalidated: caching file listings did not measurably reduce latency (filesystem calls are already fast).
 
+## 2026-02-02 Maintenance Experiment
+
+Sessions reviewed: 20260202165426-mipb.json, 20260202165413-1yqk.json, 20260202163012-ztu6.json, 20260202153303-9ujq.json, 20260202153259-vyrp.json
+
+Tool/skill delta:
+- Docs: created OPPORTUNITIES.md; appended maintenance validation to IMPROVEMENTS.md.
+- No new tools/skills added during this pass (captured as opportunities).
+
+Hypothesis scorecard:
+- Anthropic provider support in add_provider_key: VALIDATED (keys.json contains provider; no recent errors).
+- Maintenance artifacts (OPPORTUNITIES/EXPERIMENT) reduce pass time: PENDING (assess next pass).
+
+Key metrics:
+- run_command: 34 calls, 94% ok, ~428 ms avg.
+- reload_tools: 8 calls, 100% ok, ~74 ms avg.
+- Sessions processed: 5; reflections present: 3/5; learningEvents found: 0.
+
+Narrative:
+Reflections repeatedly cite slow, piecemeal exploration to answer provider/model questions. Action: build a config_introspect tool and a session_digest tool, and add a targeted code spelunking skill to reduce round-trips and latency.
+

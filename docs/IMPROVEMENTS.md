@@ -29,3 +29,12 @@ Example
 - Changes: tools/file_stats_simple.json; tools/bin/file_stats_simple
 - Verification: file=README.md → ok:true {chars:1234, lines:56}
 - Follow-ups: none
+## 2026-02-02 Maintenance validation
+- Status update: 'anthropic' provider support in add_provider_key tool — VALIDATED.
+  - Evidence: keys.json contains an `anthropic` entry; dynamic tool `add_provider_key_v3` recognizes provider; no subsequent errors recorded in recent sessions related to this tool.
+  - Impact: Users can now store Anthropic API keys via the tool, broadening integration.
+
+- Added maintenance artifacts: OPPORTUNITIES.md and EXPERIMENT.md scaffolding.
+  - Hypothesis: Making opportunities/action items and experiment scorecards first-class docs will cut maintenance time by 30–50% and improve carryover between sessions.
+  - Validation plan: Time-box next maintenance pass and compare edit/count of run_command calls vs. prior pass; track if opportunities convert to tools/skills.
+  - Status: PENDING.
