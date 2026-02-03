@@ -108,6 +108,7 @@ export interface SystemPromptOptions {
 	maintenanceNotice?: string;
 	inventorySummary?: string;
 	telemetrySummary?: string;
+	workingMemory?: string;
 }
 
 /**
@@ -128,6 +129,10 @@ export function assembleSystemPrompt(opts: SystemPromptOptions): string {
 
 	if (opts.telemetrySummary) {
 		sections.push(opts.telemetrySummary);
+	}
+
+	if (opts.workingMemory) {
+		sections.push(`Working memory (cross-session knowledge)\n${opts.workingMemory}`);
 	}
 
 	if (opts.skills && opts.skills.length > 0) {

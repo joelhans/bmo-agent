@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { type AgentDisplay, runAgentLoop } from "./agent-loop.ts";
 import { type BmoConfig, saveConfig } from "./config.ts";
 import { createSessionTracker } from "./context.ts";
@@ -76,14 +78,62 @@ class ConsoleDisplay implements AgentDisplay {
 // Maintenance instructions
 // ---------------------------------------------------------------------------
 
-const MAINTENANCE_MESSAGE = `Run a maintenance pass:
-1. Review recent session reflections — list *.json files in the sessions directory (ignore *.log files), read the 5 most recent session JSONs, and look at the "reflection" field in each. Summarize patterns across reflections.
+const MAINTENANCE_MESSAGE = `Run a full improvement cycle. This has five phases.
+
+## Phase 1: Analyze
+1. Review recent session reflections -- list *.json files in the sessions directory (ignore *.log files), read the 5 most recent session JSONs, and look at the "reflection" field in each. Summarize patterns across reflections.
 2. Check IMPROVEMENTS.md for hypotheses that can be validated or invalidated.
-3. Scan learning events from the same session JSON files — each may contain a "learningEvents" array with objects like {type, description, context}. Look for recurring corrections or patterns.
-4. Update OPPORTUNITIES.md with actionable findings.
-5. Append an entry to EXPERIMENT.md (date, session range, tool/skill delta, hypothesis scorecard, key metrics, narrative).
-6. Review the tool telemetry section in the system prompt — note any tools with high failure rates or unusually slow execution times.
-7. Call complete_maintenance with a summary of what you found.`;
+3. Scan learning events from the same session JSON files -- each may contain a "learningEvents" array with objects like {type, description, context}. Look for recurring corrections or patterns.
+4. Review the tool telemetry section in the system prompt -- note any tools with high failure rates or unusually slow execution times.
+
+## Phase 2: Distill working memory
+5. Based on everything gathered in Phase 1 (reflections, learning events, telemetry, and any existing WORKING_MEMORY.md), generate or regenerate the file docs/WORKING_MEMORY.md at BMO_HOME.
+   - This file is NOT append-only -- overwrite it entirely each maintenance pass.
+   - Keep it compact (under 150 lines).
+   - Use run_command to write the file via heredoc.
+   - Format:
+
+# Working Memory
+Generated: <ISO timestamp>
+
+## Active Preferences
+- <bullet list of user preferences observed across sessions>
+
+## Common Pitfalls
+- <bullet list of recurring mistakes or corrections>
+
+## Recurring Patterns
+- <bullet list of task patterns, workflow shapes, or domain knowledge>
+
+## Key Insights
+- <bullet list of high-value learnings that should inform every session>
+
+## Tool & Skill Notes
+- <notes on which tools/skills work well, which are fragile, tips for effective use>
+
+## Phase 3: Generate skills from learnings
+6. Review learning events gathered in Phase 1. When you find 3 or more related corrections, preferences, or patterns on the same topic, create a skill file that codifies that knowledge.
+   - Write .md files to BMO_HOME/skills/ using run_command (heredoc).
+   - Follow the skills format: YAML front-matter with name, description, triggers (keyword list), then markdown body with when-to-use, best practices, examples, pitfalls.
+   - After creating any skills, call reload_tools to re-index.
+   - If no cluster of 3+ related learnings exists, skip this phase and note it in your summary.
+   - Do NOT create skills that duplicate existing ones -- check the available skills list first.
+
+## Phase 4: Act on opportunities
+7. Read OPPORTUNITIES.md. Identify items that are Status: todo, Impact: High or Medium, Effort: S.
+   Pick up to 2 such items per maintenance pass to avoid scope creep.
+8. For each chosen item, implement it:
+   - New tool: write a .mjs file to BMO_HOME/tools/ via run_command. Call reload_tools and verify by calling the tool directly.
+   - New skill: write a .md file to BMO_HOME/skills/ via run_command. Call reload_tools.
+   - Other change: do it via run_command.
+   - Log each improvement to IMPROVEMENTS.md with the standard entry template.
+9. Update the status of acted-on items in OPPORTUNITIES.md from "todo" to "done".
+10. If no suitable items exist, skip this phase and note it.
+
+## Phase 5: Wrap up
+11. Update OPPORTUNITIES.md with any new actionable findings from this cycle.
+12. Append an entry to EXPERIMENT.md (date, session range, tool/skill delta, hypothesis scorecard, key metrics, narrative).
+13. Call complete_maintenance with a summary covering: what was analyzed, what working memory captured, any skills generated, any opportunities acted on, and what changed.`;
 
 // ---------------------------------------------------------------------------
 // runMaintenance
@@ -272,6 +322,14 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 	const telemetryStore = await loadTelemetry(paths.dataDir);
 	const telemetrySummary = formatTelemetryForPrompt(telemetryStore, true) || undefined;
 
+	// Load working memory (if it exists from a previous maintenance pass)
+	let workingMemoryContent: string | undefined;
+	try {
+		workingMemoryContent = await readFile(join(paths.docsDir, "WORKING_MEMORY.md"), "utf-8");
+	} catch {
+		// File doesn't exist yet -- first maintenance pass will create it
+	}
+
 	// Build maintenance notice
 	const count = config.maintenance.sessionsSinceLastMaintenance;
 	const last = config.maintenance.lastMaintenanceDate ?? "never";
@@ -292,6 +350,7 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		maintenanceNotice,
 		inventorySummary,
 		telemetrySummary,
+		workingMemory: workingMemoryContent,
 	});
 
 	// Messages

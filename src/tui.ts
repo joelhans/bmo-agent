@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
 	type Component,
 	Container,
@@ -279,6 +281,14 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	}
 	let learningEventsMergedCount = resumedSession?.learningEvents?.length ?? 0;
 
+	// Load working memory (if it exists from a previous maintenance pass)
+	let workingMemoryContent: string | undefined;
+	try {
+		workingMemoryContent = await readFile(join(paths.docsDir, "WORKING_MEMORY.md"), "utf-8");
+	} catch {
+		// File doesn't exist yet -- will be created by first maintenance pass
+	}
+
 	// System prompt — includes skill and dynamic tool lists, inventory, telemetry
 	function buildSystemPrompt(): string {
 		const telemetrySummary = formatTelemetryForPrompt(telemetryStore) || undefined;
@@ -291,6 +301,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			dynamicTools: registry.listDynamicNames(),
 			inventorySummary,
 			telemetrySummary,
+			workingMemory: workingMemoryContent,
 		});
 	}
 
@@ -429,6 +440,15 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	let lastUsedModel = config.models.coding;
 
 	function rebuildSystemPrompt(): void {
+		// Refresh working memory (fire-and-forget)
+		readFile(join(paths.docsDir, "WORKING_MEMORY.md"), "utf-8")
+			.then((content) => {
+				workingMemoryContent = content;
+			})
+			.catch(() => {
+				/* file may not exist */
+			});
+
 		// Regenerate inventory (fire-and-forget save)
 		generateInventory(registry, skillsRegistry, paths.bmoHome)
 			.then((inv) => {

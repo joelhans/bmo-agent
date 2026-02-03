@@ -1,5 +1,7 @@
 # Bug tracker
 
+- Have I gone too far in the **documentation** of self-improvement at the
+  expense of action? Does bmo know to just **do**?
 - Can't add Anthropic API keys with `bmo key add anthropic ...`
 - When bmo gets rate limited, it shows "Error: Rate limited by provider
   "openai". Wait and retry." but then never retries. If I retry, then it seems
