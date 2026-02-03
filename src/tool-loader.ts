@@ -1,5 +1,6 @@
-import { copyFile, mkdir, readdir } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { DOC_FILES, mergeMarkdownEntries } from "./doc-sync.ts";
 import { executeSandboxed, resolveCapabilities, type SandboxConfig, type ToolCapabilities } from "./sandbox.ts";
 import type { SkillsRegistry } from "./skills.ts";
 import type { ToolDefinition, ToolRegistry, ToolResult } from "./tools.ts";
@@ -190,6 +191,7 @@ export async function syncToSource(
 	skillsDir: string,
 	bmoSource: string | null,
 	loadResult?: LoadResult,
+	docsDir?: string,
 ): Promise<string | null> {
 	if (!bmoSource) return null;
 
@@ -234,11 +236,40 @@ export async function syncToSource(
 		// skillsDir may not exist yet
 	}
 
+	// Merge doc files (IMPROVEMENTS.md, OPPORTUNITIES.md, EXPERIMENT.md)
+	if (docsDir) {
+		const destDocsDir = join(bmoSource, "docs");
+		await mkdir(destDocsDir, { recursive: true });
+		for (const file of DOC_FILES) {
+			try {
+				const localContent = await readFile(join(docsDir, file), "utf-8");
+				let sourceContent: string | null = null;
+				try {
+					sourceContent = await readFile(join(destDocsDir, file), "utf-8");
+				} catch {
+					// source doesn't exist — copy local
+				}
+				if (sourceContent === null) {
+					await writeFile(join(destDocsDir, file), localContent);
+					copied++;
+				} else {
+					const merged = mergeMarkdownEntries(sourceContent, localContent);
+					if (merged !== null) {
+						await writeFile(join(destDocsDir, file), merged);
+						copied++;
+					}
+				}
+			} catch {
+				// local file doesn't exist — skip
+			}
+		}
+	}
+
 	if (copied === 0) return null;
 
 	// Git add + commit (only if there are actual changes)
 	try {
-		const add = Bun.spawn(["git", "-C", bmoSource, "add", "tools/", "skills/"], {
+		const add = Bun.spawn(["git", "-C", bmoSource, "add", "tools/", "skills/", "docs/"], {
 			stdout: "pipe",
 			stderr: "pipe",
 		});
@@ -253,7 +284,7 @@ export async function syncToSource(
 
 		if (diffExit !== 0) {
 			// There are staged changes — commit them
-			const commit = Bun.spawn(["git", "-C", bmoSource, "commit", "-m", "sync tools and skills from BMO_HOME"], {
+			const commit = Bun.spawn(["git", "-C", bmoSource, "commit", "-m", "sync tools, skills, and docs from BMO_HOME"], {
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -282,7 +313,7 @@ export function createReloadToolsTool(
 	registry: ToolRegistry,
 	skillsRegistry: SkillsRegistry,
 	sandboxConfig: SandboxConfig,
-	opts?: { skillsDir?: string; bmoSource?: string | null },
+	opts?: { skillsDir?: string; bmoSource?: string | null; docsDir?: string },
 ): ToolDefinition {
 	return {
 		name: "reload_tools",
@@ -303,7 +334,13 @@ export function createReloadToolsTool(
 
 			// Auto-sync to BMO_SOURCE if configured (only valid tools)
 			if (opts?.skillsDir) {
-				const syncResult = await syncToSource(toolsDir, opts.skillsDir, opts.bmoSource ?? null, loadResult);
+				const syncResult = await syncToSource(
+					toolsDir,
+					opts.skillsDir,
+					opts.bmoSource ?? null,
+					loadResult,
+					opts.docsDir,
+				);
 				if (syncResult) summary += `\n${syncResult}`;
 			}
 

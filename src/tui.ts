@@ -12,6 +12,7 @@ import {
 import { runAgentLoop } from "./agent-loop.ts";
 import { type BmoConfig, saveConfig } from "./config.ts";
 import { createSessionTracker } from "./context.ts";
+import { pushDocsToSource } from "./doc-sync.ts";
 import { formatInventoryForPrompt, generateInventory, saveInventory } from "./inventory.ts";
 import type { ChatMessage, LlmClient } from "./llm.ts";
 import type { Logger } from "./logger.ts";
@@ -243,6 +244,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		createReloadToolsTool(paths.toolsDir, registry, skillsRegistry, sandboxConfig, {
 			skillsDir: paths.skillsDir,
 			bmoSource: paths.bmoSource,
+			docsDir: paths.docsDir,
 		}),
 		{ builtin: true },
 	);
@@ -641,6 +643,15 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		} catch (err: unknown) {
 			const msg = err instanceof Error ? err.message : String(err);
 			logger.error(`Failed to save session: ${msg}`);
+		}
+
+		// Push docs to BMO_SOURCE before exit
+		if (paths.bmoSource) {
+			try {
+				await pushDocsToSource(paths.docsDir, paths.bmoSource);
+			} catch {
+				/* silent — don't block exit */
+			}
 		}
 
 		tui.stop();

@@ -7,6 +7,7 @@ if (process.argv.includes("--sandbox-runner")) {
 }
 
 import { loadConfig, saveConfig } from "./config.ts";
+import { pullDocsFromSource } from "./doc-sync.ts";
 import { addKey, formatKeyList, injectKeys, listKeys, loadKeys, removeKey } from "./keys.ts";
 import { createLlmClient } from "./llm.ts";
 import { createLogger } from "./logger.ts";
@@ -94,6 +95,15 @@ async function main(): Promise<void> {
 
 	// Merge config.sourceDir into paths (env var BMO_SOURCE overrides config)
 	paths = resolveSourceDir(paths, config.sourceDir);
+
+	// Pull docs from BMO_SOURCE so local always has cross-machine learnings
+	if (paths.bmoSource) {
+		try {
+			await pullDocsFromSource(paths.docsDir, paths.bmoSource);
+		} catch {
+			// best-effort — don't block startup
+		}
+	}
 
 	// key subcommand: dispatch and exit
 	if (cliArgs.keyCommand) {

@@ -1,6 +1,7 @@
 import { type AgentDisplay, runAgentLoop } from "./agent-loop.ts";
 import { type BmoConfig, saveConfig } from "./config.ts";
 import { createSessionTracker } from "./context.ts";
+import { pullDocsFromSource, pushDocsToSource } from "./doc-sync.ts";
 import { formatInventoryForPrompt, generateInventory, saveInventory } from "./inventory.ts";
 import type { ChatMessage, LlmClient } from "./llm.ts";
 import type { Logger } from "./logger.ts";
@@ -128,6 +129,7 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		createReloadToolsTool(paths.toolsDir, registry, skillsRegistry, sandboxConfig, {
 			skillsDir: paths.skillsDir,
 			bmoSource: paths.bmoSource,
+			docsDir: paths.docsDir,
 		}),
 		{ builtin: true },
 	);
@@ -244,6 +246,17 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		{ builtin: true },
 	);
 
+	// Pull docs from BMO_SOURCE before inventory generation
+	if (paths.bmoSource) {
+		try {
+			await pullDocsFromSource(paths.docsDir, paths.bmoSource);
+			logger.info("Pulled docs from BMO_SOURCE");
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : String(err);
+			logger.error(`Failed to pull docs from BMO_SOURCE: ${msg}`);
+		}
+	}
+
 	// Generate inventory
 	let inventorySummary: string | undefined;
 	try {
@@ -353,6 +366,17 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		} catch (err: unknown) {
 			const msg = err instanceof Error ? err.message : String(err);
 			logger.error(`Failed to save telemetry: ${msg}`);
+		}
+	}
+
+	// Push docs to BMO_SOURCE after maintenance
+	if (paths.bmoSource) {
+		try {
+			await pushDocsToSource(paths.docsDir, paths.bmoSource);
+			logger.info("Pushed docs to BMO_SOURCE");
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : String(err);
+			logger.error(`Failed to push docs to BMO_SOURCE: ${msg}`);
 		}
 	}
 
