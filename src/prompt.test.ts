@@ -69,8 +69,8 @@ describe("assembleSystemPrompt", () => {
 		expect(prompt).toContain("always use the absolute BMO_HOME path");
 	});
 
-	test("includes self-improvement loop content", () => {
-		expect(prompt).toContain("Self\u2011improvement loop");
+	test("includes self-improvement content", () => {
+		expect(prompt).toContain("Self\u2011improvement: act now, not later");
 		expect(prompt).toContain("self\u2011improving");
 		expect(prompt).toContain("hypothesis");
 	});
