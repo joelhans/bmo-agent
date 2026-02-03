@@ -5,5 +5,4 @@
 - When bmo gets rate limited, it shows "Error: Rate limited by provider
   "openai". Wait and retry." but then never retries. If I retry, then it seems
   to just hit the rate limit again.
-- I can't seem to fire the reasoning tier with GPT-5.
-  bug or is that expected?
+- I'm seeing quite a few errors like this: "Error: Provider "openai" server error (503). Try again." Is it really a 503 error from OpenAI? Is it something else?
