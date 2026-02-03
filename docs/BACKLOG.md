@@ -4,20 +4,24 @@ Known footguns, annoyances, and structural gaps discovered during bmo self-impro
 
 ## Done
 
-### 1. Cross-platform binary testing ✓ (local)
+### Cross-platform binary testing ✓ (local)
 Local smoke-test script (`scripts/smoke-test.sh`) runs lint, unit tests, build, and binary CLI checks using a temp `BMO_DATA` directory. Run via `bun run smoke`.
 
 **Remaining:** GitHub Actions CI matrix (see #21).
 
-### 7. Session cost limit ✓
+### Session cost limit ✓
 Configurable via `config.cost.sessionLimit`. Warning fires at 80% of limit. Hard stop at 100%.
 
-### 15. Multi-provider pricing ✓
+### Multi-provider pricing ✓
 Gateway-prefixed models (e.g. `"ngrok/openai/gpt-4o"`) resolve to built-in pricing automatically. Per-model pricing overrides via `config.cost.modelPricing`.
 
 **Remaining:** Anthropic native API transport in `llm.ts`.
 
 ## P0 — Daily friction / self-improvement safety
+
+### Read `AGENTS.md` or `CLAUDE.md`, etc
+
+Description to come
 
 ### 6. `write_file` built-in tool
 The LLM writes files via `run_command` with shell escaping, which is fragile — heredocs sometimes fail, escaping wastes tokens and round-trips on retry. This is the single most common source of wasted tokens.
