@@ -533,8 +533,10 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		logger.info(`user: ${message}`);
 
 		if (session.isOverBudget(config.cost.sessionLimit)) {
-			const limit = config.cost.sessionLimit.toFixed(2);
-			chatView.addMessage("system", `Session cost limit reached ($${limit}). Start a new session.`);
+			if (config.cost.sessionLimit !== null) {
+				const limit = config.cost.sessionLimit.toFixed(2);
+				chatView.addMessage("system", `Session cost limit reached ($${limit}). Start a new session.`);
+			}
 			return;
 		}
 
@@ -566,13 +568,15 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 
 		// 80% budget warning
 		const stats = session.getStats();
-		const warningThreshold = config.cost.sessionLimit * 0.8;
-		if (stats.totalCost >= warningThreshold && stats.totalCost < config.cost.sessionLimit) {
-			const pct = ((stats.totalCost / config.cost.sessionLimit) * 100).toFixed(0);
-			chatView.addMessage(
-				"system",
-				`Warning: session cost ($${stats.totalCost.toFixed(2)}) has reached ${pct}% of the $${config.cost.sessionLimit.toFixed(2)} limit.`,
-			);
+		if (config.cost.sessionLimit !== null) {
+			const warningThreshold = config.cost.sessionLimit * 0.8;
+			if (stats.totalCost >= warningThreshold && stats.totalCost < config.cost.sessionLimit) {
+				const pct = ((stats.totalCost / config.cost.sessionLimit) * 100).toFixed(0);
+				chatView.addMessage(
+					"system",
+					`Warning: session cost ($${stats.totalCost.toFixed(2)}) has reached ${pct}% of the $${config.cost.sessionLimit.toFixed(2)} limit.`,
+				);
+			}
 		}
 
 		// Merge telemetry (tool calls + new learning events)

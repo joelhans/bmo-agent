@@ -171,8 +171,8 @@ export interface SessionStats {
 export interface SessionTracker {
 	recordUsage(model: string, promptTokens: number, completionTokens: number): void;
 	getStats(): SessionStats;
-	isOverBudget(sessionLimit: number): boolean;
-	formatStatus(sessionId: string, model: string, maxTokens: number, sessionLimit: number): string;
+	isOverBudget(sessionLimit: number | null): boolean;
+	formatStatus(sessionId: string, model: string, maxTokens: number, sessionLimit: number | null): string;
 }
 
 export interface InitialUsage {
@@ -213,14 +213,20 @@ export function createSessionTracker(
 			};
 		},
 
-		isOverBudget(sessionLimit: number): boolean {
+		isOverBudget(sessionLimit: number | null): boolean {
+			if (sessionLimit === null) return false;
 			return totalCost >= sessionLimit;
 		},
 
-		formatStatus(sessionId: string, model: string, maxTokens: number, sessionLimit: number): string {
+		formatStatus(sessionId: string, model: string, maxTokens: number, sessionLimit: number | null): string {
 			const tokenStr = formatTokenCount(lastPromptTokens);
 			const maxStr = formatTokenCount(maxTokens);
 			const costStr = totalCost.toFixed(2);
+			
+			if (sessionLimit === null) {
+				return `bmo v0.1.0 | session: ${sessionId} | ${model} | tokens: ${tokenStr}/${maxStr} | $${costStr}`;
+			}
+			
 			const limitStr = sessionLimit.toFixed(2);
 			return `bmo v0.1.0 | session: ${sessionId} | ${model} | tokens: ${tokenStr}/${maxStr} | $${costStr}/$${limitStr}`;
 		},

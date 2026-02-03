@@ -20,7 +20,7 @@ export interface BmoConfig {
 		coding: { maxTokens: number; responseHeadroom: number };
 	};
 	cost: {
-		sessionLimit: number;
+		sessionLimit: number | null;
 		selfImprovementLimit: number;
 		selfImprovementRetries: number;
 		modelPricing?: Record<string, { promptPer1M: number; completionPer1M: number }>;
