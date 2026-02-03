@@ -27,6 +27,12 @@ export const description = "Search code with ripgrep, automatically excluding no
 
 export const requires = ["rg"];
 
+// Declare capabilities needed
+export const capabilities = {
+  filesystem: "both",
+  subprocess: true
+};
+
 export async function run({ 
   pattern, 
   directory = ".", 
