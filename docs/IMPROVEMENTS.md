@@ -38,3 +38,4 @@ Example
   - Hypothesis: Making opportunities/action items and experiment scorecards first-class docs will cut maintenance time by 30–50% and improve carryover between sessions.
   - Validation plan: Time-box next maintenance pass and compare edit/count of run_command calls vs. prior pass; track if opportunities convert to tools/skills.
   - Status: PENDING.
+- Added smart_grep tool for searching with directory exclusions, preventing accidental searches in large dependency directories
