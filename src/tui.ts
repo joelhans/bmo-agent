@@ -507,7 +507,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	}
 
 	function defaultStatus(): string {
-		return session.formatStatus(sessionId, lastUsedModel, config.context.coding.maxTokens, config.cost.sessionLimit);
+		return session.formatStatus(sessionId, lastUsedModel, config.cost.sessionLimit);
 	}
 
 	function buildSessionData(reflection: string | null): SessionData {

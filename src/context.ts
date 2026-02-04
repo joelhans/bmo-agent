@@ -172,7 +172,7 @@ export interface SessionTracker {
 	recordUsage(model: string, promptTokens: number, completionTokens: number): void;
 	getStats(): SessionStats;
 	isOverBudget(sessionLimit: number | null): boolean;
-	formatStatus(sessionId: string, model: string, maxTokens: number, sessionLimit: number | null): string;
+	formatStatus(sessionId: string, model: string, sessionLimit: number | null): string;
 }
 
 export interface InitialUsage {
@@ -218,17 +218,16 @@ export function createSessionTracker(
 			return totalCost >= sessionLimit;
 		},
 
-		formatStatus(sessionId: string, model: string, maxTokens: number, sessionLimit: number | null): string {
+		formatStatus(sessionId: string, model: string, sessionLimit: number | null): string {
 			const tokenStr = formatTokenCount(lastPromptTokens);
-			const maxStr = formatTokenCount(maxTokens);
 			const costStr = totalCost.toFixed(2);
 			
 			if (sessionLimit === null) {
-				return `bmo v0.1.0 | session: ${sessionId} | ${model} | tokens: ${tokenStr}/${maxStr} | $${costStr}`;
+				return `bmo v0.1.0 | session: ${sessionId} | ${model} | tokens: ${tokenStr} | $${costStr}`;
 			}
 			
 			const limitStr = sessionLimit.toFixed(2);
-			return `bmo v0.1.0 | session: ${sessionId} | ${model} | tokens: ${tokenStr}/${maxStr} | $${costStr}/$${limitStr}`;
+				return `bmo v0.1.0 | session: ${sessionId} | ${model} | tokens: ${tokenStr} | $${costStr}/$${limitStr}`;
 		},
 	};
 }
