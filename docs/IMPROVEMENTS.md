@@ -57,3 +57,12 @@ Example
 - **What**: New maintenance artifact capturing active preferences, common pitfalls, recurring patterns, key insights, and tool notes.
 - **Hypothesis**: Provides compact, actionable context for future sessions without re-analyzing raw session data.
 - **Status**: CREATED — will validate utility in subsequent sessions.
+## 2026-02-03 — test_dev_server tool
+
+**Hypothesis**: Background shell process management (`command &`, `kill $PID`) is unreliable and caused a 2.5-hour hang in session 20260203225345-jkp1. A purpose-built tool using Node's child_process API will handle process lifecycle safely.
+
+**What**: Created `test_dev_server.mjs` — spawns a dev server, waits for ready signal (pattern or timeout), tests an endpoint, then kills cleanly (SIGTERM → SIGKILL fallback).
+
+**Why**: Session analysis showed the last run_command never completed because background `pnpm start` kept running after attempted kill. Shell PID capture with `$!` is fragile in multi-command pipelines.
+
+**Verification**: Tool loaded successfully. Next time we need to test a dev server endpoint, use this tool instead of shell backgrounding. Expected outcome: no hung processes, clean teardown every time.
