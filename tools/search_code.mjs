@@ -17,7 +17,7 @@ export const schema = {
       description: "Directories to exclude (sensible defaults included)"
     },
     caseSensitive: { type: "boolean", default: false },
-    maxResults: { type: "integer", default: 50, description: "Max results to return" },
+    maxResults: { type: "integer", default: 15, description: "Max results to return" },
     context: { type: "integer", default: 2, description: "Lines of context around matches" }
   },
   required: ["pattern"]
@@ -39,7 +39,7 @@ export async function run({
   fileTypes,
   excludeDirs = ["node_modules", "build", "dist", ".git", "coverage", ".next", "__pycache__", "vendor"],
   caseSensitive = false,
-  maxResults = 50,
+  maxResults = 15,
   context = 2
 }) {
   return new Promise((resolve) => {
