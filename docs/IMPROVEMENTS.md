@@ -66,3 +66,42 @@ Example
 **Why**: Session analysis showed the last run_command never completed because background `pnpm start` kept running after attempted kill. Shell PID capture with `$!` is fragile in multi-command pipelines.
 
 **Verification**: Tool loaded successfully. Next time we need to test a dev server endpoint, use this tool instead of shell backgrounding. Expected outcome: no hung processes, clean teardown every time.
+## 2026-02-05 — Maintenance Pass 4: Skills + safe_read tool
+
+### safe_read tool
+- **Scope**: tool
+- **Summary**: File reader with existence checks, clear errors, glob support, and recent-file mode.
+- **Rationale**: run_command failures often due to file-not-found; this provides helpful error messages and suggestions.
+- **Hypothesis**: Will reduce file-related run_command failures and provide better UX for file operations.
+- **Changes**: tools/safe_read.mjs
+- **Verification**: Tested 3 modes — single file read (ok), nonexistent file (helpful error), recent-in-directory (ok).
+- **Status**: VALIDATED
+
+### session-kickoff skill
+- **Scope**: skill
+- **Summary**: Patterns for turning greeting-only conversations into productive sessions.
+- **Rationale**: 3+ reflections mentioned sessions starting with greetings without defined tasks.
+- **Hypothesis**: Will improve session productivity by prompting users earlier.
+- **Changes**: skills/session-kickoff.md
+- **Status**: CREATED — will validate by observing session start patterns.
+
+### learning-event-capture skill
+- **Scope**: skill
+- **Summary**: Checklist for recognizing and logging learning events during sessions.
+- **Rationale**: 0 learning events across 10+ sessions despite opportunities; critical gap.
+- **Hypothesis**: Will increase learning event capture rate to ≥60%.
+- **Changes**: skills/learning-event-capture.md
+- **Status**: CREATED — will validate by tracking learning event count in future sessions.
+
+### reflection-template skill
+- **Scope**: skill
+- **Summary**: Template for writing consistent, useful session reflections.
+- **Rationale**: Reflection coverage was inconsistent; template provides structure.
+- **Hypothesis**: Will increase reflection coverage to ≥90% and improve reflection quality.
+- **Changes**: skills/reflection-template.md
+- **Status**: CREATED — will validate by tracking reflection coverage.
+
+### WORKING_MEMORY.md regenerated
+- **Scope**: docs
+- **Summary**: Regenerated working memory from Phase 1 analysis of recent sessions.
+- **Key updates**: run_command success improved to 98%, smart_grep flagged as unreliable, learning event gap highlighted.

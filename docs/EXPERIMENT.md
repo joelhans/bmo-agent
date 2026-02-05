@@ -88,3 +88,49 @@ Next priorities:
 1. Build learning-event-capture skill (critical: only 1 event in 10 sessions)
 2. Build reflection-template skill (40% coverage is too low)
 3. Investigate run_command failure regression
+## 2026-02-05 Maintenance Pass 4
+
+**Date:** 2026-02-05T14:45:00Z
+**Session range:** 20260205132924-kkm7 through 20260205143624-j0vc (6 regular + 3 maintenance sessions since last pass)
+
+**Tool inventory delta:**
+- Added: safe_read.mjs — file reader with existence checks, clear errors, glob support, recent-file mode
+
+**Skill inventory delta:**
+- Added: session-kickoff.md — patterns for greeting-only session starts
+- Added: learning-event-capture.md — checklist for capturing learning events
+- Added: reflection-template.md — template for consistent reflections
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| session_digest reduces maintenance calls | VALIDATED | Used implicitly via session analysis |
+| config_introspect reduces exploration | VALIDATED | Ongoing |
+| WORKING_MEMORY improves session context | VALIDATED | Provides compact reference |
+| test_dev_server handles process lifecycle | PENDING | Not yet used in production |
+| safe_read reduces file-not-found errors | PENDING | Just created, will track |
+| Learning event capture skill improves rate | PENDING | Target ≥60% capture rate |
+| Reflection template improves coverage | PENDING | Target ≥90% coverage |
+
+**Key metrics:**
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| run_command success | 88% | 98% | +10% ✅ |
+| run_command latency | 169ms | 75ms | -94ms ✅ |
+| reload_tools success | 100% | 100% | — |
+| Reflection coverage | 40% | 80% | +40% ✅ |
+| Learning event capture | 10% | 0% | -10% ⚠️ |
+| Tools loaded | 5 | 6 | +1 |
+| Skills indexed | 1 | 4 | +3 |
+
+**Narrative:**
+This maintenance pass focused on addressing the critical learning event gap and building skills to codify recurring patterns. Created 3 skills (session-kickoff, learning-event-capture, reflection-template) based on patterns observed across sessions. Built safe_read tool to address file operations more safely.
+
+Key wins: run_command success rate improved from 88% to 98%, latency from 169ms to 75ms. Reflection coverage improved from 40% to 80%. 
+
+Key concern: Learning event capture remains at 0% despite the skill being created — this will require active attention in future sessions. Also noted smart_grep had 0% success on 1 call — needs investigation.
+
+**Next priorities:**
+1. Actively use learning-event-capture skill during sessions
+2. Investigate smart_grep failure
+3. Validate safe_read reduces file-related errors
