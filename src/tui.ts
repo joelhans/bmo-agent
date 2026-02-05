@@ -35,7 +35,7 @@ import {
 	type TelemetryStore,
 	type ToolCallRecord,
 } from "./telemetry.ts";
-import { selectTier } from "./tiering.ts";
+import { type ModelTier, selectInitialTier } from "./tiering.ts";
 import { createReloadToolsTool, formatLoadResult, initialLoad } from "./tool-loader.ts";
 import { createRunCommandTool, createToolRegistry, formatToolCallSummary } from "./tools.ts";
 
@@ -438,6 +438,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	const sessionStartedAt = resumedSession?.startedAt ?? new Date().toISOString();
 	let lastResponseWasError = false;
 	let lastUsedModel = config.models.coding;
+	let lastUsedTier: ModelTier = "reasoning";
 
 	function rebuildSystemPrompt(): void {
 		// Refresh working memory (fire-and-forget)
@@ -540,11 +541,10 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			return;
 		}
 
-		const tier = selectTier({ userMessage: message, lastResponseWasError });
-		const model = config.models[tier];
-		const contextConfig = config.context[tier];
-		lastUsedModel = model;
-		logger.info(`tier: ${tier} → ${model}`);
+		const initialTier = selectInitialTier({ userMessage: message, lastResponseWasError });
+		lastUsedTier = initialTier;
+		lastUsedModel = config.models[initialTier];
+		logger.info(`initial tier: ${initialTier} → ${lastUsedModel}`);
 
 		messages.push({ role: "user", content: message });
 		chatView.addMessage("user", message);
@@ -556,12 +556,17 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			registry,
 			messages,
 			session,
-			model,
-			contextConfig,
+			models: config.models,
+			contextConfig: config.context,
+			defaultTier: initialTier,
 			display: chatView,
 			defaultStatus: defaultStatus(),
 			toolCallRecords,
 			sessionId,
+			onModelChange: (tier: ModelTier, model: string) => {
+				lastUsedTier = tier;
+				lastUsedModel = model;
+			},
 		});
 
 		lastResponseWasError = result.lastResponseWasError;

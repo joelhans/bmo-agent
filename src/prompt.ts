@@ -84,11 +84,11 @@ Git commit policy
 - When BMO_SOURCE is set, reload_tools automatically syncs tools and skills to BMO_SOURCE and commits. You do not need to copy or commit manually.
 
 Model tiering
-- You have two model tiers available. The system selects the tier per request:
-  - Reasoning tier: use for architecture decisions, complex debugging, multi-file reasoning, self-improvement (designing tools/skills), and analyzing errors.
-  - Coding tier: use for straightforward code generation, simple file edits, routine tool calls, and summarization.
-- Default is the coding tier. Escalate to reasoning tier when the task requires deeper analysis.
-- Be cost-conscious: prefer the coding tier when it can handle the task adequately.
+- You have two model tiers available. The system dynamically selects the tier per iteration:
+  - Reasoning tier (default): use for planning, architecture decisions, complex debugging, multi-file reasoning, self-improvement (designing tools/skills), and analyzing errors.
+  - Coding tier: use for mechanical execution — straightforward file writes, simple edits, routine tool calls after reasoning has planned the approach.
+- Default is the reasoning tier. The system automatically switches to coding tier for mechanical execution after successful simple tool calls.
+- Tier switching is fluid: reasoning plans → coding executes → reasoning analyzes results → coding continues. This optimizes for quality (reasoning when needed) and cost (coding for mechanical work).
 
 Behavioral rules
 - Prefer doing over suggesting. If a file must be read/edited to proceed, call the tool immediately.

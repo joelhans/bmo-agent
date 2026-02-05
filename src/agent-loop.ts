@@ -2,6 +2,7 @@ import { type SessionTracker, truncateToFit } from "./context.ts";
 import type { ChatMessage, LlmClient, ToolCallInfo } from "./llm.ts";
 import type { Logger } from "./logger.ts";
 import type { ToolCallRecord } from "./telemetry.ts";
+import { type ModelTier, selectIterationTier } from "./tiering.ts";
 import type { ToolRegistry } from "./tools.ts";
 import { formatToolCallSummary } from "./tools.ts";
 
@@ -29,12 +30,17 @@ export interface AgentLoopOptions {
 	registry: ToolRegistry;
 	messages: ChatMessage[];
 	session: SessionTracker;
-	model: string;
-	contextConfig: { maxTokens: number; responseHeadroom: number };
+	models: { reasoning: string; coding: string };
+	contextConfig: {
+		reasoning: { maxTokens: number; responseHeadroom: number };
+		coding: { maxTokens: number; responseHeadroom: number };
+	};
+	defaultTier: ModelTier;
 	display: AgentDisplay;
 	defaultStatus: string;
 	toolCallRecords?: ToolCallRecord[];
 	sessionId?: string;
+	onModelChange?: (tier: ModelTier, model: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -44,14 +50,39 @@ export interface AgentLoopOptions {
 const MAX_ITERATIONS = 20;
 
 export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastResponseWasError: boolean }> {
-	const { logger, llm, registry, messages, session, model, contextConfig, display, defaultStatus } = opts;
+	const { logger, llm, registry, messages, session, models, contextConfig, defaultTier, display, defaultStatus } =
+		opts;
 
 	display.setInputEnabled(false);
 	display.setStatus(`${defaultStatus} | thinking...`);
 
+	// Track state for tier selection
+	let lastToolCalls: Array<{ name: string; success: boolean }> = [];
+	let lastAssistantText = "";
+	let hadError = false;
+	let currentTier = defaultTier;
+
 	try {
 		for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-			const dropped = truncateToFit(messages, contextConfig.maxTokens, contextConfig.responseHeadroom);
+			// Select tier for this iteration based on what just happened
+			const tier = selectIterationTier({
+				iteration,
+				lastToolCalls: iteration > 0 ? lastToolCalls : undefined,
+				lastAssistantText: iteration > 0 ? lastAssistantText : undefined,
+				hadError,
+			});
+
+			const model = models[tier];
+			const context = contextConfig[tier];
+
+			// Log tier switches
+			if (tier !== currentTier) {
+				logger.info(`tier switch: ${currentTier} → ${tier} (${model})`);
+				currentTier = tier;
+				opts.onModelChange?.(tier, model);
+			}
+
+			const dropped = truncateToFit(messages, context.maxTokens, context.responseHeadroom);
 			if (dropped > 0) {
 				logger.info(`context: dropped ${dropped} messages to fit within token budget`);
 			}
@@ -79,12 +110,15 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 					session.recordUsage(model, event.promptTokens, event.completionTokens);
 					logger.info(
 						`tokens: prompt=${event.promptTokens} completion=${event.completionTokens}` +
-							` cost=$${session.getStats().totalCost.toFixed(4)}`,
+							` cost=$${session.getStats().totalCost.toFixed(4)} [${tier}]`,
 					);
 				} else if (event.type === "done") {
 					finishReason = event.finishReason;
 				}
 			}
+
+			// Update state for next iteration's tier selection
+			lastAssistantText = textContent;
 
 			// No tool calls — text-only response
 			if (toolCalls.size === 0) {
@@ -107,7 +141,10 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 
 			logger.info(`assistant: ${toolCallInfos.length} tool call(s) [${finishReason}]`);
 
-			// Execute each tool call
+			// Execute each tool call and track success/failure for next iteration
+			lastToolCalls = [];
+			hadError = false;
+
 			for (const tc of toolCallInfos) {
 				const summary = formatToolCallSummary(tc.function.name, tc.function.arguments);
 				display.addToolCall(summary);
@@ -125,6 +162,8 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 						durationMs: 0,
 						success: false,
 					});
+					lastToolCalls.push({ name: tc.function.name, success: false });
+					hadError = true;
 					continue;
 				}
 
@@ -142,6 +181,8 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 						durationMs: 0,
 						success: false,
 					});
+					lastToolCalls.push({ name: tc.function.name, success: false });
+					hadError = true;
 					continue;
 				}
 
@@ -158,6 +199,10 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 						durationMs,
 						success: !result.isError,
 					});
+					lastToolCalls.push({ name: tc.function.name, success: !result.isError });
+					if (result.isError) {
+						hadError = true;
+					}
 				} catch (err: unknown) {
 					const durationMs = Math.round(performance.now() - startMs);
 					const errorMsg = `Tool execution failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -170,6 +215,8 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 						durationMs,
 						success: false,
 					});
+					lastToolCalls.push({ name: tc.function.name, success: false });
+					hadError = true;
 				}
 			}
 
