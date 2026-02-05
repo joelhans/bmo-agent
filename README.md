@@ -1,8 +1,8 @@
 # bmo
 
-A self-improving AI coding agent with a terminal UI.
+A self-improving AI coding agent that runs in your terminal.
 
-bmo is a coding assistant that runs in your terminal, uses LLM-powered tool execution to complete tasks, and autonomously builds new tools and skills to get better over time. It features multi-provider LLM routing, sandboxed tool execution, session persistence with cost tracking, and a self-improvement loop driven by reflections, telemetry, and periodic maintenance passes.
+bmo uses LLM-powered tool execution to complete tasks, and autonomously builds new tools and skills when it encounters limitations. It features multi-provider LLM routing, sandboxed tool execution, session persistence with cost tracking, and a self-improvement loop driven by reflections and periodic maintenance.
 
 ## Quick start
 
@@ -10,11 +10,11 @@ bmo is a coding assistant that runs in your terminal, uses LLM-powered tool exec
 # Install dependencies
 bun install
 
-# Set an API key (stored in ~/.local/share/bmo/keys.json)
+# Set an API key
 bun run dev -- key add openai <your-key>
 
-# Or use an environment variable
-export OPENAI_API_KEY=your-key-here
+# Or use environment variables
+export OPENAI_API_KEY=your-key
 
 # Start bmo
 bun run dev
@@ -24,19 +24,34 @@ For a compiled binary:
 
 ```bash
 bun run build        # Produces dist/bmo
-./dist/bmo           # Run the binary directly
+./dist/bmo           # Run directly
+```
+
+## Installation
+
+The install script builds bmo and sets up everything:
+
+```bash
+bun run install              # Build and install to ~/.local/bin
+bun run install --no-binary  # Just sync tools and skills to BMO_DATA
+```
+
+You can also customize install locations:
+
+```bash
+INSTALL_BIN=/usr/local/bin BMO_DATA=/opt/bmo bun run install
 ```
 
 ## Usage
 
-Once running, bmo presents a terminal UI with a chat interface. Type a message and press Enter. bmo selects a model tier based on your request, streams a response, and executes tool calls as needed.
+bmo presents a terminal UI with a chat interface. Type a message and press Enter. bmo selects a model tier, streams a response, and executes tool calls as needed.
 
 **Keybindings:**
 
 | Key | Action |
 |-----|--------|
 | Enter | Submit message |
-| Ctrl+C | Exit (triggers a reflection on the session) |
+| Ctrl+C | Exit (triggers reflection) |
 | F5 | Reload tools and skills |
 
 **CLI flags:**
@@ -45,78 +60,83 @@ Once running, bmo presents a terminal UI with a chat interface. Type a message a
 bmo --sessions          # List recent sessions
 bmo --session <id>      # Resume a previous session
 bmo --maintain          # Force a maintenance pass
-bmo --no-maintain       # Suppress auto-maintenance this run
+bmo --no-maintain       # Suppress auto-maintenance
 ```
 
 **Key management:**
 
 ```bash
-bmo key list                    # Show configured providers and key status
+bmo key list                    # Show configured providers
 bmo key add <provider> <key>    # Store an API key
 bmo key remove <provider>       # Remove a stored key
 ```
 
 ## How it works
 
-### What happens when you send a message
+### Message flow
 
-1. **Tier selection.** bmo picks a model tier — `coding` (cheaper, for straightforward tasks) or `reasoning` (more capable, for debugging and architecture). Keywords like "debug", "refactor", "why does", and "architect" trigger the reasoning tier automatically. So does a failed previous response.
+1. **Tier selection.** bmo picks a model tier — `coding` (cheaper) or `reasoning` (more capable). Keywords like "debug", "refactor", "why does", and "architect" trigger reasoning automatically, as does a failed previous response.
 
-2. **Agent loop.** Your message enters a streaming loop (max 20 iterations). Each iteration: truncate context to fit the token budget, stream the LLM response, and if the response contains tool calls, execute each one and loop back. If the response is text-only, return to the user.
+2. **Agent loop.** Your message enters a streaming loop (max 20 iterations). Each iteration: truncate context to fit the token budget, stream the LLM response, execute any tool calls, and loop back. Text-only responses return to the user.
 
-3. **Tool execution.** Built-in tools (`run_command`, `load_skill`, `reload_tools`) run in-process. Dynamic tools (`.mjs` files in `tools/`) run in a sandboxed subprocess with capability restrictions (filesystem scope, network, subprocess access). Each tool call is timed and recorded for telemetry.
+3. **Tool execution.** Built-in tools run in-process. Dynamic tools (`.mjs` files) run in sandboxed subprocesses with capability restrictions. Each tool call is timed and recorded.
 
-4. **Session save.** After every assistant turn, the full conversation history, token usage, cost, and any learning events are saved to disk. Sessions can be resumed across restarts.
+4. **Session save.** After every assistant turn, the conversation history, token usage, cost, and learning events are saved. Sessions can be resumed across restarts.
 
-### The self-improvement loop
+### Self-improvement
 
 bmo doesn't just execute tasks — it builds tools for tasks it encounters repeatedly.
 
-**During a session:**
-- When bmo encounters a limitation or inefficiency, it can write a new `.mjs` tool to `tools/`, call `reload_tools` to register it, and immediately use it.
-- It can write `.md` skill documents to `skills/` — reusable knowledge that gets loaded into context on demand.
-- Learning events (corrections, preferences, patterns) are logged via the `log_learning_event` tool and accumulated in telemetry.
+**During sessions:**
+- When bmo encounters a limitation, it writes a new `.mjs` tool to `tools/`, calls `reload_tools` to register it, and immediately uses it.
+- It writes `.md` skill documents to `skills/` — reusable knowledge loaded into context on demand.
+- Learning events (corrections, preferences, patterns) are logged and accumulated.
 
-**After a session:**
-- On exit, bmo writes a reflection — a brief assessment of what went well, what was slow or awkward, and what it would do differently.
-- Reflections and learning events are persisted in the session file.
+**After sessions:**
+- On exit, bmo writes a reflection assessing what went well and what was slow or awkward.
 
 **Maintenance passes:**
-- After a configurable number of sessions (default: 10), bmo triggers a maintenance pass (`--maintain`). This is a full agent session where bmo:
-  - Reviews recent session reflections and learning events
-  - Validates or invalidates hypotheses from `IMPROVEMENTS.md`
+- After 10 sessions (configurable), bmo triggers a maintenance pass:
+  - Reviews recent reflections and learning events
+  - Validates hypotheses from `IMPROVEMENTS.md`
   - Scans tool telemetry for failure patterns
   - Updates `OPPORTUNITIES.md` with actionable findings
-  - Appends an entry to `EXPERIMENT.md`
   - Saves a state snapshot
 
 **Source sync:**
-- If `BMO_SOURCE` is configured (a git repo), `reload_tools` automatically copies validated tools and skills to the repo and commits. This gives you version history and a sync point across machines.
+- With `BMO_SOURCE` configured, `reload_tools` automatically copies tools and skills to the source repo and commits.
 
-### Context and cost management
+### Dynamic tools
 
-- **Token estimation** uses a conservative heuristic (`ceil(chars / 3.5) + 4` per message). Truncation drops oldest non-system messages first, preserving the system prompt.
-- **Cost tracking** computes per-turn cost from a built-in pricing table covering OpenAI, Anthropic, and Google models. Gateway-prefixed models (e.g. `ngrok/openai/gpt-4o`) resolve automatically by stripping the gateway prefix. Custom models can be priced via config.
-- **Budget warning** fires at 80% of the session cost limit. A hard stop prevents further interaction once the limit is reached.
+bmo includes 8 self-built tools:
 
-### Sandboxed tool execution
+| Tool | Purpose |
+|------|---------|
+| `safe_read` | File reading with existence checks, glob support, recent-file mode |
+| `search_code` | Code search with ripgrep, smart directory exclusions |
+| `smart_grep` | Grep with automatic directory exclusions |
+| `list_files_filtered` | Directory listing with extension filtering |
+| `config_introspect` | One-shot provider/model/key status inspection |
+| `session_digest` | Summarize reflections and learning events |
+| `session_pattern_check` | Detect repeated patterns in sessions |
+| `test_dev_server` | Spawn server, test endpoint, kill cleanly |
 
-Dynamic tools declare capabilities in their module exports:
+### Skills
 
-```javascript
-export const capabilities = {
-  filesystem: "project",  // "project" | "bmo" | "both" | "none"
-  network: false,
-  subprocess: false,
-  env: false,
-};
-```
+bmo includes 6 self-written skills:
 
-Tools run in a subprocess where restricted APIs (fetch, Bun.spawn) are replaced with stubs that throw errors. This is advisory isolation — not a security boundary — but it prevents accidental network calls or subprocess spawning from tools that don't need them.
+| Skill | Purpose |
+|-------|---------|
+| `codebase-exploration` | Patterns for exploring unfamiliar codebases |
+| `learning-event-capture` | Recognizing and logging learning events |
+| `reflection-template` | Template for consistent session reflections |
+| `regret-minimization` | Framework for deciding whether to build now or defer |
+| `runtime-self-critique` | Catching improvement opportunities during tasks |
+| `session-kickoff` | Turning greetings into productive sessions |
 
 ## Configuration
 
-Config lives at `~/.local/share/bmo/config.json`. It's created with defaults on first run and deep-merged on subsequent loads, so new fields always have defaults.
+Config lives at `~/.local/share/bmo/config.json`:
 
 ```jsonc
 {
@@ -134,7 +154,7 @@ Config lives at `~/.local/share/bmo/config.json`. It's created with defaults on 
     "coding": "openai/gpt-4o-mini"
   },
 
-  // Context window budgets per tier
+  // Context budgets
   "context": {
     "reasoning": { "maxTokens": 200000, "responseHeadroom": 8192 },
     "coding": { "maxTokens": 200000, "responseHeadroom": 4096 }
@@ -143,52 +163,25 @@ Config lives at `~/.local/share/bmo/config.json`. It's created with defaults on 
   // Cost controls
   "cost": {
     "sessionLimit": 2.00,
-    "selfImprovementLimit": 0.50,
-    "selfImprovementRetries": 3,
-    // Optional: per-model pricing for custom/unknown models
-    "modelPricing": {
-      "custom/my-model": { "promptPer1M": 1.0, "completionPer1M": 4.0 }
-    }
+    "selfImprovementLimit": 0.50
   },
 
-  // Sandbox limits for dynamic tools
-  "sandbox": {
-    "defaultTimeoutMs": 30000,
-    "memoryLimitMb": 256,
-    "outputLimitBytes": 1048576
-  },
-
-  // Self-improvement maintenance triggers
+  // Maintenance triggers
   "maintenance": {
-    "threshold": 10,
-    "budgetLimit": 1.00,
-    "sessionsSinceLastMaintenance": 0,
-    "lastMaintenanceDate": null
-  },
-
-  // Max chars in tool result before truncation
-  "toolResultTruncation": 50000,
-
-  // Optional: path to git repo for tool/skill sync
-  "sourceDir": null
+    "threshold": 10
+  }
 }
 ```
 
 ### Multi-provider setup
 
-bmo routes all LLM calls through the OpenAI SDK with configurable `baseURL` per provider. Any OpenAI-compatible API works. Model strings use `"provider/model-name"` format.
+bmo routes calls through the OpenAI SDK with configurable `baseURL`. Any OpenAI-compatible API works:
 
 ```jsonc
 {
   "providers": {
-    "openai": {
-      "baseUrl": "https://api.openai.com/v1",
-      "apiKeyEnv": "OPENAI_API_KEY"
-    },
-    "ngrok": {
-      "baseUrl": "https://gateway.ngrok.app/v1",
-      "apiKeyEnv": "NGROK_API_KEY"
-    }
+    "openai": { "baseUrl": "https://api.openai.com/v1" },
+    "ngrok": { "baseUrl": "https://gateway.ngrok.app/v1" }
   },
   "models": {
     "reasoning": "ngrok/anthropic/claude-sonnet-4-20250514",
@@ -197,39 +190,34 @@ bmo routes all LLM calls through the OpenAI SDK with configurable `baseURL` per 
 }
 ```
 
-Gateway-prefixed models like `ngrok/openai/gpt-4o-mini` resolve to built-in pricing automatically. Only truly custom models need `modelPricing` entries.
-
 ## Directory structure
 
-bmo uses two root directories:
-
-**BMO_HOME** — the agent's own codebase. Auto-detected in dev, configurable via `$BMO_HOME`.
+**BMO_HOME** — the agent's codebase (auto-detected, or set `$BMO_HOME`):
 
 ```
 BMO_HOME/
   tools/          # Dynamic tools (.mjs)
-  skills/         # Skill documents (.md with YAML front-matter)
+  skills/         # Skill documents (.md)
   docs/           # Self-improvement notes
     IMPROVEMENTS.md
     OPPORTUNITIES.md
     EXPERIMENT.md
 ```
 
-**Data directory** — `~/.local/share/bmo`, configurable via `$BMO_DATA`.
+**Data directory** — `~/.local/share/bmo` (or set `$BMO_DATA`):
 
 ```
 ~/.local/share/bmo/
   config.json     # Configuration
   keys.json       # Stored API keys (mode 0600)
-  telemetry.json  # Tool call stats and learning events
-  inventory.json  # Capability inventory
-  sessions/       # Session history (.json + .log per session)
-  snapshots/      # State snapshots from maintenance
+  telemetry.json  # Tool call stats
+  sessions/       # Session history
+  snapshots/      # Maintenance snapshots
 ```
 
 ## Writing tools
 
-Dynamic tools are `.mjs` files in `tools/` that export a standard interface:
+Dynamic tools are `.mjs` files in `tools/`:
 
 ```javascript
 export const schema = {
@@ -240,28 +228,26 @@ export const schema = {
   required: ["query"],
 };
 
-export const description = "Search the project codebase for a pattern.";
+export const description = "Search the project codebase.";
 
-// Optional: binary dependencies (checked at load time)
+// Optional: binary dependencies
 export const requires = ["rg"];
 
 // Optional: sandbox capabilities
 export const capabilities = {
-  filesystem: "project",
+  filesystem: "project",  // "project" | "bmo" | "both" | "none"
   network: false,
   subprocess: true,
   env: false,
 };
 
 export async function run(args) {
-  // Your tool logic here
   return { ok: true, result: "matched 42 files" };
-  // Or on failure:
-  // return { ok: false, error: "rg not found" };
+  // Or: { ok: false, error: "rg not found" }
 }
 ```
 
-After writing a tool file, call `reload_tools` to register it. The tool becomes available as a first-class function call alongside built-in tools.
+After writing a tool, call `reload_tools` to register it.
 
 ## Writing skills
 
@@ -276,54 +262,48 @@ triggers: [git, branch, merge, PR]
 
 # Git Workflow
 
-When working on a new feature:
-1. Create a branch from main...
+When working on a new feature...
 ```
 
-Skills are listed in the system prompt by name and description. The agent loads them into context on demand via `load_skill`.
+Skills are listed in the system prompt. Load them via `load_skill`.
 
 ## Development
 
 ```bash
-bun run dev          # Run in development mode
+bun run dev          # Development mode
 bun run build        # Build to dist/bmo
-bun run test         # Run all tests
+bun run test         # Run tests
 bun run lint         # Check with Biome
 bun run lint:fix     # Auto-fix lint issues
 bun run format       # Format with Biome
-bun run smoke        # Full smoke test (lint + test + build + CLI checks)
+bun run smoke        # Full smoke test
 ```
 
 ## Architecture
 
-For a detailed architecture reference (module responsibilities, data flow, and conventions), see [CLAUDE.md](CLAUDE.md).
-
 ```
 src/
-  main.ts           # CLI entry point, arg parsing, startup orchestration
-  tui.ts            # Terminal UI (pi-tui), input loop, tool/skill registration
-  agent-loop.ts     # Core streaming loop: LLM response → tool execution → repeat
-  llm.ts            # Multi-provider LLM client, streaming event emission
-  tools.ts          # Tool registry, built-in run_command tool
-  tool-loader.ts    # Dynamic .mjs tool loading, dependency checking, source sync
+  main.ts           # CLI entry, startup orchestration
+  tui.ts            # Terminal UI (pi-tui), input loop
+  agent-loop.ts     # Streaming loop: LLM → tool execution → repeat
+  llm.ts            # Multi-provider LLM client
+  tools.ts          # Tool registry, run_command
+  tool-loader.ts    # Dynamic .mjs tool loading, source sync
   sandbox.ts        # Capability-restricted subprocess execution
-  sandbox-runner.ts # Subprocess entry point for sandboxed tools
-  skills.ts         # Skills registry, YAML front-matter parsing, load_skill tool
-  context.ts        # Token estimation, context truncation, cost tracking
-  tiering.ts        # Model tier selection (coding vs reasoning)
-  config.ts         # Configuration loading, deep-merge, defaults
-  session.ts        # Session persistence (save/load/list)
+  skills.ts         # Skills registry, load_skill
+  context.ts        # Token estimation, truncation, cost tracking
+  tiering.ts        # Model tier selection
+  config.ts         # Configuration loading
+  session.ts        # Session persistence
   prompt.ts         # System prompt assembly
   paths.ts          # BMO_HOME / data dir resolution
-  telemetry.ts      # Tool call recording, learning event aggregation
-  inventory.ts      # Capability inventory generation
-  snapshots.ts      # State snapshots for maintenance
-  maintain.ts       # Self-improvement maintenance pass
-  secrets.ts        # API key masking for logs and output
-  keys.ts           # API key storage and injection
-  logger.ts         # Timestamped, masked session logging
+  telemetry.ts      # Tool call recording
+  maintain.ts       # Maintenance pass
+  doc-sync.ts       # Tool/skill sync to source repo
 ```
+
+For detailed architecture reference, see [CLAUDE.md](CLAUDE.md).
 
 ## License
 
-Private.
+MIT License. See [LICENSE](LICENSE).
