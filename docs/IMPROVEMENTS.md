@@ -115,3 +115,26 @@ Example
 - **Changes**: skills/runtime-self-critique.md
 - **Status**: CREATED — will validate by tracking when future tools are built.
 - **Note**: This skill was created DURING an active conversation about the problem, not deferred to maintenance. This is the correct behavior.
+## 2026-02-05 — Reflection Status Logging (Core Patch)
+
+**Context:** User reported session 20260205144027-3jsp ended with an empty reflection after a highly self-reflective conversation. Investigation showed the LLM returned 0 characters without error.
+
+**Hypothesis:** Empty reflections are silent failures that make it hard to diagnose (1) context window exhaustion, (2) meta-task confusion (reflection on reflection), or (3) model refusal.
+
+**What I built:**
+- Added `reflectionStatus` tracking with 4 states: `success`, `empty`, `error`, `skipped`
+- Log **warning** (not info) when model returns empty reflection with diagnostic hints
+- Distinguish between "model returned empty" vs. "model threw error"
+- Always log final reflection status at session end for diagnostics
+
+**Verification:**
+- Code compiles successfully with `npm run build`
+- Committed to git: `ef55c5c`
+
+**Impact:** Next time a reflection is empty, the log will show:
+```
+[WARN] reflection: model returned empty response (0 chars). This may indicate: (1) context window exhaustion, (2) meta-task confusion (e.g., reflecting on a reflection), or (3) model refusal for self-referential prompts.
+[INFO] reflection status: empty
+```
+
+This makes debugging much easier and provides actionable hints.
