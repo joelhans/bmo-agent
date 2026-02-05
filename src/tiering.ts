@@ -23,8 +23,8 @@ const REASONING_KEYWORDS = [
 	"introspect",
 	"battery check",
 	"self-improvement",
-  "investigate",
-  "think deeply",
+	"investigate",
+	"think deeply",
 ];
 
 /**

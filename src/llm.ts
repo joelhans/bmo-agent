@@ -126,15 +126,31 @@ export function createLlmClient(config: BmoConfig): LlmClient {
 				response = await client.chat.completions.create(params);
 			} catch (err: unknown) {
 				if (err instanceof OpenAI.APIError) {
+					// Extract detailed error information for logging and debugging
+					const errorBody = err.error as Record<string, unknown> | undefined;
+					const errorMessage = err.message || "Unknown error";
+					const errorType = errorBody?.type || errorBody?.error?.type || "unknown";
+					const requestId = err.headers?.["x-request-id"] || err.headers?.["request-id"] || "unknown";
+
+					// For 400 errors, include request context to help debug malformed requests
+					const requestContext =
+						err.status === 400
+							? ` [request: model=${modelName}, tools=${params.tools?.length ?? 0}, messages=${params.messages.length}]`
+							: "";
+
+					const details = `[${errorType}] ${errorMessage} (request_id: ${requestId})${requestContext}`;
+
 					if (err.status === 401) {
-						throw new Error(`Invalid API key for provider "${providerName}". Check ${providerName} credentials.`);
+						throw new Error(`Invalid API key for provider "${providerName}". ${details}`);
 					}
 					if (err.status === 429) {
-						throw new Error(`Rate limited by provider "${providerName}". Wait and retry.`);
+						throw new Error(`Rate limited by provider "${providerName}". ${details}`);
 					}
 					if (err.status && err.status >= 500) {
-						throw new Error(`Provider "${providerName}" server error (${err.status}). Try again.`);
+						throw new Error(`Provider "${providerName}" server error (${err.status}). ${details}`);
 					}
+					// For other API errors, include full details
+					throw new Error(`Provider "${providerName}" error (${err.status}). ${details}`);
 				}
 				throw err;
 			}

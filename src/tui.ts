@@ -633,9 +633,13 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		logger.info("session ended by user");
 
 		const hasUserMessages = messages.some((m) => m.role === "user");
+		const hasAssistantResponse = messages.some((m) => m.role === "assistant");
 		let reflection: string | null = null;
 
-		if (hasUserMessages) {
+		// Only reflect if there was a complete exchange (user message AND assistant response)
+		// Without an assistant response, the model would see two consecutive user messages
+		// and likely respond to the original request instead of reflecting
+		if (hasUserMessages && hasAssistantResponse) {
 			chatView.setStatus("Reflecting...");
 			chatView.setInputEnabled(false);
 
@@ -659,6 +663,8 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 				const msg = err instanceof Error ? err.message : String(err);
 				logger.error(`Reflection failed: ${msg}`);
 			}
+		} else if (hasUserMessages && !hasAssistantResponse) {
+			logger.info("skipping reflection: no assistant response (request may have failed)");
 		}
 
 		// Final save (with reflection if generated)

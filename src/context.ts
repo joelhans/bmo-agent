@@ -221,13 +221,13 @@ export function createSessionTracker(
 		formatStatus(sessionId: string, model: string, sessionLimit: number | null): string {
 			const tokenStr = formatTokenCount(lastPromptTokens);
 			const costStr = totalCost.toFixed(2);
-			
+
 			if (sessionLimit === null) {
 				return `bmo v0.1.0 | session: ${sessionId} | ${model} | tokens: ${tokenStr} | $${costStr}`;
 			}
-			
+
 			const limitStr = sessionLimit.toFixed(2);
-				return `bmo v0.1.0 | session: ${sessionId} | ${model} | tokens: ${tokenStr} | $${costStr}/$${limitStr}`;
+			return `bmo v0.1.0 | session: ${sessionId} | ${model} | tokens: ${tokenStr} | $${costStr}/$${limitStr}`;
 		},
 	};
 }

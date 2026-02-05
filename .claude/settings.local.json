@@ -24,7 +24,12 @@
       "Bash(test:*)",
       "Bash(git -C /Users/joelhans/src/bmo-agent log --oneline -10)",
       "Bash(chmod:*)",
-      "Bash(bash scripts/smoke-test.sh:*)"
+      "Bash(bash scripts/smoke-test.sh:*)",
+      "Bash(biome check:*)",
+      "Bash(bunx biome check:*)",
+      "Bash(curl:*)",
+      "Bash([ -n \"$ANTHROPIC_API_KEY\" ])",
+      "Bash(npm ls:*)"
     ]
   }
 }
