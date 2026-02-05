@@ -320,3 +320,18 @@ describe("createSessionTracker with pricing overrides", () => {
 		expect(stats.totalCost).toBeCloseTo(12.5, 2);
 	});
 });
+
+test("resolvePricing supports Anthropic model aliases without date suffixes", () => {
+	// Users configure model names without date suffixes for simplicity
+	const opus = resolvePricing("anthropic/claude-opus-4-5");
+	expect(opus.promptPer1M).toBe(15.0);
+	expect(opus.completionPer1M).toBe(75.0);
+
+	const sonnet = resolvePricing("anthropic/claude-sonnet-4-5");
+	expect(sonnet.promptPer1M).toBe(3.0);
+	expect(sonnet.completionPer1M).toBe(15.0);
+
+	const haiku = resolvePricing("anthropic/claude-haiku-3-5");
+	expect(haiku.promptPer1M).toBe(0.8);
+	expect(haiku.completionPer1M).toBe(4.0);
+});

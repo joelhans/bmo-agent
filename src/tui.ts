@@ -168,11 +168,10 @@ class ChatView extends Container implements Focusable {
 	}
 
 	addToolResult(result: string, isError?: boolean): void {
-		const styled = isError ? red(result) : gray(result);
-		this.output.addChild(new Text(styled, 1, 0));
-		this.messageCount++;
-		this.trimOutput();
-		this.tui.requestRender();
+		// Only display errors in the TUI - successful tool output is logged but not shown
+		if (!isError) return;
+		this.output.addChild(new Text(red(result), 1, 0));
+		this.tui.requestRender(); // Don't increment messageCount - errors are inlined with tool call
 	}
 
 	setInputEnabled(enabled: boolean): void {
@@ -478,7 +477,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		for (const msg of resumedSession.messages) {
 			if (msg.role === "system") continue;
 			if (msg.role === "tool") {
-				chatView.addToolResult(msg.content ?? "");
+				// Skip tool results in restored sessions - only show [tool] summaries
 				continue;
 			}
 			if (msg.role === "assistant" && msg.tool_calls) {

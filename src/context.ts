@@ -20,6 +20,11 @@ const MODEL_PRICING: Record<string, ModelPricing> = {
 	"anthropic/claude-opus-4-5-20250514": { promptPer1M: 15.0, completionPer1M: 75.0 },
 	"anthropic/claude-sonnet-4-20250514": { promptPer1M: 3.0, completionPer1M: 15.0 },
 	"anthropic/claude-haiku-3-5-20250620": { promptPer1M: 0.8, completionPer1M: 4.0 },
+	// Anthropic (short aliases - what users typically configure)
+	"anthropic/claude-opus-4-5": { promptPer1M: 15.0, completionPer1M: 75.0 },
+	"anthropic/claude-sonnet-4-5": { promptPer1M: 3.0, completionPer1M: 15.0 },
+	"anthropic/claude-sonnet-4": { promptPer1M: 3.0, completionPer1M: 15.0 },
+	"anthropic/claude-haiku-3-5": { promptPer1M: 0.8, completionPer1M: 4.0 },
 	// Google
 	"google/gemini-2.5-pro": { promptPer1M: 1.25, completionPer1M: 10.0 },
 	"google/gemini-2.5-flash": { promptPer1M: 0.15, completionPer1M: 0.6 },
