@@ -13,49 +13,14 @@ Local smoke-test script (`scripts/smoke-test.sh`) runs lint, unit tests, build, 
 Configurable via `config.cost.sessionLimit`. Warning fires at 80% of limit. Hard stop at 100%.
 
 ### Multi-provider pricing ✓
+
+### Project context loading ✓
+On startup, bmo looks for `AGENTS.md` or `CLAUDE.md` in the working directory and injects it into the system prompt. Provides immediate project context without manual loading.
 Gateway-prefixed models (e.g. `"ngrok/openai/gpt-4o"`) resolve to built-in pricing automatically. Per-model pricing overrides via `config.cost.modelPricing`.
 
 **Remaining:** Anthropic native API transport in `llm.ts`.
 
 ## P0 — Daily friction / self-improvement safety
-
-### Read `AGENTS.md` or `CLAUDE.md`, etc
-
-Description to come
-
-### 6. `write_file` built-in tool
-The LLM writes files via `run_command` with shell escaping, which is fragile — heredocs sometimes fail, escaping wastes tokens and round-trips on retry. This is the single most common source of wasted tokens.
-
-**Fix:** Add a `write_file` built-in tool that accepts `path` and `content` as string parameters, bypassing shell escaping entirely.
-
-### 5. No rollback for bad self-improvements
-If bmo writes a tool that crashes the sandbox runner, there's no automated undo. You have to manually delete the `.mjs` file. The git commit in `BMO_SOURCE` is your only safety net.
-
-**Workaround:** Keep `BMO_SOURCE` as a git repo and commit before each `--maintain` run.
-
-**Fix:** Snapshot the previous version of a tool file before overwriting. Provide a `rollback_tool <name>` built-in that restores from snapshot.
-
-### 9. No tool tests
-bmo verifies a tool by calling it once. If it works on the happy path, it's shipped. There's no way to attach test cases to a tool definition.
-
-**Fix:** Support an optional `tests` export in `.mjs` tool files — an array of `{ input, expected }` pairs. `reload_tools` runs them before accepting the tool.
-
-### 19. Cross-machine learning portability
-Each machine accumulates its own sessions, telemetry, and learnings in `~/.local/share/bmo/`. When running bmo on multiple machines, learnings diverge and potentially conflict. Tools and skills sync via git (BMO_SOURCE), but learning events stay trapped in each machine's local `telemetry.json`.
-
-**Problem:** Machine A logs `[correction] "prefer functional style"` while Machine B logs `[preference] "use class-based components"`. Each maintenance pass draws conclusions from local data only. OPPORTUNITIES.md and EXPERIMENT.md diverge on push/pull.
-
-**Key insight:** Tool telemetry stats (call counts, timing) are local performance data — hardware/network-dependent, not meaningful across machines. Learning events (corrections, preferences, patterns) ARE portable knowledge and need to flow through the git repo.
-
-**Fix — crystallize learnings into git:**
-1. During `--maintain`, distill `recentLearnings` from `telemetry.json` into a committed file (e.g. `docs/LEARNINGS.md`) — structured, deduplicated, human-readable.
-2. On startup, load that file into the system prompt alongside inventory and telemetry.
-3. Git push/pull carries learnings between machines naturally.
-4. Conflicting learnings in the file get reconciled by the next `--maintain` pass on whichever machine pulls the merge.
-
-This makes git the transport layer and the LLM the conflict resolver. No new sync infrastructure needed. The original `bmo --aggregate` idea from summaries is subsumed — learnings are the thing worth aggregating, and they flow through the repo.
-
-**Status:** `summariesDir` exists in path resolution. No export, crystallization, or aggregation code.
 
 ## P1 — Reliability and hygiene
 

@@ -138,3 +138,18 @@ Example
 ```
 
 This makes debugging much easier and provides actionable hints.
+
+## 2025-02-06 — Project context loading (AGENTS.md / CLAUDE.md)
+
+**Hypothesis:** Loading project-specific context files automatically will reduce manual context-setting and make bmo immediately useful when starting in a new project.
+
+**Implementation:**
+- Added `projectContext?: string` to `SystemPromptOptions` in `src/prompt.ts`
+- Added section in `assembleSystemPrompt` to include project context when present
+- Modified `src/tui.ts` to search for `AGENTS.md` then `CLAUDE.md` in cwd at startup
+- Modified `src/maintain.ts` similarly for maintenance mode
+- Added tests for the new prompt section
+
+**Files changed:** `src/prompt.ts`, `src/tui.ts`, `src/maintain.ts`, `src/prompt.test.ts`
+
+**Verification:** All 301 tests pass. Feature will be verified on next restart.

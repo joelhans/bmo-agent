@@ -330,6 +330,18 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		// File doesn't exist yet -- first maintenance pass will create it
 	}
 
+	// Load project context from AGENTS.md or CLAUDE.md in working directory
+	let projectContextContent: string | undefined;
+	const cwd = process.cwd();
+	for (const filename of ["AGENTS.md", "CLAUDE.md"]) {
+		try {
+			projectContextContent = await readFile(join(cwd, filename), "utf-8");
+			break; // Use first found
+		} catch {
+			// File doesn't exist, try next
+		}
+	}
+
 	// Build maintenance notice
 	const count = config.maintenance.sessionsSinceLastMaintenance;
 	const last = config.maintenance.lastMaintenanceDate ?? "never";
@@ -351,6 +363,7 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		inventorySummary,
 		telemetrySummary,
 		workingMemory: workingMemoryContent,
+		projectContext: projectContextContent,
 	});
 
 	// Messages

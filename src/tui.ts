@@ -288,6 +288,19 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		// File doesn't exist yet -- will be created by first maintenance pass
 	}
 
+	// Load project context from AGENTS.md or CLAUDE.md in working directory
+	let projectContextContent: string | undefined;
+	const cwd = process.cwd();
+	for (const filename of ["AGENTS.md", "CLAUDE.md"]) {
+		try {
+			projectContextContent = await readFile(join(cwd, filename), "utf-8");
+			logger.info(`Loaded project context from ${filename}`);
+			break; // Use first found
+		} catch {
+			// File doesn't exist, try next
+		}
+	}
+
 	// System prompt — includes skill and dynamic tool lists, inventory, telemetry
 	function buildSystemPrompt(): string {
 		const telemetrySummary = formatTelemetryForPrompt(telemetryStore) || undefined;
@@ -301,6 +314,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			inventorySummary,
 			telemetrySummary,
 			workingMemory: workingMemoryContent,
+			projectContext: projectContextContent,
 		});
 	}
 

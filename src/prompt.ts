@@ -112,6 +112,7 @@ export interface SystemPromptOptions {
 	inventorySummary?: string;
 	telemetrySummary?: string;
 	workingMemory?: string;
+	projectContext?: string;
 }
 
 /**
@@ -136,6 +137,10 @@ export function assembleSystemPrompt(opts: SystemPromptOptions): string {
 
 	if (opts.workingMemory) {
 		sections.push(`Working memory (cross-session knowledge)\n${opts.workingMemory}`);
+	}
+
+	if (opts.projectContext) {
+		sections.push(`Project context (from AGENTS.md or CLAUDE.md in working directory)\n${opts.projectContext}`);
 	}
 
 	if (opts.skills && opts.skills.length > 0) {

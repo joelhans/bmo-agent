@@ -206,3 +206,20 @@ describe("assembleSystemPrompt with bmoSource", () => {
 		expect(prompt).not.toContain("- BMO_SOURCE:");
 	});
 });
+
+describe("assembleSystemPrompt with projectContext", () => {
+	test("includes project context when provided", () => {
+		const prompt = assembleSystemPrompt({
+			...baseOpts,
+			projectContext: "# My Project\n\nThis is a React app with TypeScript.",
+		});
+		expect(prompt).toContain("Project context (from AGENTS.md or CLAUDE.md in working directory)");
+		expect(prompt).toContain("# My Project");
+		expect(prompt).toContain("This is a React app with TypeScript.");
+	});
+
+	test("does not include project context section when undefined", () => {
+		const prompt = assembleSystemPrompt(baseOpts);
+		expect(prompt).not.toContain("Project context");
+	});
+});
