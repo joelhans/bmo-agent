@@ -635,6 +635,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		const hasUserMessages = messages.some((m) => m.role === "user");
 		const hasAssistantResponse = messages.some((m) => m.role === "assistant");
 		let reflection: string | null = null;
+		let reflectionStatus: "success" | "empty" | "error" | "skipped" = "skipped";
 
 		// Only reflect if there was a complete exchange (user message AND assistant response)
 		// Without an assistant response, the model would see two consecutive user messages
@@ -646,7 +647,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			try {
 				const reflectionMessages: ChatMessage[] = [...messages, { role: "user", content: REFLECTION_PROMPT }];
 				chatView.beginAssistantMessage();
-				let reflectionText = "";
+			let reflectionText = "";
 
 				for await (const event of llm.stream(reflectionMessages, config.models.coding)) {
 					if (event.type === "text") {
@@ -657,15 +658,31 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 					}
 				}
 
-				reflection = reflectionText;
-				logger.info(`reflection: ${reflectionText.slice(0, 200)}${reflectionText.length > 200 ? "..." : ""}`);
+				if (reflectionText.trim().length === 0) {
+					reflectionStatus = "empty";
+					logger.warn(
+						"reflection: model returned empty response (0 chars). " +
+							"This may indicate: (1) context window exhaustion, " +
+							"(2) meta-task confusion (e.g., reflecting on a reflection), or " +
+							"(3) model refusal for self-referential prompts.",
+					);
+				} else {
+					reflection = reflectionText;
+					reflectionStatus = "success";
+					logger.info(`reflection: ${reflectionText.slice(0, 200)}${reflectionText.length > 200 ? "..." : ""}`);
+				}
 			} catch (err: unknown) {
 				const msg = err instanceof Error ? err.message : String(err);
+				reflectionStatus = "error";
 				logger.error(`Reflection failed: ${msg}`);
 			}
 		} else if (hasUserMessages && !hasAssistantResponse) {
+			reflectionStatus = "skipped";
 			logger.info("skipping reflection: no assistant response (request may have failed)");
 		}
+
+		// Log reflection outcome for diagnostics
+		logger.info(`reflection status: ${reflectionStatus}`);
 
 		// Final save (with reflection if generated)
 		try {
