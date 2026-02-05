@@ -134,3 +134,30 @@ Key concern: Learning event capture remains at 0% despite the skill being create
 1. Actively use learning-event-capture skill during sessions
 2. Investigate smart_grep failure
 3. Validate safe_read reduces file-related errors
+## 2026-02-05 — Runtime Self-Improvement Breakthrough
+
+### Context
+User observed that all tools were being created during maintenance passes, never during active tasks — despite system prompt saying "build IMMEDIATELY." Asked bmo to investigate.
+
+### What Happened
+1. Analyzed IMPROVEMENTS.md and session data — confirmed 100% of tools created during maintenance
+2. Identified root cause: maintenance creates a "deferral bucket" that undermines runtime improvement
+3. Created `runtime-self-critique` skill as a checkpoint mechanism
+4. While investigating, smart_grep failed — immediately applied the new skill:
+   - Noticed friction → diagnosed (missing subprocess capability) → fixed → verified
+5. Logged learning events during active session (first time!)
+
+### User Feedback
+> "I'm also proud of you for making this active introspection and self-improvement. This is exactly what I want."
+
+### Key Insight
+The investigation itself demonstrated the correct behavior. Meta-validation: creating the skill and fixing smart_grep *during* the conversation (not deferring) proved the approach works.
+
+### Metrics
+- Learning events this session: 3 (previous sessions: 0)
+- Tools fixed during active task: 1 (smart_grep)
+- Skills created during active task: 1 (runtime-self-critique)
+
+### Status
+✅ Positive reinforcement received. This is the desired behavior pattern.
+
