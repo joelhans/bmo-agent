@@ -105,3 +105,13 @@ Example
 - **Scope**: docs
 - **Summary**: Regenerated working memory from Phase 1 analysis of recent sessions.
 - **Key updates**: run_command success improved to 98%, smart_grep flagged as unreliable, learning event gap highlighted.
+## 2026-02-05 — Runtime Self-Critique Skill (DURING ACTIVE SESSION)
+
+### runtime-self-critique skill
+- **Scope**: skill
+- **Summary**: Checkpoint for catching improvement opportunities during active tasks, not just maintenance.
+- **Rationale**: User observation + data showed ALL tools were built during maintenance, never during active tasks — despite system prompt saying "build IMMEDIATELY". This skill provides an explicit mental checkpoint.
+- **Hypothesis**: Will increase runtime tool creation rate from 0% to ≥30% of new tools.
+- **Changes**: skills/runtime-self-critique.md
+- **Status**: CREATED — will validate by tracking when future tools are built.
+- **Note**: This skill was created DURING an active conversation about the problem, not deferred to maintenance. This is the correct behavior.

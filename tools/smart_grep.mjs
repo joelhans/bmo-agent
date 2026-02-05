@@ -5,6 +5,8 @@ const execAsync = promisify(exec);
 
 export const description = "Perform a grep search with directory exclusions";
 
+export const capabilities = { subprocess: true };
+
 export const schema = {
   type: "object",
   properties: {
@@ -26,35 +28,36 @@ export const schema = {
 
 export async function run({ pattern, paths, exclude = ["node_modules", ".git", "dist", "build"] }) {
   try {
-    // Construct exclude patterns
-    const excludeArgs = exclude.flatMap(dir => 
-      paths.map(path => `--exclude-dir=${dir}`)
-    ).join(' ');
+    // Build exclude args - one per directory, not per path
+    const excludeArgs = exclude.map(dir => `--exclude-dir=${dir}`).join(' ');
 
     // Construct paths
     const pathArgs = paths.join(' ');
 
-    // Construct the grep command
-    const command = `grep -r ${excludeArgs} "${pattern}" ${pathArgs}`;
+    // Escape pattern for shell safety
+    const escapedPattern = pattern.replace(/"/g, '\\"');
 
-    const { stdout, stderr } = await execAsync(command);
+    // Construct the grep command
+    const command = `grep -rn ${excludeArgs} "${escapedPattern}" ${pathArgs}`;
+
+    const { stdout, stderr } = await execAsync(command, { maxBuffer: 1024 * 1024 });
     
     return {
       ok: true,
-      result: stdout
+      result: stdout || '(no matches)'
     };
   } catch (error) {
-    // grep returns non-zero exit code when no matches are found
-    if (error.code === 1) {
+    // grep returns exit code 1 when no matches are found (not an error)
+    if (error.code === 1 && !error.stderr) {
       return {
         ok: true,
-        result: ''
+        result: '(no matches)'
       };
     }
 
     return {
       ok: false,
-      error: error.message
+      error: `grep failed: ${error.message}`
     };
   }
 }
