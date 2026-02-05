@@ -66,15 +66,142 @@ const editorTheme = {
 };
 
 // ---------------------------------------------------------------------------
-// ChatView — root UI component
+// ScrollableOutput — messages container with manual scroll control
+// ---------------------------------------------------------------------------
+
+class ScrollableOutput extends Container {
+	private scrollOffset = 0;
+	private totalLines = 0;
+	private viewportHeight = 0;
+	private autoScrollEnabled = true; // Auto-scroll to bottom on new content
+
+	/**
+	 * Render with viewport constraint and scroll support.
+	 * @param width - Terminal width
+	 * @param maxHeight - Maximum lines to render (viewport height)
+	 * @returns Visible lines plus scroll indicator if needed
+	 */
+	renderWithHeight(width: number, maxHeight: number): { lines: string[]; scrollInfo: string | null } {
+		this.viewportHeight = maxHeight;
+
+		// Render all children to get total content
+		const allLines: string[] = [];
+		for (const child of this.children) {
+			allLines.push(...child.render(width));
+		}
+
+		this.totalLines = allLines.length;
+
+		if (allLines.length === 0) {
+			return { lines: [], scrollInfo: null };
+		}
+
+		// If content fits, no scrolling needed
+		if (allLines.length <= maxHeight) {
+			this.scrollOffset = 0;
+			return { lines: allLines, scrollInfo: null };
+		}
+
+		// Auto-scroll to bottom when enabled (new content arrived)
+		if (this.autoScrollEnabled) {
+			this.scrollOffset = allLines.length - maxHeight;
+		}
+
+		// Clamp scroll offset
+		const maxScroll = Math.max(0, allLines.length - maxHeight);
+		this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxScroll));
+
+		// Get visible slice
+		const visibleLines = allLines.slice(this.scrollOffset, this.scrollOffset + maxHeight);
+
+		// Build scroll indicator
+		const linesAbove = this.scrollOffset;
+		const linesBelow = allLines.length - this.scrollOffset - maxHeight;
+		let scrollInfo: string | null = null;
+
+		if (linesAbove > 0 || linesBelow > 0) {
+			const parts: string[] = [];
+			if (linesAbove > 0) parts.push(`↑${linesAbove}`);
+			if (linesBelow > 0) parts.push(`↓${linesBelow}`);
+			scrollInfo = parts.join(" ");
+		}
+
+		return { lines: visibleLines, scrollInfo };
+	}
+
+	/**
+	 * Scroll by a number of lines (positive = down, negative = up)
+	 */
+	scroll(delta: number): void {
+		if (this.totalLines <= this.viewportHeight) return;
+
+		const maxScroll = Math.max(0, this.totalLines - this.viewportHeight);
+		const newOffset = this.scrollOffset + delta;
+		this.scrollOffset = Math.max(0, Math.min(newOffset, maxScroll));
+
+		// Disable auto-scroll if user scrolled up
+		if (delta < 0) {
+			this.autoScrollEnabled = false;
+		}
+
+		// Re-enable auto-scroll if user scrolled to bottom
+		if (this.scrollOffset >= maxScroll) {
+			this.autoScrollEnabled = true;
+		}
+	}
+
+	/**
+	 * Scroll by a page
+	 */
+	scrollPage(direction: -1 | 1): void {
+		const pageSize = Math.max(1, this.viewportHeight - 2);
+		this.scroll(direction * pageSize);
+	}
+
+	/**
+	 * Jump to top or bottom
+	 */
+	scrollToEnd(top: boolean): void {
+		if (top) {
+			this.scrollOffset = 0;
+			this.autoScrollEnabled = false;
+		} else {
+			this.scrollOffset = Math.max(0, this.totalLines - this.viewportHeight);
+			this.autoScrollEnabled = true;
+		}
+	}
+
+	/**
+	 * Called when new content is added - re-enables auto-scroll if at bottom
+	 */
+	onContentAdded(): void {
+		// If we were at the bottom (or auto-scroll enabled), stay at bottom
+		if (this.autoScrollEnabled) {
+			this.scrollOffset = Math.max(0, this.totalLines - this.viewportHeight);
+		}
+	}
+
+	// Standard render (not used in our custom layout, but required by Container)
+	render(width: number): string[] {
+		const lines: string[] = [];
+		for (const child of this.children) {
+			lines.push(...child.render(width));
+		}
+		return lines;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ChatView — full-screen UI with pinned bottom and scroll support
 // ---------------------------------------------------------------------------
 
 const MAX_MESSAGES = 500;
 
 class ChatView extends Container implements Focusable {
 	private editor: Editor;
-	private output: Container;
+	private output: ScrollableOutput;
 	private statusLine: Text;
+	private helperLine: Text;
 	private messageCount = 0;
 	private tui: TUI;
 
@@ -100,7 +227,8 @@ class ChatView extends Container implements Focusable {
 		super();
 		this.tui = tui;
 
-		this.output = new Container();
+		this.output = new ScrollableOutput();
+		this.helperLine = new Text(dim("Ctrl+C exit | F5 reload | PgUp/PgDn scroll"), 1, 0);
 		this.statusLine = new Text(dim(`bmo v0.1.0 | session: ${sessionId}`), 1, 0);
 		this.editor = new Editor(tui, editorTheme, { paddingX: 1 });
 
@@ -110,13 +238,61 @@ class ChatView extends Container implements Focusable {
 			this.editor.addToHistory(text);
 			this.onSubmit?.(text);
 		};
+	}
 
-		this.addChild(this.output);
-		this.addChild(this.statusLine);
-		this.addChild(this.editor);
+	/**
+	 * Custom render that fills the terminal with:
+	 * - Messages at the top (scrollable viewport)
+	 * - Spacer to fill remaining space
+	 * - Helper line (with scroll indicator), status line, and editor pinned at bottom
+	 */
+	render(width: number): string[] {
+		const termHeight = this.tui.terminal.rows;
+
+		// Render bottom components to know their height
+		const editorLines = this.editor.render(width);
+		const statusLines = this.statusLine.render(width);
+		const helperLines = this.helperLine.render(width);
+
+		const bottomHeight = editorLines.length + statusLines.length + helperLines.length;
+
+		// Calculate available height for messages
+		const outputMaxHeight = Math.max(1, termHeight - bottomHeight);
+
+		// Render output with height constraint
+		const { lines: outputLines, scrollInfo } = this.output.renderWithHeight(width, outputMaxHeight);
+
+		// Calculate spacer height to fill the gap
+		const spacerHeight = Math.max(0, termHeight - outputLines.length - bottomHeight);
+
+		// Build final output
+		const result: string[] = [];
+
+		// Messages
+		result.push(...outputLines);
+
+		// Spacer (empty lines to push bottom content down)
+		for (let i = 0; i < spacerHeight; i++) {
+			result.push("");
+		}
+
+		// Helper line - append scroll info if present
+		if (scrollInfo) {
+			const helperText = `Ctrl+C exit | F5 reload | PgUp/PgDn scroll | ${scrollInfo}`;
+			result.push(dim(helperText));
+		} else {
+			result.push(...helperLines);
+		}
+
+		// Status and editor
+		result.push(...statusLines);
+		result.push(...editorLines);
+
+		return result;
 	}
 
 	handleInput(data: string): void {
+		// Global shortcuts
 		if (matchesKey(data, Key.ctrl("c"))) {
 			this.onExit?.();
 			return;
@@ -125,6 +301,44 @@ class ChatView extends Container implements Focusable {
 			this.onReload?.();
 			return;
 		}
+
+		// Scroll controls
+		if (matchesKey(data, Key.pageUp)) {
+			this.output.scrollPage(-1);
+			this.tui.requestRender();
+			return;
+		}
+		if (matchesKey(data, Key.pageDown)) {
+			this.output.scrollPage(1);
+			this.tui.requestRender();
+			return;
+		}
+		if (matchesKey(data, Key.home)) {
+			this.output.scrollToEnd(true);
+			this.tui.requestRender();
+			return;
+		}
+		if (matchesKey(data, Key.end)) {
+			this.output.scrollToEnd(false);
+			this.tui.requestRender();
+			return;
+		}
+
+		// Mouse wheel support - terminals often send these escape sequences
+		// Wheel up: \x1b[<64;col;rowM or legacy \x1b[M`xx (button 64)
+		// Wheel down: \x1b[<65;col;rowM or legacy \x1b[Ma xx (button 65)
+		if (data.includes("\x1b[<64;") || data.includes("\x1b[M`")) {
+			this.output.scroll(-3); // Scroll up 3 lines
+			this.tui.requestRender();
+			return;
+		}
+		if (data.includes("\x1b[<65;") || data.includes("\x1b[Ma")) {
+			this.output.scroll(3); // Scroll down 3 lines
+			this.tui.requestRender();
+			return;
+		}
+
+		// Pass remaining input to editor
 		this.editor.handleInput(data);
 	}
 
@@ -141,6 +355,7 @@ class ChatView extends Container implements Focusable {
 		this.output.addChild(new Text(styled, 1, 0));
 		this.messageCount++;
 		this.trimOutput();
+		this.output.onContentAdded();
 		this.tui.requestRender();
 	}
 
@@ -150,6 +365,7 @@ class ChatView extends Container implements Focusable {
 		this.output.addChild(this.currentMessage);
 		this.messageCount++;
 		this.trimOutput();
+		this.output.onContentAdded();
 		this.tui.requestRender();
 	}
 
@@ -157,6 +373,7 @@ class ChatView extends Container implements Focusable {
 		if (!this.currentMessage) return;
 		this.currentMessageText += text;
 		this.currentMessage.setText(this.currentMessageText);
+		this.output.onContentAdded();
 		this.tui.requestRender();
 	}
 
@@ -164,6 +381,7 @@ class ChatView extends Container implements Focusable {
 		this.output.addChild(new Text(dim(`  [tool] ${summary}`), 1, 0));
 		this.messageCount++;
 		this.trimOutput();
+		this.output.onContentAdded();
 		this.tui.requestRender();
 	}
 
@@ -171,7 +389,8 @@ class ChatView extends Container implements Focusable {
 		// Only display errors in the TUI - successful tool output is logged but not shown
 		if (!isError) return;
 		this.output.addChild(new Text(red(result), 1, 0));
-		this.tui.requestRender(); // Don't increment messageCount - errors are inlined with tool call
+		this.output.onContentAdded();
+		this.tui.requestRender();
 	}
 
 	setInputEnabled(enabled: boolean): void {
@@ -297,7 +516,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			logger.info(`Loaded project context from ${filename}`);
 			break; // Use first found
 		} catch {
-			// File doesn't exist, try next
+			// File does not exist, try next
 		}
 	}
 
@@ -505,7 +724,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		}
 		chatView.addMessage("system", `Resumed session ${sessionId}`);
 	} else {
-		chatView.addMessage("system", "bmo v0.1.0 — type a message and press Enter. Ctrl+C to exit.");
+		chatView.addMessage("system", "bmo v0.1.0 — type a message and press Enter");
 	}
 
 	// Check if at least one provider has a valid API key
