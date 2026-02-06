@@ -17,6 +17,10 @@ problematic for more complex tasks.
 
 Does it actually work?
 
+## Elaborate on skills usage
+
+I can't tell if they're actually being used.
+
 ## Cross-machine learning portability
 
 Each machine accumulates its own sessions, telemetry, and learnings in `~/.local/share/bmo/`. When running bmo on multiple machines, learnings diverge and potentially conflict. Tools and skills sync via git (BMO_SOURCE), but learning events stay trapped in each machine's local `telemetry.json`.

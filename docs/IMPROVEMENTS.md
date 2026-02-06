@@ -153,3 +153,31 @@ This makes debugging much easier and provides actionable hints.
 **Files changed:** `src/prompt.ts`, `src/tui.ts`, `src/maintain.ts`, `src/prompt.test.ts`
 
 **Verification:** All 301 tests pass. Feature will be verified on next restart.
+## 2026-02-06 — Maintenance Pass 5
+
+### safe-file-editing skill
+- **Scope**: skill
+- **Summary**: Patterns for safely editing files without accidental breakage or feature removal.
+- **Rationale**: 3+ reflections cited sed editing fragility, accidental feature removal, and file overwrite issues.
+- **Hypothesis**: Will reduce file editing failures and accidental breakage.
+- **Changes**: skills/safe-file-editing.md
+- **Verification**: Skill created and indexed.
+- **Status**: CREATED — will validate by tracking file editing issues in future sessions.
+
+### test_dev_server capabilities fix
+- **Scope**: tool
+- **Summary**: Added missing `capabilities: { subprocess: true, network: true }` export.
+- **Rationale**: Tool had 0% success rate; investigation showed sandbox was blocking spawn() and fetch() calls.
+- **Hypothesis**: Tool will now work correctly when subprocess and network operations are needed.
+- **Changes**: tools/test_dev_server.mjs
+- **Verification**: Tool reloaded successfully with capabilities declared.
+- **Status**: FIX APPLIED — will validate on next use.
+
+### WORKING_MEMORY.md regenerated
+- **Scope**: docs
+- **Summary**: Regenerated working memory capturing preferences, pitfalls, patterns, and tool notes from 5 recent sessions.
+- **Key findings**:
+  - Learning event capture remains at 0% despite skill existing
+  - run_command success regressed from 98% to 87%
+  - safe_read and search_code have 100% success rates
+  - Reflection template working well (100% coverage)

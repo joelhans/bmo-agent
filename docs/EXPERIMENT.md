@@ -161,3 +161,50 @@ The investigation itself demonstrated the correct behavior. Meta-validation: cre
 ### Status
 ✅ Positive reinforcement received. This is the desired behavior pattern.
 
+## 2026-02-06 Maintenance Pass 5
+
+**Date:** 2026-02-06T19:45:00Z
+**Session range:** 20260205212646-oqcb through 20260206014807-fjd3 (5 sessions since last pass)
+
+**Tool inventory delta:**
+- Fixed: test_dev_server.mjs — added missing capabilities export
+
+**Skill inventory delta:**
+- Added: safe-file-editing.md — patterns for safe file editing based on 3+ reflection patterns
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| safe_read reduces file errors | VALIDATED | 100% success rate, 32 calls |
+| Reflection template improves coverage | VALIDATED | 100% reflection coverage (5/5 sessions) |
+| Learning event capture skill improves rate | INVALIDATED | Still 0% capture despite skill existing |
+| test_dev_server handles process lifecycle | PENDING | Now has capabilities, needs retest |
+| runtime-self-critique increases runtime tool creation | PENDING | Need more data |
+
+**Key metrics:**
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| run_command success | 98% | 87% | -11% ⚠️ |
+| run_command latency | 75ms | 230ms | +155ms ⚠️ |
+| safe_read success | 100% | 100% | — ✅ |
+| search_code success | 100% | 100% | — ✅ |
+| Reflection coverage | 80% | 100% | +20% ✅ |
+| Learning event capture | 0% | 0% | — ⚠️ |
+| Tools loaded | 9 | 9 | — |
+| Skills indexed | 6 | 7 | +1 |
+
+**Narrative:**
+This maintenance pass focused on Phase 1-5 analysis with emphasis on generating WORKING_MEMORY.md and addressing patterns from reflections. Created safe-file-editing skill based on 3+ reflections citing editing friction. Fixed test_dev_server tool which had 0% success due to missing capabilities export.
+
+Key findings:
+1. **Reflection coverage is excellent** (100%) — the reflection-template skill is working
+2. **Learning event capture is broken** — despite having a skill, 0 events captured. The skill isn't being actively used. This needs architectural attention (auto-injection or system prompt triggers).
+3. **run_command metrics regressed** — 87% success (was 98%), 230ms latency (was 75ms). Need to investigate failure modes.
+4. **safe_read and search_code are highly reliable** — both at 100%, use these instead of raw shell commands where possible.
+
+**Next priorities:**
+1. Investigate why learning event capture skill isn't being used (architectural issue?)
+2. Investigate run_command regression (what's failing?)
+3. Build code_snippet tool (suggested in reflections)
+4. Validate test_dev_server fix on real usage
+
