@@ -10,7 +10,12 @@ Known footguns, annoyances, and structural gaps discovered during bmo self-impro
 
 ## The 20-iteration tool loop is annoying
 
-Description to come.
+It seems like it allows 20 tools at a time, not in a single loop, which is
+problematic for more complex tasks.
+
+## Analyze model tiering
+
+Does it actually work?
 
 ## Cross-machine learning portability
 
