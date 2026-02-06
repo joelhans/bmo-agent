@@ -27,6 +27,7 @@ export interface SessionData {
 	};
 	reflection: string | null;
 	learningEvents?: LearningEvent[];
+	skillsLoaded?: string[];
 }
 
 export interface SessionSummary {

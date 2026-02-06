@@ -2,6 +2,14 @@
 
 Known footguns, annoyances, and structural gaps discovered during bmo self-improvement sessions. Ordered by priority — items at the top de-risk the self-improvement loop and reduce daily friction.
 
+## Analyze model tiering
+
+Does it actually work?
+
+## Elaborate on skills usage
+
+I can't tell if they're actually being used.
+
 ## Analyze token usage
 
 - I don't trust the token values I'm seeing.
@@ -12,14 +20,6 @@ Known footguns, annoyances, and structural gaps discovered during bmo self-impro
 
 It seems like it allows 20 tools at a time, not in a single loop, which is
 problematic for more complex tasks.
-
-## Analyze model tiering
-
-Does it actually work?
-
-## Elaborate on skills usage
-
-I can't tell if they're actually being used.
 
 ## Cross-machine learning portability
 

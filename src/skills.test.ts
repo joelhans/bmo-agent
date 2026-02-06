@@ -212,3 +212,25 @@ describe("createLoadSkillTool", () => {
 		expect(result.output).toContain("No skills are currently available");
 	});
 });
+
+test("calls onSkillLoaded callback when skill is found", async () => {
+	const registry = createSkillsRegistry(tmpDir);
+	await registry.scan();
+	const loadedSkills: string[] = [];
+	const tool = createLoadSkillTool(registry, {
+		onSkillLoaded: (name) => loadedSkills.push(name),
+	});
+	await tool.execute({ name: "ripgrep_mastery" });
+	expect(loadedSkills).toEqual(["ripgrep_mastery"]);
+});
+
+test("does not call onSkillLoaded callback when skill not found", async () => {
+	const registry = createSkillsRegistry(tmpDir);
+	await registry.scan();
+	const loadedSkills: string[] = [];
+	const tool = createLoadSkillTool(registry, {
+		onSkillLoaded: (name) => loadedSkills.push(name),
+	});
+	await tool.execute({ name: "nonexistent" });
+	expect(loadedSkills).toEqual([]);
+});

@@ -49,6 +49,7 @@ const cyan = (s: string): string => `\x1b[36m${s}\x1b[39m`;
 const gray = (s: string): string => `\x1b[90m${s}\x1b[39m`;
 const blue = (s: string): string => `\x1b[34m${s}\x1b[39m`;
 const red = (s: string): string => `\x1b[31m${s}\x1b[39m`;
+const magenta = (s: string): string => `\x1b[35m${s}\x1b[39m`;
 
 // ---------------------------------------------------------------------------
 // Editor theme
@@ -385,6 +386,14 @@ class ChatView extends Container implements Focusable {
 		this.tui.requestRender();
 	}
 
+	addSkillLoaded(name: string): void {
+		this.output.addChild(new Text(magenta(`  [skill] ${name} loaded`), 1, 0));
+		this.messageCount++;
+		this.trimOutput();
+		this.output.onContentAdded();
+		this.tui.requestRender();
+	}
+
 	addToolResult(result: string, isError?: boolean): void {
 		// Only display errors in the TUI - successful tool output is logged but not shown
 		if (!isError) return;
@@ -458,8 +467,21 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	// Skills registry
 	const skillsRegistry = createSkillsRegistry(paths.skillsDir);
 
-	// Built-in tools: load_skill and reload_tools
-	registry.register(createLoadSkillTool(skillsRegistry), { builtin: true });
+	// Track skills loaded during this session
+	const skillsLoaded: string[] = resumedSession?.skillsLoaded ? [...resumedSession.skillsLoaded] : [];
+
+	// Built-in tools: load_skill (with tracking callback) and reload_tools
+	registry.register(
+		createLoadSkillTool(skillsRegistry, {
+			onSkillLoaded: (name) => {
+				if (!skillsLoaded.includes(name)) {
+					skillsLoaded.push(name);
+				}
+				logger.info(`skill loaded: ${name}`);
+			},
+		}),
+		{ builtin: true },
+	);
 	registry.register(
 		createReloadToolsTool(paths.toolsDir, registry, skillsRegistry, sandboxConfig, {
 			skillsDir: paths.skillsDir,
@@ -670,7 +692,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	const sessionStartedAt = resumedSession?.startedAt ?? new Date().toISOString();
 	let lastResponseWasError = false;
 	let lastUsedModel = config.models.coding;
-	let lastUsedTier: ModelTier = "reasoning";
+	let _lastUsedTier: ModelTier = "reasoning";
 
 	function rebuildSystemPrompt(): void {
 		// Refresh working memory (fire-and-forget)
@@ -710,12 +732,22 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		for (const msg of resumedSession.messages) {
 			if (msg.role === "system") continue;
 			if (msg.role === "tool") {
-				// Skip tool results in restored sessions - only show [tool] summaries
+				// Skip tool results in restored sessions - only show [tool]/[skill] summaries
 				continue;
 			}
 			if (msg.role === "assistant" && msg.tool_calls) {
 				for (const tc of msg.tool_calls) {
-					chatView.addToolCall(formatToolCallSummary(tc.function.name, tc.function.arguments));
+					if (tc.function.name === "load_skill") {
+						// Show skill loads distinctively when resuming
+						try {
+							const args = JSON.parse(tc.function.arguments) as { name?: string };
+							chatView.addSkillLoaded(args.name ?? "unknown");
+						} catch {
+							chatView.addSkillLoaded("unknown");
+						}
+					} else {
+						chatView.addToolCall(formatToolCallSummary(tc.function.name, tc.function.arguments));
+					}
 				}
 				if (msg.content) chatView.addMessage("assistant", msg.content);
 				continue;
@@ -759,6 +791,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			},
 			reflection: reflection ?? resumedSession?.reflection ?? null,
 			learningEvents: learningEvents.length > 0 ? learningEvents : undefined,
+			skillsLoaded: skillsLoaded.length > 0 ? skillsLoaded : undefined,
 		};
 	}
 
@@ -774,7 +807,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		}
 
 		const initialTier = selectInitialTier({ userMessage: message, lastResponseWasError });
-		lastUsedTier = initialTier;
+		_lastUsedTier = initialTier;
 		lastUsedModel = config.models[initialTier];
 		logger.info(`initial tier: ${initialTier} → ${lastUsedModel}`);
 
@@ -796,7 +829,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			toolCallRecords,
 			sessionId,
 			onModelChange: (tier: ModelTier, model: string) => {
-				lastUsedTier = tier;
+				_lastUsedTier = tier;
 				lastUsedModel = model;
 			},
 		});

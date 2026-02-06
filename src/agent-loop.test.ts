@@ -27,6 +27,9 @@ function createMockDisplay(): AgentDisplay & { log: string[] } {
 		addToolCall(summary) {
 			log.push(`tool_call:${summary}`);
 		},
+		addSkillLoaded(name) {
+			log.push(`skill_loaded:${name}`);
+		},
 		addToolResult(result, isError) {
 			log.push(`tool_result:${isError ? "ERR:" : ""}${result.slice(0, 100)}`);
 		},

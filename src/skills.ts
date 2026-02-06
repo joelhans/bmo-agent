@@ -131,7 +131,12 @@ export function createSkillsRegistry(skillsDir: string): SkillsRegistry {
 // load_skill tool
 // ---------------------------------------------------------------------------
 
-export function createLoadSkillTool(skillsRegistry: SkillsRegistry): ToolDefinition {
+export interface LoadSkillToolOptions {
+	/** Called when a skill is successfully loaded. */
+	onSkillLoaded?: (name: string) => void;
+}
+
+export function createLoadSkillTool(skillsRegistry: SkillsRegistry, options?: LoadSkillToolOptions): ToolDefinition {
 	return {
 		name: "load_skill",
 		description:
@@ -153,6 +158,7 @@ export function createLoadSkillTool(skillsRegistry: SkillsRegistry): ToolDefinit
 			const content = await skillsRegistry.loadContent(name);
 
 			if (content !== null) {
+				options?.onSkillLoaded?.(name);
 				return { output: content };
 			}
 

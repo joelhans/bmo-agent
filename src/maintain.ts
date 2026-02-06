@@ -54,6 +54,10 @@ class ConsoleDisplay implements AgentDisplay {
 		console.log(dim(`  [tool] ${summary}`));
 	}
 
+	addSkillLoaded(name: string): void {
+		console.log(`\x1b[35m  [skill] ${name} loaded\x1b[39m`);
+	}
+
 	addToolResult(result: string, isError?: boolean): void {
 		if (isError) {
 			console.log(red(result));

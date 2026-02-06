@@ -15,6 +15,7 @@ export interface AgentDisplay {
 	beginAssistantMessage(): void;
 	appendToAssistantMessage(text: string): void;
 	addToolCall(summary: string): void;
+	addSkillLoaded(name: string): void;
 	addToolResult(result: string, isError?: boolean): void;
 	setStatus(text: string): void;
 	setInputEnabled(enabled: boolean): void;
@@ -146,7 +147,18 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 
 			for (const tc of toolCallInfos) {
 				const summary = formatToolCallSummary(tc.function.name, tc.function.arguments);
-				display.addToolCall(summary);
+
+				// Use distinct display for load_skill
+				if (tc.function.name === "load_skill") {
+					try {
+						const args = JSON.parse(tc.function.arguments) as { name?: string };
+						display.addSkillLoaded(args.name ?? "unknown");
+					} catch {
+						display.addSkillLoaded("unknown");
+					}
+				} else {
+					display.addToolCall(summary);
+				}
 				logger.info(`tool call: ${summary}`);
 
 				const tool = registry.get(tc.function.name);
