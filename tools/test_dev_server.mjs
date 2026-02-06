@@ -8,6 +8,8 @@ import { setTimeout } from 'node:timers/promises';
 
 export const description = 'Start dev server, test endpoint, and kill cleanly (no hung processes)';
 
+export const capabilities = { subprocess: true, network: true };
+
 export const schema = {
   type: 'object',
   properties: {
