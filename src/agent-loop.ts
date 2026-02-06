@@ -50,8 +50,7 @@ export interface AgentLoopOptions {
 const MAX_ITERATIONS = 20;
 
 export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastResponseWasError: boolean }> {
-	const { logger, llm, registry, messages, session, models, contextConfig, defaultTier, display, defaultStatus } =
-		opts;
+	const { logger, llm, registry, messages, session, models, contextConfig, defaultTier, display, defaultStatus } = opts;
 
 	display.setInputEnabled(false);
 	display.setStatus(`${defaultStatus} | thinking...`);

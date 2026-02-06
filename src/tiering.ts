@@ -95,9 +95,7 @@ export function selectIterationTier(ctx: IterationContext): ModelTier {
 	}
 
 	// Check if the last tool calls were all simple file operations
-	const allSimpleFileOps = ctx.lastToolCalls.every(
-		(tc) => tc.success && SIMPLE_FILE_TOOLS.includes(tc.name),
-	);
+	const allSimpleFileOps = ctx.lastToolCalls.every((tc) => tc.success && SIMPLE_FILE_TOOLS.includes(tc.name));
 
 	// Check if assistant text suggests planning/reasoning vs mechanical execution
 	const lower = ctx.lastAssistantText.toLowerCase();

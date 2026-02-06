@@ -884,7 +884,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			try {
 				const reflectionMessages: ChatMessage[] = [...messages, { role: "user", content: REFLECTION_PROMPT }];
 				chatView.beginAssistantMessage();
-			let reflectionText = "";
+				let reflectionText = "";
 
 				for await (const event of llm.stream(reflectionMessages, config.models.coding)) {
 					if (event.type === "text") {

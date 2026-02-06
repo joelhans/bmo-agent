@@ -354,10 +354,7 @@ describe("runAgentLoop", () => {
 		const messages: ChatMessage[] = [{ role: "system", content: "sys" }];
 		const display = createMockDisplay();
 		// First iteration (reasoning) does tool call, second iteration may switch to coding
-		const llm = createMockLlm([
-			toolCallResponse("c1", "echo_tool", '{"text":"hi"}'),
-			textResponse("Done."),
-		]);
+		const llm = createMockLlm([toolCallResponse("c1", "echo_tool", '{"text":"hi"}'), textResponse("Done.")]);
 		const modelChanges: Array<{ tier: string; model: string }> = [];
 
 		await runAgentLoop({
