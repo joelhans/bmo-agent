@@ -375,8 +375,6 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 	// Session tracker with maintenance budget
 	const session = createSessionTracker(undefined, config.cost.modelPricing);
 	const display = new ConsoleDisplay();
-	const model = config.models.reasoning;
-	const contextConfig = config.context.reasoning;
 	const sessionStartedAt = new Date().toISOString();
 
 	// Run the agent loop
@@ -387,14 +385,14 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		registry,
 		messages,
 		session,
-		model,
-		contextConfig,
+		models: config.models,
+		contextConfig: config.context,
+		defaultTier: "reasoning",
 		display,
 		defaultStatus: "maintenance",
 		toolCallRecords,
 		sessionId,
 	});
-
 	// Merge telemetry
 	if (toolCallRecords.length > 0) {
 		mergeToolCalls(telemetryStore, toolCallRecords);
@@ -411,7 +409,7 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		startedAt: sessionStartedAt,
 		lastActiveAt: new Date().toISOString(),
 		workingDirectory: process.cwd(),
-		model,
+		model: config.models.reasoning,
 		messages,
 		usage: {
 			totalPromptTokens: stats.totalPromptTokens,
