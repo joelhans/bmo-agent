@@ -181,3 +181,22 @@ This makes debugging much easier and provides actionable hints.
   - run_command success regressed from 98% to 87%
   - safe_read and search_code have 100% success rates
   - Reflection template working well (100% coverage)
+## 2026-02-06 — test_dev_server rewrite (hang prevention)
+
+**Problem:** Previous version could hang indefinitely because:
+1. No fetch timeout — if endpoint accepted connection but never responded, hung forever
+2. Blind waiting — waited full timeout before even trying endpoint
+3. No process group management — child processes could escape cleanup
+
+**Hypothesis:** Polling with timeouts on every operation will prevent hangs while being faster for responsive servers.
+
+**Solution:**
+- Poll endpoint from the start instead of blind wait
+- `AbortController` timeout on every fetch attempt
+- `detached: true` spawning with process group kill (`process.kill(-pid)`)
+- Hard overall timeout as backstop
+- Timeline tracking for debugging what happened
+
+**Verification:** Tested against Astrolabe — server responded in 55ms on first poll, clean shutdown, no orphan processes.
+
+**Result:** Tool is now reliable and faster (no unnecessary waits).
