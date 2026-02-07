@@ -831,6 +831,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			onModelChange: (tier: ModelTier, model: string) => {
 				_lastUsedTier = tier;
 				lastUsedModel = model;
+				chatView.setStatus(defaultStatus());
 			},
 		});
 
