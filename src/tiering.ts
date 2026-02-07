@@ -11,8 +11,8 @@ export interface TierContext {
 
 export interface IterationContext {
 	iteration: number;
-	lastToolCalls?: Array<{ name: string; success: boolean }>;
-	lastAssistantText?: string;
+	lastToolCalls: Array<{ name: string; success: boolean }>;
+	lastAssistantText: string;
 	hadError: boolean;
 }
 
@@ -128,25 +128,14 @@ export function selectInitialTier(ctx: TierContext): ModelTier {
 }
 
 /**
- * Select tier for a specific iteration based on what just happened.
+ * Select tier for subsequent iterations (iteration > 0) based on what just happened.
  * Enables fluid switching between reasoning (planning) and coding (execution).
+ * 
+ * Note: iteration 0 should use defaultTier directly, not this function.
  */
 export function selectIterationTier(ctx: IterationContext): ModelTier {
 	// Always escalate to reasoning after errors
 	if (ctx.hadError) {
-		return "reasoning";
-	}
-
-	// First iteration: use whatever was selected by selectInitialTier
-	// (the defaultTier passed to the agent loop)
-	if (ctx.iteration === 0) {
-		// Return reasoning as safe default - the actual tier is set by defaultTier
-		// This function is only called to potentially CHANGE the tier
-		return "reasoning";
-	}
-
-	// If we don't have context about what just happened, stay on reasoning (safe default)
-	if (!ctx.lastToolCalls || !ctx.lastAssistantText) {
 		return "reasoning";
 	}
 

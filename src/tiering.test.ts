@@ -126,11 +126,8 @@ describe("selectInitialTier", () => {
 });
 
 describe("selectIterationTier", () => {
-	test("returns reasoning for iteration 0 (used as fallback)", () => {
-		// Note: iteration 0 uses defaultTier from agent loop options,
-		// this is just the fallback if selectIterationTier is called directly
-		expect(selectIterationTier({ iteration: 0, hadError: false })).toBe("reasoning");
-	});
+	// Note: selectIterationTier is now only called for iteration > 0
+	// iteration 0 uses defaultTier directly in the agent loop
 
 	test("returns reasoning after errors", () => {
 		expect(
@@ -141,11 +138,6 @@ describe("selectIterationTier", () => {
 				lastAssistantText: "Let me try that",
 			}),
 		).toBe("reasoning");
-	});
-
-	test("returns reasoning when no context available", () => {
-		expect(selectIterationTier({ iteration: 1, hadError: false })).toBe("reasoning");
-		expect(selectIterationTier({ iteration: 1, hadError: false, lastToolCalls: [] })).toBe("reasoning");
 	});
 
 	test("returns coding after simple successful file ops with short text", () => {
@@ -289,5 +281,18 @@ describe("selectIterationTier", () => {
 				lastAssistantText: "Let Me check that.",
 			}),
 		).toBe("reasoning");
+	});
+
+	test("returns coding for empty tool calls array (no tools = simple continuation)", () => {
+		// Empty array means no tool calls were made, which indicates a simple text response
+		// that doesn't need reasoning escalation
+		expect(
+			selectIterationTier({
+				iteration: 1,
+				hadError: false,
+				lastToolCalls: [],
+				lastAssistantText: "Done.",
+			}),
+		).toBe("coding");
 	});
 });
