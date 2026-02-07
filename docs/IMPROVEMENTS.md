@@ -200,3 +200,25 @@ This makes debugging much easier and provides actionable hints.
 **Verification:** Tested against Astrolabe — server responded in 55ms on first poll, clean shutdown, no orphan processes.
 
 **Result:** Tool is now reliable and faster (no unnecessary waits).
+
+## 2026-02-07 — Model Tier Switching Fix
+
+**Problem**: Model tiering was documented and tested but never actually worked. `selectInitialTier` always returned "reasoning" tier, meaning simple tasks paid full reasoning-tier pricing.
+
+**Root cause**: The function had no code path that returned "coding" - it checked for reasoning keywords, then defaulted to reasoning. Sessions `20260207175212-y9hh` and `20260207212303-4hj6` confirmed: model field never changed despite following test script.
+
+**Fix**:
+- Added `CODING_KEYWORDS` array (read, list, show, run, execute, cat, ls, etc.)
+- Short messages (<50 chars) default to coding tier
+- Reasoning keywords take priority over coding keywords (order matters)
+- Expanded reasoning keywords to include "why is", "why did", "explain how", "debug", "analyze", "compare", "trade-off"
+
+**Verification**:
+- All 38 tiering tests pass (17 new tests for coding tier paths)
+- All 320 tests pass system-wide
+- Status line already shows current model via `onModelChange` callback
+
+**Hypothesis**: This will reduce costs by 50%+ for simple read/list/info queries that don't need reasoning-tier capabilities.
+
+**Impact**: Users can now observe tier switches in the status line (`anthropic/claude-...` changes per turn based on task complexity).
+
