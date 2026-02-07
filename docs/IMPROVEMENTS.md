@@ -249,3 +249,5 @@ This makes debugging much easier and provides actionable hints.
   - Model tiering now works
   - Learning event capture requires active attention
   - Added "debugging strategy" insight
+
+**Follow-up fix**: Agent loop was calling `selectIterationTier` for iteration 0, which always returned "reasoning", causing a visible tier switch (coding → reasoning → back to coding) in the TUI. Fixed by using `defaultTier` directly for iteration 0, only calling `selectIterationTier` for iteration > 0.
