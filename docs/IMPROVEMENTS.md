@@ -222,3 +222,30 @@ This makes debugging much easier and provides actionable hints.
 
 **Impact**: Users can now observe tier switches in the status line (`anthropic/claude-...` changes per turn based on task complexity).
 
+## 2026-02-07 — Maintenance Pass 6
+
+### code_snippet tool
+- **Scope**: tool
+- **Summary**: Extract specific functions/classes/line ranges from files with line numbers.
+- **Rationale**: Reflections repeatedly cited reading full files when only specific functions needed, wasting tokens.
+- **Hypothesis**: Will reduce token usage by 50%+ for targeted code reads compared to full file reads.
+- **Changes**: tools/code_snippet.mjs
+- **Verification**: Called with pattern "function selectInitialTier" on tiering.ts — correctly extracted the 30-line function with line numbers.
+- **Status**: VALIDATED
+
+### codebase-exploration skill extended
+- **Scope**: skill
+- **Summary**: Added "Debugging Strategy: Search First" section based on 3+ reflections citing inefficient multi-file reads.
+- **Rationale**: Multiple reflections noted: "I read multiple files... when I could have started with search_code."
+- **Hypothesis**: Will reduce unnecessary file reads during debugging by establishing search-first pattern.
+- **Changes**: skills/codebase-exploration.md (extended, not new)
+- **Status**: CREATED — will validate by tracking debugging workflows.
+
+### WORKING_MEMORY.md regenerated
+- **Scope**: docs
+- **Summary**: Regenerated from Phase 1 analysis of 5 recent sessions.
+- **Key updates**: 
+  - run_command metrics improved (89% success, 166ms avg)
+  - Model tiering now works
+  - Learning event capture requires active attention
+  - Added "debugging strategy" insight
