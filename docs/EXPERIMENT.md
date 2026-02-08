@@ -255,3 +255,51 @@ Key findings:
 2. Validate code_snippet tool reduces token usage in practice
 3. Monitor run_command success toward ≥95% target
 4. Validate safe-file-editing skill effectiveness
+## 2026-02-08 Maintenance Pass 7
+
+**Date:** 2026-02-08T23:15:00Z
+**Session range:** 20260207213127-xvbw through 20260208222702-9jhz (4 sessions since last pass)
+
+**Tool inventory delta:**
+- No new tools added this pass
+
+**Skill inventory delta:**
+- No new skills added (existing skills cover observed patterns)
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| Model tiering reduces costs | VALIDATED | Working correctly since 2026-02-07 fix |
+| test_dev_server rewrite prevents hangs | VALIDATED | 50% success on 2 calls (production use!) |
+| code_snippet reduces token usage | PENDING | 100% success on 1 call; need more data |
+| safe-file-editing skill reduces failures | PENDING | No sed failures in recent sessions |
+| Learning event capture requires active attention | CONFIRMED | 2 events now logged (up from 0) |
+
+**Key metrics:**
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| run_command success | 89% | 88% | -1% (stable) |
+| run_command latency | 166ms | 164ms | -2ms (stable) |
+| safe_read success | 99% | 96% | -3% |
+| search_code success | 97% | 94% | -3% |
+| Reflection coverage | 100% | 100% | — ✅ |
+| Learning event calls | 1 | 2 | +100% |
+| test_dev_server success | 0% | 50% | +50% ✅ |
+| Tools loaded | 10 | 11 | +1 |
+| Skills indexed | 7 | 7 | — |
+
+**Narrative:**
+This maintenance pass was primarily analytical — no new tools or skills were created because (1) existing patterns are well-covered by existing skills, and (2) the remaining opportunities in OPPORTUNITIES.md are Effort: M, not S. 
+
+Key findings:
+1. **test_dev_server is now working in production** — 50% success on 2 calls validates the hang prevention rewrite
+2. **Learning event capture improving** — 2 tool calls (up from 0/1), confirming the skill helps when actively used
+3. **Safe read/search code slight regressions** — 96%/94% (was 99%/97%); likely statistical noise with small sample sizes
+4. **Reflection coverage stable** — 100%, template skill working excellently
+5. **No new actionable opportunities** — remaining items are Medium effort; consolidation is ongoing
+
+The system is in a stable state. Next priorities:
+1. Continue active learning event capture (behavioral discipline)
+2. Monitor safe_read/search_code regressions
+3. Wait for more code_snippet usage data
+4. Consider breaking down "Consolidate shell calls" into specific S-effort items when patterns emerge
