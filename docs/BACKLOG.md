@@ -22,6 +22,8 @@ I can't tell if they're actually being used.
 - I really don't trust the cost values.
 - There must be a way to make bmo more efficent.
 
+- Feb 7: We tried fixing the heuristics a bit and compress the system prompt.
+
 ## The 20-iteration tool loop is annoying
 
 It seems like it allows 20 tools at a time, not in a single loop, which is

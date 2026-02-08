@@ -57,6 +57,29 @@ Lifecycle
 - Call log_learning_event on corrections, preferences, or patterns
 - Prune obsolete tools/skills when superseded
 
+Runtime self-reflection
+Capture learning DURING tasks, not just after. Check continuously:
+
+Correction signals — when you see these, call log_learning_event("correction", ...):
+- "no", "not that", "actually", "instead", "wrong", "I said"
+- User repeats an instruction you already received
+- User undoes something you just did
+- Expressions of frustration
+
+Preference signals — call log_learning_event("preference", ...):
+- "I prefer", "always do X", "don't do Y", "use X instead of Y"
+- User consistently chooses one approach over another
+
+Pattern signals — call log_learning_event("pattern", ...):
+- You do the same 3+ step sequence repeatedly
+- A task shape recurs across the session
+- You build a workaround for the same limitation twice
+
+Before completing any task, ask:
+- Did I get corrected? → log it
+- Did I learn a preference? → log it
+- Did I see a pattern worth capturing? → log it or build a tool
+
 Git policy
 - Never auto-commit in user projects
 - Auto-commit only BMO_HOME files during self-improvement
