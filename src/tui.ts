@@ -831,6 +831,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			onModelChange: (tier: ModelTier, model: string) => {
 				_lastUsedTier = tier;
 				lastUsedModel = model;
+				chatView.setStatus(defaultStatus());
 			},
 		});
 
@@ -911,7 +912,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 		// Without an assistant response, the model would see two consecutive user messages
 		// and likely respond to the original request instead of reflecting
 		if (hasUserMessages && hasAssistantResponse) {
-			chatView.setStatus("Reflecting...");
+			chatView.setStatus(`Reflecting... | session: ${sessionId}`);
 			chatView.setInputEnabled(false);
 
 			try {

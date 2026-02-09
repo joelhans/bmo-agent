@@ -1,10 +1,16 @@
 # bmo — Backlog
 
-Known footguns, annoyances, and structural gaps discovered during bmo self-improvement sessions. Ordered by priority — items at the top de-risk the self-improvement loop and reduce daily friction.
+Known footguns, annoyances, and structural gaps discovered during bmo
+self-improvement sessions. Ordered by priority — items at the top de-risk the
+self-improvement loop and reduce daily friction.
 
 ## Analyze model tiering
 
 Does it actually work?
+
+- Feb 7: Seems like it *does* work, but switching is restrictive. We're going to
+  try loosening the requirements to see what happens, and make sure the TUI
+  updates to show which model is being actively used.
 
 ## Elaborate on skills usage
 
@@ -15,6 +21,8 @@ I can't tell if they're actually being used.
 - I don't trust the token values I'm seeing.
 - I really don't trust the cost values.
 - There must be a way to make bmo more efficent.
+
+- Feb 7: We tried fixing the heuristics a bit and compress the system prompt.
 
 ## The 20-iteration tool loop is annoying
 

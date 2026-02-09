@@ -64,11 +64,13 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 
 	try {
 		for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-			// Select tier for this iteration based on what just happened
-			const tier = selectIterationTier({
+			// Select tier for this iteration:
+			// - iteration 0: use defaultTier (already selected by selectInitialTier in TUI)
+			// - iteration 1+: use selectIterationTier based on what just happened
+			const tier = iteration === 0 ? defaultTier : selectIterationTier({
 				iteration,
-				lastToolCalls: iteration > 0 ? lastToolCalls : undefined,
-				lastAssistantText: iteration > 0 ? lastAssistantText : undefined,
+				lastToolCalls,
+				lastAssistantText,
 				hadError,
 			});
 

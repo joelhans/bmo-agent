@@ -70,8 +70,8 @@ export function resolvePricing(model: string, overrides?: Record<string, ModelPr
 
 /**
  * Estimate tokens for a single message.
- * Heuristic: ceil(chars / 3.5) + 4 per-message overhead.
- * Intentionally overestimates — safer to truncate early than hit API limits.
+ * Heuristic: ceil(chars / 4) + 2 per-message overhead.
+ * Slightly conservative but much closer to real tokenization than the old formula.
  */
 export function estimateTokens(message: ChatMessage): number {
 	let chars = (message.content ?? "").length;
@@ -81,7 +81,7 @@ export function estimateTokens(message: ChatMessage): number {
 	if (message.tool_call_id) {
 		chars += message.tool_call_id.length;
 	}
-	return Math.ceil(chars / 3.5) + 4;
+	return Math.ceil(chars / 4) + 2;
 }
 
 /**

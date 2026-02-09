@@ -49,29 +49,28 @@ describe("assembleSystemPrompt", () => {
 		expect(prompt).toContain(".mjs");
 	});
 
-	test("includes skills format section", () => {
-		expect(prompt).toContain("Skills format");
+	test("includes skill creation instructions", () => {
+		expect(prompt).toContain("Write skills when");
 		expect(prompt).toContain("front-matter");
 	});
 
 	test("includes self-improvement tool creation instructions", () => {
-		expect(prompt).toContain("Write an .mjs module to BMO_HOME/tools/");
+		expect(prompt).toContain("write .mjs to BMO_HOME/tools/");
 		expect(prompt).toContain("reload_tools");
 	});
 
-	test("instructs calling tools directly by name after reload", () => {
-		expect(prompt).toContain("calling the tool DIRECTLY BY NAME");
-		expect(prompt).toContain("NOT via run_command");
+	test("instructs calling tools directly after reload", () => {
+		expect(prompt).toContain("tool becomes first-class, invoke by name");
 	});
 
 	test("clarifies bmo:// is not a shell-resolvable path", () => {
-		expect(prompt).toContain("shell does NOT understand bmo://");
-		expect(prompt).toContain("always use the absolute BMO_HOME path");
+		expect(prompt).toContain("shell doesn't understand bmo://");
+		expect(prompt).toContain("$BMO_HOME in run_command");
 	});
 
 	test("includes self-improvement content", () => {
-		expect(prompt).toContain("Self\u2011improvement: act now, not later");
-		expect(prompt).toContain("self\u2011improving");
+		expect(prompt).toContain("Self-improvement: act now, not later");
+		expect(prompt).toContain("self-improving");
 		expect(prompt).toContain("hypothesis");
 	});
 
@@ -82,13 +81,13 @@ describe("assembleSystemPrompt", () => {
 	});
 
 	test("includes git commit policy", () => {
-		expect(prompt).toContain("Git commit policy");
-		expect(prompt).toContain("Never auto\u2011commit");
+		expect(prompt).toContain("Git policy");
+		expect(prompt).toContain("Never auto-commit");
 	});
 
-	test("includes heuristics sections", () => {
-		expect(prompt).toContain("Heuristics for building or changing tools");
-		expect(prompt).toContain("Heuristics for writing skills");
+	test("includes tool design heuristics", () => {
+		expect(prompt).toContain("Tool design heuristics");
+		expect(prompt).toContain("round-trips");
 	});
 
 	test("includes user signal capture instructions", () => {

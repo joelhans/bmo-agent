@@ -11,22 +11,23 @@ import type { ChatMessage } from "./llm.ts";
 
 describe("estimateTokens", () => {
 	test("empty message returns overhead only", () => {
-		expect(estimateTokens({ role: "user", content: "" })).toBe(4);
+		// 0 chars → ceil(0/4) + 2 = 2
+		expect(estimateTokens({ role: "user", content: "" })).toBe(2);
 	});
 
 	test("short message", () => {
-		// "hello" = 5 chars → ceil(5 / 3.5) + 4 = 2 + 4 = 6
-		expect(estimateTokens({ role: "user", content: "hello" })).toBe(6);
+		// "hello" = 5 chars → ceil(5/4) + 2 = 2 + 2 = 4
+		expect(estimateTokens({ role: "user", content: "hello" })).toBe(4);
 	});
 
 	test("longer message scales with content", () => {
-		const content = "a".repeat(350);
-		// 350 chars → ceil(350 / 3.5) + 4 = 100 + 4 = 104
-		expect(estimateTokens({ role: "user", content })).toBe(104);
+		const content = "a".repeat(400);
+		// 400 chars → ceil(400/4) + 2 = 100 + 2 = 102
+		expect(estimateTokens({ role: "user", content })).toBe(102);
 	});
 
 	test("handles null content", () => {
-		expect(estimateTokens({ role: "assistant", content: null })).toBe(4);
+		expect(estimateTokens({ role: "assistant", content: null })).toBe(2);
 	});
 
 	test("includes tool_calls in estimate", () => {
@@ -36,7 +37,7 @@ describe("estimateTokens", () => {
 			tool_calls: [{ id: "call_1", function: { name: "run_command", arguments: '{"command":"ls"}' } }],
 		};
 		const estimate = estimateTokens(msg);
-		expect(estimate).toBeGreaterThan(4);
+		expect(estimate).toBeGreaterThan(2);
 	});
 
 	test("includes tool_call_id in estimate", () => {
@@ -54,8 +55,8 @@ describe("estimateTokensForMessages", () => {
 
 	test("single message adds to conversation overhead", () => {
 		const msgs: ChatMessage[] = [{ role: "system", content: "hello" }];
-		// 3 + ceil(5/3.5) + 4 = 3 + 2 + 4 = 9
-		expect(estimateTokensForMessages(msgs)).toBe(9);
+		// 3 + ceil(5/4) + 2 = 3 + 2 + 2 = 7
+		expect(estimateTokensForMessages(msgs)).toBe(7);
 	});
 });
 

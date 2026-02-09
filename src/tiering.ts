@@ -11,19 +11,23 @@ export interface TierContext {
 
 export interface IterationContext {
 	iteration: number;
-	lastToolCalls?: Array<{ name: string; success: boolean }>;
-	lastAssistantText?: string;
+	lastToolCalls: Array<{ name: string; success: boolean }>;
+	lastAssistantText: string;
 	hadError: boolean;
 }
 
+// Keywords that indicate complex reasoning is needed
 const REASONING_KEYWORDS = [
 	"architect",
 	"design",
-	"debug",
 	"refactor",
 	"why does",
+	"why is",
+	"why are",
+	"why did",
 	"what's wrong",
 	"explain why",
+	"explain how",
 	"how should i structure",
 	"review",
 	"maintenance",
@@ -32,15 +36,49 @@ const REASONING_KEYWORDS = [
 	"self-improvement",
 	"investigate",
 	"think deeply",
+	"debug",
+	"analyze",
+	"compare",
+	"trade-off",
+	"tradeoff",
+];
+
+// Keywords that indicate simple mechanical tasks → coding tier
+const CODING_KEYWORDS = [
+	"read ",
+	"cat ",
+	"list ",
+	"ls ",
+	"show ",
+	"print ",
+	"what is in",
+	"what's in",
+	"contents of",
+	"run ",
+	"execute ",
+	"create a file",
+	"write to",
+	"make a",
+	"add a line",
+	"delete ",
+	"remove ",
+	"rename ",
+	"move ",
+	"copy ",
 ];
 
 // Simple file operation tools that coding tier can handle
-const SIMPLE_FILE_TOOLS = ["run_command"];
+const SIMPLE_FILE_TOOLS = [
+	"run_command",
+	"safe_read",
+	"search_code",
+	"list_files_filtered",
+	"smart_grep",
+];
 
 // Words that suggest planning/reasoning vs mechanical execution
 const PLANNING_INDICATORS = [
 	"first",
-	"next",
 	"then",
 	"should",
 	"need to",
@@ -56,41 +94,53 @@ const PLANNING_INDICATORS = [
 
 /**
  * Select initial model tier based on user message content and error state.
- * This determines the tier for the first iteration.
+ * This determines the tier for the first iteration of each user message.
  */
 export function selectInitialTier(ctx: TierContext): ModelTier {
+	// Always use reasoning after errors
 	if (ctx.lastResponseWasError) {
 		return "reasoning";
 	}
 
 	const lower = ctx.userMessage.toLowerCase();
+
+	// Check for reasoning keywords first (takes priority)
 	for (const keyword of REASONING_KEYWORDS) {
 		if (lower.includes(keyword)) {
 			return "reasoning";
 		}
 	}
 
-	// Default to reasoning tier for initial planning
+	// Check for simple coding task keywords
+	for (const keyword of CODING_KEYWORDS) {
+		if (lower.includes(keyword)) {
+			return "coding";
+		}
+	}
+
+	// Short messages without reasoning keywords are likely simple tasks
+	if (ctx.userMessage.length < 50) {
+		return "coding";
+	}
+
+	// Default to reasoning for anything else (complex or ambiguous)
 	return "reasoning";
 }
 
 /**
- * Select tier for a specific iteration based on what just happened.
+ * Select tier for subsequent iterations (iteration > 0) based on what just happened.
  * Enables fluid switching between reasoning (planning) and coding (execution).
+ * 
+ * Note: iteration 0 should use defaultTier directly, not this function.
  */
 export function selectIterationTier(ctx: IterationContext): ModelTier {
-	// First iteration always uses reasoning for initial planning
-	if (ctx.iteration === 0) {
-		return "reasoning";
-	}
-
 	// Always escalate to reasoning after errors
 	if (ctx.hadError) {
 		return "reasoning";
 	}
 
-	// If we don't have context about what just happened, stay on reasoning (safe default)
-	if (!ctx.lastToolCalls || !ctx.lastAssistantText) {
+	// For many tool calls, use reasoning (coordinating multiple actions)
+	if (ctx.lastToolCalls.length > 4) {
 		return "reasoning";
 	}
 
@@ -103,13 +153,8 @@ export function selectIterationTier(ctx: IterationContext): ModelTier {
 
 	// If we just did simple file ops and there's no planning language,
 	// the coding tier can handle follow-up
-	if (allSimpleFileOps && !hasPlanning && ctx.lastAssistantText.length < 300) {
+	if (allSimpleFileOps && !hasPlanning && ctx.lastAssistantText.length < 500) {
 		return "coding";
-	}
-
-	// For multi-tool calls or complex operations, use reasoning
-	if (ctx.lastToolCalls.length > 2) {
-		return "reasoning";
 	}
 
 	// Default to reasoning for safety — better to over-use reasoning than under-use it
