@@ -941,6 +941,10 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 					reflection = reflectionText;
 					reflectionStatus = "success";
 					logger.info(`reflection: ${reflectionText.slice(0, 200)}${reflectionText.length > 200 ? "..." : ""}`);
+
+					// Give user time to read the reflection before exiting
+					chatView.setStatus(`Reflection complete. Saving session...`);
+					await new Promise((resolve) => setTimeout(resolve, 2000));
 				}
 			} catch (err: unknown) {
 				const msg = err instanceof Error ? err.message : String(err);

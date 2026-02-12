@@ -273,3 +273,24 @@ This makes debugging much easier and provides actionable hints.
 - Context truncation will now be ~25% more generous (better preserves conversation history)
 
 **Impact**: Every session benefits — lower costs and better context retention without any behavioral degradation.
+
+## 2026-02-13 — Reflection Display Fix
+
+**Problem**: Reflections were being generated and saved, but not displayed to the user before exit. The TUI would show "Reflecting..." then immediately quit, leaving users thinking the reflection failed.
+
+**Root cause**: After streaming the reflection text to `chatView`, the code immediately called `tui.stop()` and `process.exit(0)` without any pause. The terminal was cleared/exited before the text could be read.
+
+**Solution**: Added a 2-second delay after successful reflection completion:
+```typescript
+// Give user time to read the reflection before exiting
+chatView.setStatus(`Reflection complete. Saving session...`);
+await new Promise((resolve) => setTimeout(resolve, 2000));
+```
+
+**Verification**: Manual testing will show:
+1. Reflection streams to screen
+2. Status changes to "Reflection complete. Saving session..."
+3. 2-second pause (time to read)
+4. Clean exit
+
+**Impact**: Users now see their reflections and get confirmation the session saved successfully.
