@@ -10,8 +10,8 @@ export const schema = {
   properties: {
     count: {
       type: "number",
-      description: "Number of recent sessions to analyze (default: 5)",
-      default: 5
+      description: "Number of recent sessions to analyze (default: 10)",
+      default: 10
     },
     sessionsDir: {
       type: "string",
@@ -21,7 +21,7 @@ export const schema = {
   required: []
 };
 
-export async function run({ count = 5, sessionsDir } = {}) {
+export async function run({ count = 10, sessionsDir } = {}) {
   try {
     const dir = sessionsDir || join(process.env.BMO_HOME || process.env.HOME + '/.local/share/bmo', 'sessions');
     
