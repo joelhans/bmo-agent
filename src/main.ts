@@ -93,6 +93,11 @@ async function main(): Promise<void> {
 	await ensureDataDirs(paths);
 	const config = await loadConfig(paths);
 
+	// Export resolved paths to process.env so child processes (run_command) can access them
+	process.env.BMO_HOME = paths.bmoHome;
+	process.env.BMO_DATA = paths.dataDir;
+	// BMO_SOURCE is set below after resolveSourceDir
+
 	// Merge config.sourceDir into paths (env var BMO_SOURCE overrides config)
 	paths = resolveSourceDir(paths, config.sourceDir);
 
@@ -103,6 +108,11 @@ async function main(): Promise<void> {
 		} catch {
 			// best-effort — don't block startup
 		}
+	}
+
+	// Export BMO_SOURCE after resolution (config.sourceDir takes precedence over env)
+	if (paths.bmoSource) {
+		process.env.BMO_SOURCE = paths.bmoSource;
 	}
 
 	// key subcommand: dispatch and exit
