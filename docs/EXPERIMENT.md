@@ -461,3 +461,47 @@ Learning event capture remains the critical gap — only 2 events logged across 
 1. Investigate run_command and safe_read regression
 2. Investigate null reflection pattern in recent sessions
 3. Address learning event behavioral gap (requires prompt or agent loop changes, not just skill)
+## 2026-02-15 Maintenance Pass 9
+
+**Date:** 2026-02-15T23:50:00Z
+**Session range:** 20260215002718-2ynr through 20260215233144-zh1p (9 sessions since last pass)
+
+**Tool inventory delta:**
+- No new tools added
+- Identified: analyze_token_accuracy tool has broken comparison logic
+
+**Skill inventory delta:**
+- No new skills added — existing skills cover observed patterns
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| Reflection template improves coverage | PARTIAL | Historically 100%, but recent sessions have null reflections (likely quick exits) |
+| Model tiering reduces costs | VALIDATED | Working correctly |
+| test_dev_server prevents hangs | VALIDATED | 80% success, 5 calls |
+| Learning event capture requires active attention | CONFIRMED | 3 total events despite skill existing |
+| run_command reaches ≥95% | INVALIDATED | Stable at 84%, not improving |
+| safe_read maintains high success | INVALIDATED | Regressed from 96% to 87% |
+
+**Key metrics:**
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| run_command success | 84% | 84% | — (stable but low) |
+| run_command latency | 312ms | 310ms | -2ms |
+| safe_read success | 88% | 87% | -1% |
+| search_code success | 93% | 93% | — |
+| log_learning_event calls | 2 | 3 | +1 |
+| Tools loaded | 11 | 11 | — |
+| Skills indexed | 7 | 7 | — |
+
+**Narrative:**
+This maintenance pass was primarily analytical — no new tools or skills were created because existing patterns are well-covered. The main finding is that both run_command and safe_read have stable but lower-than-target success rates (84% and 87% respectively). This may be related to the $BMO_HOME environment variable fix applied earlier today.
+
+The "knowing vs. doing" gap remains the core issue: learning-event-capture skill exists but only 3 events have been logged ever. This requires architectural intervention (auto-injection or agent loop integration) rather than more skills.
+
+Recent sessions showing null reflections appear to be quick exits rather than failures — investigation shows these sessions have minimal content (just system prompt, no user messages beyond initial).
+
+**Next priorities:**
+1. Investigate run_command regression root cause
+2. Fix or remove analyze_token_accuracy tool
+3. Consider architectural fix for learning event capture (M-effort)

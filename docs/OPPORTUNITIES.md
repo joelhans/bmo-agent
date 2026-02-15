@@ -133,3 +133,40 @@ Format: Status (todo/done/dropped), Impact (High/Medium/Low), Effort (S/M/L)
 
 ### No S-effort items to act on this pass
 Both todo items are M-effort. No new S-effort opportunities identified.
+## 2026-02-15 Maintenance Pass 9 Findings
+
+### Updated Telemetry Targets
+
+| Metric | Previous | Current | Target | Status |
+|--------|----------|---------|--------|--------|
+| run_command success | 84% | 84% | ≥95% | ⚠️ Stable but low |
+| safe_read success | 88% | 87% | ≥95% | ⚠️ Still regressing |
+| search_code success | 92% | 93% | maintain | ✅ Stable |
+| test_dev_server success | 80% | 80% | maintain | ✅ Validated |
+| Learning event capture | 2 | 3 | ≥50% sessions | ⚠️ Tiny improvement |
+| Reflection coverage | uncertain | null in recent | ≥90% | ⚠️ Check exit behavior |
+
+### Key Findings This Pass
+
+1. **Recent sessions have null reflections**: Feb 15 sessions mostly have `"reflection": null`. These appear to be very short sessions (quick exits) rather than reflection failures.
+
+2. **Tool regression investigation needed**: Both run_command (84%) and safe_read (87%) have regressed from previous peaks (88%, 96%). May be related to:
+   - `$BMO_HOME` not being set early in sessions (fixed Feb 15)
+   - Tilde expansion issues with safe_read
+   - Increased use of shell commands that fail on edge cases
+
+3. **analyze_token_accuracy tool is broken**: Comparison logic compares per-message estimates to cumulative API totals — fundamentally invalid comparison. Needs fix or removal.
+
+4. **Knowing vs. doing gap confirmed**: 3 learning events total across 60+ sessions despite having skills. This is behavioral, not technical.
+
+### New Opportunity
+
+### Fix or remove analyze_token_accuracy tool
+- **Status**: todo
+- **Impact**: Low | **Effort**: M
+- **What**: Tool compares per-message token estimates to cumulative session totals, which is invalid.
+- **Options**: (1) Track per-message real tokens if available, (2) compare cumulative to cumulative properly, (3) remove tool
+- **Success criteria**: Produces valid comparison or is removed from inventory
+
+### No S-effort items acted on this pass
+Both existing todo items are M-effort. No new S-effort opportunities identified.
