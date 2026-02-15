@@ -15,10 +15,14 @@ describe("selectInitialTier", () => {
 	});
 
 	test("returns coding for simple file operations", () => {
-		expect(selectInitialTier({ userMessage: "create a file called test.txt", lastResponseWasError: false })).toBe("coding");
+		expect(selectInitialTier({ userMessage: "create a file called test.txt", lastResponseWasError: false })).toBe(
+			"coding",
+		);
 		expect(selectInitialTier({ userMessage: "delete the old backup", lastResponseWasError: false })).toBe("coding");
 		expect(selectInitialTier({ userMessage: "rename foo to bar", lastResponseWasError: false })).toBe("coding");
-		expect(selectInitialTier({ userMessage: "copy config.json to backup/", lastResponseWasError: false })).toBe("coding");
+		expect(selectInitialTier({ userMessage: "copy config.json to backup/", lastResponseWasError: false })).toBe(
+			"coding",
+		);
 	});
 
 	test("returns coding for run/execute commands", () => {
@@ -33,18 +37,24 @@ describe("selectInitialTier", () => {
 	});
 
 	test("returns coding for what's in / contents of", () => {
-		expect(selectInitialTier({ userMessage: "what is in the src folder?", lastResponseWasError: false })).toBe("coding");
+		expect(selectInitialTier({ userMessage: "what is in the src folder?", lastResponseWasError: false })).toBe(
+			"coding",
+		);
 		expect(selectInitialTier({ userMessage: "what's in package.json", lastResponseWasError: false })).toBe("coding");
 		expect(selectInitialTier({ userMessage: "contents of README.md", lastResponseWasError: false })).toBe("coding");
 	});
 
 	// Reasoning tier for complex tasks
 	test("returns reasoning for architect keyword", () => {
-		expect(selectInitialTier({ userMessage: "architect a new auth system", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "architect a new auth system", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 
 	test("returns reasoning for design keyword", () => {
-		expect(selectInitialTier({ userMessage: "design the database schema", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "design the database schema", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 
 	test("returns reasoning for debug keyword", () => {
@@ -52,7 +62,9 @@ describe("selectInitialTier", () => {
 	});
 
 	test("returns reasoning for refactor keyword", () => {
-		expect(selectInitialTier({ userMessage: "refactor the session module", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "refactor the session module", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 
 	test("returns reasoning for why questions", () => {
@@ -63,26 +75,40 @@ describe("selectInitialTier", () => {
 	});
 
 	test("returns reasoning for what's wrong keyword", () => {
-		expect(selectInitialTier({ userMessage: "what's wrong with this code?", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "what's wrong with this code?", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 
 	test("returns reasoning for explain keywords", () => {
-		expect(selectInitialTier({ userMessage: "explain why the test fails", lastResponseWasError: false })).toBe("reasoning");
-		expect(selectInitialTier({ userMessage: "explain how the auth works", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "explain why the test fails", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
+		expect(selectInitialTier({ userMessage: "explain how the auth works", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 
 	test("returns reasoning for how should i structure keyword", () => {
-		expect(selectInitialTier({ userMessage: "how should i structure the API?", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "how should i structure the API?", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 
 	test("returns reasoning for review keyword", () => {
-		expect(selectInitialTier({ userMessage: "review this pull request", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "review this pull request", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 
 	test("returns reasoning for analyze/compare/trade-off keywords", () => {
 		expect(selectInitialTier({ userMessage: "analyze this code", lastResponseWasError: false })).toBe("reasoning");
-		expect(selectInitialTier({ userMessage: "compare these approaches", lastResponseWasError: false })).toBe("reasoning");
-		expect(selectInitialTier({ userMessage: "what are the trade-offs?", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "compare these approaches", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
+		expect(selectInitialTier({ userMessage: "what are the trade-offs?", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 
 	test("returns reasoning when lastResponseWasError is true", () => {
@@ -95,7 +121,9 @@ describe("selectInitialTier", () => {
 	});
 
 	test("returns reasoning for introspect keyword", () => {
-		expect(selectInitialTier({ userMessage: "introspect on recent sessions", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "introspect on recent sessions", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 
 	test("returns reasoning for battery check keyword", () => {
@@ -107,12 +135,15 @@ describe("selectInitialTier", () => {
 	});
 
 	test("returns reasoning for long messages without coding keywords", () => {
-		const longMessage = "I have a complex situation with the authentication flow that involves multiple services and I'm not sure about the best approach to handle the token refresh logic";
+		const longMessage =
+			"I have a complex situation with the authentication flow that involves multiple services and I'm not sure about the best approach to handle the token refresh logic";
 		expect(selectInitialTier({ userMessage: longMessage, lastResponseWasError: false })).toBe("reasoning");
 	});
 
 	test("case insensitive matching", () => {
-		expect(selectInitialTier({ userMessage: "Investigate the auth flow", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "Investigate the auth flow", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 		expect(selectInitialTier({ userMessage: "REFACTOR this module", lastResponseWasError: false })).toBe("reasoning");
 		expect(selectInitialTier({ userMessage: "READ the config file", lastResponseWasError: false })).toBe("coding");
 		expect(selectInitialTier({ userMessage: "LIST all files", lastResponseWasError: false })).toBe("coding");
@@ -121,7 +152,9 @@ describe("selectInitialTier", () => {
 	test("reasoning keywords take priority over coding keywords", () => {
 		// "why does" should trigger reasoning even if "read" is present
 		expect(selectInitialTier({ userMessage: "why does read fail?", lastResponseWasError: false })).toBe("reasoning");
-		expect(selectInitialTier({ userMessage: "debug why the list command fails", lastResponseWasError: false })).toBe("reasoning");
+		expect(selectInitialTier({ userMessage: "debug why the list command fails", lastResponseWasError: false })).toBe(
+			"reasoning",
+		);
 	});
 });
 

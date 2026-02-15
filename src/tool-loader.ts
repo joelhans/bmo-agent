@@ -58,6 +58,23 @@ export function getSandboxCommand(): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// Result truncation helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Truncate a tool result's output if it exceeds the limit.
+ * Matches the format used by run_command for consistency.
+ */
+function truncateResult(result: ToolResult, limit: number): ToolResult {
+	if (result.output.length <= limit) return result;
+	const omitted = result.output.length - limit;
+	return {
+		...result,
+		output: `${result.output.slice(0, limit)}\n[truncated — ${omitted} chars omitted]`,
+	};
+}
+
+// ---------------------------------------------------------------------------
 // Dynamic tool loading
 // ---------------------------------------------------------------------------
 
@@ -65,6 +82,11 @@ export interface LoadResult {
 	loaded: string[];
 	unavailable: Array<{ name: string; reason: string }>;
 	errors: Array<{ name: string; error: string }>;
+}
+
+export interface LoadOptions {
+	/** Max chars for tool result output (context budget). Default: no truncation */
+	resultTruncation?: number;
 }
 
 /**
@@ -76,8 +98,10 @@ export async function loadDynamicTools(
 	toolsDir: string,
 	registry: ToolRegistry,
 	sandboxConfig: SandboxConfig,
+	options?: LoadOptions,
 ): Promise<LoadResult> {
 	const result: LoadResult = { loaded: [], unavailable: [], errors: [] };
+	const resultTruncation = options?.resultTruncation;
 
 	let entries: string[];
 	try {
@@ -133,7 +157,9 @@ export async function loadDynamicTools(
 				description,
 				parameters: mod.schema,
 				async execute(args): Promise<ToolResult> {
-					return executeSandboxed(filePath, args, caps, sandboxConfig, sandboxCommand);
+					const rawResult = await executeSandboxed(filePath, args, caps, sandboxConfig, sandboxCommand);
+					// Apply result truncation for context budget (separate from sandbox output limit)
+					return resultTruncation ? truncateResult(rawResult, resultTruncation) : rawResult;
 				},
 			};
 
@@ -313,7 +339,7 @@ export function createReloadToolsTool(
 	registry: ToolRegistry,
 	skillsRegistry: SkillsRegistry,
 	sandboxConfig: SandboxConfig,
-	opts?: { skillsDir?: string; bmoSource?: string | null; docsDir?: string },
+	opts?: { skillsDir?: string; bmoSource?: string | null; docsDir?: string; resultTruncation?: number },
 ): ToolDefinition {
 	return {
 		name: "reload_tools",
@@ -327,7 +353,9 @@ export function createReloadToolsTool(
 		},
 		async execute(): Promise<ToolResult> {
 			registry.clearDynamic();
-			const loadResult = await loadDynamicTools(toolsDir, registry, sandboxConfig);
+			const loadResult = await loadDynamicTools(toolsDir, registry, sandboxConfig, {
+				resultTruncation: opts?.resultTruncation,
+			});
 			await skillsRegistry.scan();
 			const skillCount = skillsRegistry.list().length;
 			let summary = formatLoadResult(loadResult, skillCount);
@@ -358,7 +386,8 @@ export async function initialLoad(
 	registry: ToolRegistry,
 	skillsRegistry: SkillsRegistry,
 	sandboxConfig: SandboxConfig,
+	options?: LoadOptions,
 ): Promise<LoadResult> {
 	await skillsRegistry.scan();
-	return loadDynamicTools(toolsDir, registry, sandboxConfig);
+	return loadDynamicTools(toolsDir, registry, sandboxConfig, options);
 }

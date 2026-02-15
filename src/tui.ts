@@ -484,6 +484,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	);
 	registry.register(
 		createReloadToolsTool(paths.toolsDir, registry, skillsRegistry, sandboxConfig, {
+			resultTruncation: config.toolResultTruncation,
 			skillsDir: paths.skillsDir,
 			bmoSource: paths.bmoSource,
 			docsDir: paths.docsDir,
@@ -492,7 +493,9 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	);
 
 	// Initial tool/skill scan
-	const loadResult = await initialLoad(paths.toolsDir, registry, skillsRegistry, sandboxConfig);
+	const loadResult = await initialLoad(paths.toolsDir, registry, skillsRegistry, sandboxConfig, {
+		resultTruncation: config.toolResultTruncation,
+	});
 	const loadSummary = formatLoadResult(loadResult, skillsRegistry.list().length);
 	logger.info(`Initial tool load: ${loadSummary}`);
 
@@ -886,7 +889,9 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 	chatView.onReload = () => {
 		chatView.addMessage("system", "Reloading tools and skills...");
 		registry.clearDynamic();
-		initialLoad(paths.toolsDir, registry, skillsRegistry, sandboxConfig)
+		initialLoad(paths.toolsDir, registry, skillsRegistry, sandboxConfig, {
+			resultTruncation: config.toolResultTruncation,
+		})
 			.then((result) => {
 				const summary = formatLoadResult(result, skillsRegistry.list().length);
 				rebuildSystemPrompt();

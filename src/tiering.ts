@@ -68,13 +68,7 @@ const CODING_KEYWORDS = [
 ];
 
 // Simple file operation tools that coding tier can handle
-const SIMPLE_FILE_TOOLS = [
-	"run_command",
-	"safe_read",
-	"search_code",
-	"list_files_filtered",
-	"smart_grep",
-];
+const SIMPLE_FILE_TOOLS = ["run_command", "safe_read", "search_code", "list_files_filtered", "smart_grep"];
 
 // Words that suggest planning/reasoning vs mechanical execution
 const PLANNING_INDICATORS = [
@@ -130,7 +124,7 @@ export function selectInitialTier(ctx: TierContext): ModelTier {
 /**
  * Select tier for subsequent iterations (iteration > 0) based on what just happened.
  * Enables fluid switching between reasoning (planning) and coding (execution).
- * 
+ *
  * Note: iteration 0 should use defaultTier directly, not this function.
  */
 export function selectIterationTier(ctx: IterationContext): ModelTier {
