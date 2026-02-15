@@ -294,3 +294,21 @@ await new Promise((resolve) => setTimeout(resolve, 2000));
 4. Clean exit
 
 **Impact**: Users now see their reflections and get confirmation the session saved successfully.
+## 2026-02-15: BMO_HOME Environment Variable Export Fix
+
+**Hypothesis**: `$BMO_HOME` wasn't available in shell commands because `resolvePaths()` computed the value internally but never exported it to `process.env`.
+
+**Rationale**: The system prompt tells me to use `$BMO_HOME` in run_command, but when users reported issues, I discovered the variable was empty in spawned shells even though bmo was running with a correctly resolved `bmoHome` path.
+
+**Implementation**:
+- Added `process.env.BMO_HOME = paths.bmoHome` in `main.ts` immediately after `resolvePaths()` and `ensureDataDirs()`
+- Also exported `BMO_DATA` and `BMO_SOURCE` for completeness
+- `BMO_SOURCE` is set after `resolveSourceDir()` to ensure config.sourceDir precedence
+
+**Verification**:
+- All tests pass (319 tests, 0 failures)
+- Manual test: `echo "$BMO_HOME"` now correctly shows the path
+- Not a regression — this was never implemented
+
+**Impact**: Shell commands using `$BMO_HOME`, `$BMO_DATA`, or `$BMO_SOURCE` now work correctly. Critical for file operations targeting bmo's own codebase.
+
