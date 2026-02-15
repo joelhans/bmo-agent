@@ -312,3 +312,14 @@ await new Promise((resolve) => setTimeout(resolve, 2000));
 
 **Impact**: Shell commands using `$BMO_HOME`, `$BMO_DATA`, or `$BMO_SOURCE` now work correctly. Critical for file operations targeting bmo's own codebase.
 
+## 2026-02-15: Maintenance Session Analysis Count Mismatch Fix
+
+**Problem**: Maintenance runs every 10 sessions (config.maintenance.threshold), but the instructions only analyzed 5 sessions. This means ~5 sessions per maintenance cycle were never reviewed for reflections or learning events.
+
+**Fix**:
+1. Updated `src/maintain.ts` line 88: "read the 5 most recent" → "read the 10 most recent (matching the maintenance threshold)"
+2. Updated `tools/session_digest.mjs` default from 5 → 10
+
+**Hypothesis**: This will double the coverage of session analysis, potentially surfacing patterns that were previously missed.
+
+**Verification**: Tests pass, tool reloads successfully.
