@@ -7,3 +7,4 @@ bun.lock
 .env.*
 *.tsbuildinfo
 *.bun-build
+docs/WORKING_MEMORY.md
