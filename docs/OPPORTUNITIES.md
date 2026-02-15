@@ -101,3 +101,14 @@ Format: Status (todo/done/dropped), Impact (High/Medium/Low), Effort (S/M/L)
   - What: Track run_command success rate and latency over next 3 passes; attribute changes to new tools/skills when possible.
   - Targets: Success ≥95%, avg latency ≤300 ms.
 
+## Telemetry Targets (2026-02-06)
+
+| Metric | Previous | Current | Target | Status |
+|--------|----------|---------|--------|--------|
+| run_command success | 87% | 90% | ≥95% | Improving ↑ |
+| run_command latency | 230ms | 140ms | ≤300ms | ✅ On target |
+| Reflection coverage | 40% | 75% | ≥90% | Improving ↑ |
+| Learning event capture | 0% | 50% | ≥60% | Improving ↑ |
+
+---
+
