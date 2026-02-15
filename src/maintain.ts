@@ -85,7 +85,7 @@ class ConsoleDisplay implements AgentDisplay {
 const MAINTENANCE_MESSAGE = `Run a full improvement cycle. This has five phases.
 
 ## Phase 1: Analyze
-1. Review recent session reflections -- list *.json files in the sessions directory (ignore *.log files), read the 5 most recent session JSONs, and look at the "reflection" field in each. Summarize patterns across reflections.
+1. Review recent session reflections -- list *.json files in the sessions directory (ignore *.log files), read the 10 most recent session JSONs (matching the maintenance threshold), and look at the "reflection" field in each. Summarize patterns across reflections.
 2. Check IMPROVEMENTS.md for hypotheses that can be validated or invalidated.
 3. Scan learning events from the same session JSON files -- each may contain a "learningEvents" array with objects like {type, description, context}. Look for recurring corrections or patterns.
 4. Review the tool telemetry section in the system prompt -- note any tools with high failure rates or unusually slow execution times.
