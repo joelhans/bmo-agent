@@ -413,3 +413,51 @@ Key findings:
 3. Monitor run_command success toward ≥95% target
 4. Validate safe-file-editing skill effectiveness
 
+## 2026-02-15 Maintenance Pass 8
+
+**Date:** 2026-02-15T01:05:00Z
+**Session range:** 20260209000302-dkep through 20260215004505-mcei (15 sessions since last pass, but many are short/empty)
+
+**Tool inventory delta:**
+- No tools added or modified this pass
+
+**Skill inventory delta:**
+- No skills added this pass
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| test_dev_server hang prevention | VALIDATED ✅ | 80% success on 5 calls (up from 50%) |
+| safe_read reduces file errors | VALIDATED ✅ | But regressing: 88% (was 96%) |
+| Reflection template improves coverage | UNCERTAIN ⚠️ | Was 100%, recent sessions show null |
+| Learning event capture skill improves rate | STILL INVALIDATED ❌ | Only 2 events ever logged |
+
+**Key metrics:**
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| run_command success | 88% | 84% | **-4% ⚠️** |
+| run_command latency | 164ms | 224ms | **+60ms ⚠️** |
+| safe_read success | 96% | 88% | **-8% ⚠️** |
+| safe_read latency | 31ms | 31ms | Stable |
+| search_code success | 94% | 92% | -2% |
+| test_dev_server success | 50% | 80% | **+30% ✅** |
+| Reflection coverage | 100% | uncertain | ⚠️ |
+| Learning event capture | 2 total | 2 total | No change |
+
+**Narrative:**
+This maintenance pass revealed concerning regressions in two core tools: run_command and safe_read. Both have dropped in success rate, likely due to increased edge-case usage (tilde expansion, path resolution issues). test_dev_server shows strong improvement (80% success), validating the hang prevention rewrite.
+
+Most striking: recent sessions show null reflections despite the reflection-template skill previously achieving 100% coverage. This may indicate user behavior (exiting before reflection completes) or a bug in the reflection display fix from 2026-02-13.
+
+Learning event capture remains the critical gap — only 2 events logged across all time despite the skill existing. This reinforces the "knowing vs. doing" insight: having the skill doesn't trigger the behavior.
+
+**Actions taken:**
+- Regenerated WORKING_MEMORY.md with updated telemetry
+- Documented tilde expansion limitation in pitfalls
+- Updated OPPORTUNITIES.md with current findings
+- No S-effort opportunities to act on; both todo items are M-effort
+
+**Next priorities:**
+1. Investigate run_command and safe_read regression
+2. Investigate null reflection pattern in recent sessions
+3. Address learning event behavioral gap (requires prompt or agent loop changes, not just skill)

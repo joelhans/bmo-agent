@@ -112,3 +112,24 @@ Format: Status (todo/done/dropped), Impact (High/Medium/Low), Effort (S/M/L)
 
 ---
 
+## 2026-02-15 Maintenance Pass 8 Findings
+
+### Updated Telemetry Targets
+
+| Metric | Previous | Current | Target | Status |
+|--------|----------|---------|--------|--------|
+| run_command success | 88% | 84% | ≥95% | ⚠️ REGRESSING |
+| safe_read success | 96% | 88% | ≥95% | ⚠️ REGRESSING |
+| search_code success | 94% | 92% | maintain | Stable |
+| test_dev_server success | 50% | 80% | maintain | ✅ Improving |
+| Learning event capture | ~20% | ~10% | ≥50% | ⚠️ Still critical |
+| Reflection coverage | 100% | uncertain | ≥90% | ⚠️ Check recent nulls |
+
+### New Findings
+
+- **safe_read tilde expansion issue**: safe_read doesn't expand `~` — use full paths. This may explain some of the 12% failure rate.
+- **Recent sessions have null reflections**: Multiple sessions from 2026-02-15 show `"reflection": null`. May be user exit behavior or bug.
+- **Knowing vs. doing gap remains the core issue**: 2 learning events logged ever; skill exists but behavior doesn't follow.
+
+### No S-effort items to act on this pass
+Both todo items are M-effort. No new S-effort opportunities identified.
