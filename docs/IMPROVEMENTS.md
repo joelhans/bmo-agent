@@ -339,3 +339,26 @@ await new Promise((resolve) => setTimeout(resolve, 2000));
 **Hypothesis**: Historical patterns will now inform future maintenance passes. Key recovered lessons include "ask about goal before forensics", "use unique heredoc delimiters", "surgical edits > rewrites".
 
 **Verification**: Next maintenance pass should incorporate historical patterns into fresh synthesis.
+## 2026-02-15: Dynamic Tool Result Truncation
+
+**Problem**: Maintenance sessions generate massive TUI output because dynamic tools (session_digest, analyze_token_accuracy, etc.) return large results that aren't truncated. Only `run_command` truncated results (50KB). Sandboxed tools truncate raw JSON at 1MB but the parsed result is never truncated, leading to huge context bloat.
+
+**Hypothesis**: Adding result truncation to dynamic tools will make maintenance output manageable and reduce token waste. This should follow the same pattern as `run_command`.
+
+**Implementation**:
+1. Added `truncateResult()` helper to `tool-loader.ts` matching `run_command` format
+2. Added optional `resultTruncation` parameter to `LoadOptions` interface
+3. Modified `loadDynamicTools()` to accept `LoadOptions` and apply truncation in the execute wrapper
+4. Updated `createReloadToolsTool()` and `initialLoad()` signatures to accept options
+5. Passed `config.toolResultTruncation` (50KB) to tool loading in tui.ts and maintain.ts
+
+**Separation of concerns**:
+- `outputLimitBytes` (1MB) = crash safety for runaway tools
+- `toolResultTruncation` (50KB) = context budget for LLM
+
+**Verification**:
+- All tests pass (319/319)
+- Biome formatting applied
+- Next maintenance session should show manageable output with `[truncated — N chars omitted]` markers
+
+**Impact**: Dynamic tools now respect the same 50KB truncation limit as `run_command`, dramatically reducing context bloat during maintenance sessions.
