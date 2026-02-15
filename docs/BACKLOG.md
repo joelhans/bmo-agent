@@ -6,6 +6,7 @@ self-improvement loop and reduce daily friction.
 
 - truncate output during maintenance sessions
 - get even more aggro about making improvements at runtime
+- session summaries
 
 ## Elaborate on skills usage
 

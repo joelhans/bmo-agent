@@ -323,3 +323,19 @@ await new Promise((resolve) => setTimeout(resolve, 2000));
 **Hypothesis**: This will double the coverage of session analysis, potentially surfacing patterns that were previously missed.
 
 **Verification**: Tests pass, tool reloads successfully.
+## 2026-02-15: Historical Session Recovery and WORKING_MEMORY Architecture Fix
+
+**Problem**: 45 sessions (60% of Feb 1-15 history) were never analyzed due to the 5-vs-10 mismatch bug. Additionally, WORKING_MEMORY.md was in git but is ephemeral/regenerated, causing confusion about source of truth.
+
+**Actions**:
+1. Analyzed all 45 never-analyzed sessions, extracted key patterns (tool creation pain, escape sequences, file rewrite disasters, cost estimation bug, session forensics pattern)
+2. Appended "Historical Recovery" section to runtime WORKING_MEMORY.md at BMO_HOME
+3. Removed WORKING_MEMORY.md from git tracking (.gitignore)
+
+**Architecture clarification**:
+- IMPROVEMENTS.md, OPPORTUNITIES.md, EXPERIMENT.md: Bidirectional sync via DOC_FILES
+- WORKING_MEMORY.md: Runtime-only at BMO_HOME, regenerated each maintenance pass
+
+**Hypothesis**: Historical patterns will now inform future maintenance passes. Key recovered lessons include "ask about goal before forensics", "use unique heredoc delimiters", "surgical edits > rewrites".
+
+**Verification**: Next maintenance pass should incorporate historical patterns into fresh synthesis.
