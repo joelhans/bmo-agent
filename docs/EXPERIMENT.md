@@ -365,3 +365,51 @@ The system is in a stable state. Next priorities:
 2. Monitor safe_read/search_code regressions
 3. Wait for more code_snippet usage data
 4. Consider breaking down "Consolidate shell calls" into specific S-effort items when patterns emerge
+## 2026-02-07 Maintenance Pass 6
+
+**Date:** 2026-02-07T23:15:00Z
+**Session range:** 20260206024639-u19o through 20260207213102-liz5 (10 sessions since last pass)
+
+**Tool inventory delta:**
+- Added: code_snippet.mjs — extract functions/classes/line ranges with line numbers
+
+**Skill inventory delta:**
+- Extended: codebase-exploration.md — added "Debugging Strategy: Search First" section
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| Model tiering reduces costs | VALIDATED | Now working after 2026-02-07 fix; coding tier activates for simple tasks |
+| test_dev_server rewrite prevents hangs | VALIDATED | Polling + timeouts work in testing |
+| safe-file-editing skill reduces failures | PENDING | Reflections still cite sed issues; need more data |
+| Learning event capture requires active attention | VALIDATED | Skill alone insufficient; must explicitly call log_learning_event |
+| code_snippet reduces token usage | PENDING | Just created; will track |
+
+**Key metrics:**
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| run_command success | 87% | 89% | +2% ✅ |
+| run_command latency | 230ms | 166ms | -64ms ✅ |
+| safe_read success | 100% | 99% | -1% |
+| search_code success | 100% | 97% | -3% |
+| Reflection coverage | 100% | 100% | — ✅ |
+| Learning event capture | 0% | ~10% | +10% |
+| Tools loaded | 9 | 10 | +1 |
+| Skills indexed | 7 | 7 | — |
+
+**Narrative:**
+This maintenance pass focused on acting on opportunities: built code_snippet tool to address repeated "full file reads when targeted snippets needed" pattern from reflections. Extended codebase-exploration skill with debugging strategy ("search first, read later") based on 3+ reflection observations.
+
+Key findings:
+1. **run_command metrics recovering** — 89% success (up from 87%), 166ms avg (down from 230ms)
+2. **Model tiering validated** — fix from earlier today confirmed working
+3. **Learning events starting to appear** — 1 logged event in telemetry (up from 0)
+4. **Reflection coverage stable** — 100%, template working well
+5. **Slight regressions in safe_read/search_code** — 99%/97% vs 100%; may be statistical noise with small sample
+
+**Next priorities:**
+1. Continue active learning event capture (behavioral, not technical)
+2. Validate code_snippet tool reduces token usage in practice
+3. Monitor run_command success toward ≥95% target
+4. Validate safe-file-editing skill effectiveness
+
