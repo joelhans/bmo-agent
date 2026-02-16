@@ -4,7 +4,6 @@ Known footguns, annoyances, and structural gaps discovered during bmo
 self-improvement sessions. Ordered by priority — items at the top de-risk the
 self-improvement loop and reduce daily friction.
 
-- truncate output during maintenance sessions
 - get even more aggro about making improvements at runtime
 - session summaries
 
