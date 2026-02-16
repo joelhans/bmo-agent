@@ -2,7 +2,14 @@
 
 A self-improving AI coding agent that runs in your terminal.
 
-bmo uses LLM-powered tool execution to complete tasks, and autonomously builds new tools and skills when it encounters limitations. It features multi-provider LLM routing, sandboxed tool execution, session persistence with cost tracking, and a self-improvement loop driven by reflections and periodic maintenance.
+bmo uses LLM-powered tool execution to complete tasks, and autonomously builds
+new tools and skills when it encounters limitations. It features multi-provider
+LLM routing, sandboxed tool execution, session persistence with cost tracking,
+and a self-improvement loop driven by reflections and periodic maintenance.
+
+A special thank-you to [Mario Zechner](https://github.com/badlogic) for his
+phenomenal [pi-tui
+library](https://github.com/badlogic/pi-mono/tree/main/packages/tui).
 
 ## Quick start
 
@@ -44,7 +51,9 @@ INSTALL_BIN=/usr/local/bin BMO_DATA=/opt/bmo bun run install
 
 ## Usage
 
-bmo presents a terminal UI with a chat interface. Type a message and press Enter. bmo selects a model tier, streams a response, and executes tool calls as needed.
+bmo presents a terminal UI with a chat interface. Type a message and press
+Enter. bmo selects a model tier, streams a response, and executes tool calls as
+needed.
 
 **Keybindings:**
 
@@ -75,25 +84,40 @@ bmo key remove <provider>       # Remove a stored key
 
 ### Message flow
 
-1. **Tier selection.** bmo picks a model tier — `coding` (cheaper) or `reasoning` (more capable). Keywords like "debug", "refactor", "why does", and "architect" trigger reasoning automatically, as does a failed previous response.
+1. **Tier selection.** bmo picks a model tier — `coding` (cheaper) or
+   `reasoning` (more capable). Keywords like "debug", "refactor", "why does",
+   and "architect" trigger reasoning automatically, as does a failed previous
+   response.
 
-2. **Agent loop.** Your message enters a streaming loop (max 20 iterations). Each iteration: truncate context to fit the token budget, stream the LLM response, execute any tool calls, and loop back. Text-only responses return to the user.
+2. **Agent loop.** Your message enters a streaming loop (max 20 iterations).
+   Each iteration: truncate context to fit the token budget, stream the LLM
+   response, execute any tool calls, and loop back. Text-only responses return
+   to the user.
 
-3. **Tool execution.** Built-in tools run in-process. Dynamic tools (`.mjs` files) run in sandboxed subprocesses with capability restrictions. Each tool call is timed and recorded.
+3. **Tool execution.** Built-in tools run in-process. Dynamic tools (`.mjs`
+   files) run in sandboxed subprocesses with capability restrictions. Each tool
+   call is timed and recorded.
 
-4. **Session save.** After every assistant turn, the conversation history, token usage, cost, and learning events are saved. Sessions can be resumed across restarts.
+4. **Session save.** After every assistant turn, the conversation history, token
+   usage, cost, and learning events are saved. Sessions can be resumed across
+   restarts.
 
 ### Self-improvement
 
-bmo doesn't just execute tasks — it builds tools for tasks it encounters repeatedly.
+bmo doesn't just execute tasks — it builds tools for tasks it encounters
+repeatedly.
 
 **During sessions:**
-- When bmo encounters a limitation, it writes a new `.mjs` tool to `tools/`, calls `reload_tools` to register it, and immediately uses it.
-- It writes `.md` skill documents to `skills/` — reusable knowledge loaded into context on demand.
-- Learning events (corrections, preferences, patterns) are logged and accumulated.
+- When bmo encounters a limitation, it writes a new `.mjs` tool to `tools/`,
+  calls `reload_tools` to register it, and immediately uses it.
+- It writes `.md` skill documents to `skills/` — reusable knowledge loaded into
+  context on demand.
+- Learning events (corrections, preferences, patterns) are logged and
+  accumulated.
 
 **After sessions:**
-- On exit, bmo writes a reflection assessing what went well and what was slow or awkward.
+- On exit, bmo writes a reflection assessing what went well and what was slow or
+  awkward.
 
 **Maintenance passes:**
 - After 10 sessions (configurable), bmo triggers a maintenance pass:
@@ -104,7 +128,8 @@ bmo doesn't just execute tasks — it builds tools for tasks it encounters repea
   - Saves a state snapshot
 
 **Source sync:**
-- With `BMO_SOURCE` configured, `reload_tools` automatically copies tools and skills to the source repo and commits.
+- With `BMO_SOURCE` configured, `reload_tools` automatically copies tools and
+  skills to the source repo and commits.
 
 ### Dynamic tools
 
