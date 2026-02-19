@@ -362,3 +362,89 @@ await new Promise((resolve) => setTimeout(resolve, 2000));
 - Next maintenance session should show manageable output with `[truncated — N chars omitted]` markers
 
 **Impact**: Dynamic tools now respect the same 50KB truncation limit as `run_command`, dramatically reducing context bloat during maintenance sessions.
+## 2026-02-23 — write_file dynamic tool
+
+**Hypothesis**: Writing files via run_command with heredocs/echo is the single most common source of wasted tokens and fragile escaping. A purpose-built write_file tool will eliminate shell escaping overhead and improve reliability.
+
+**What I built:**
+- Dynamic tool: `write_file.mjs`
+- Takes `path`, `content`, and optional `append` parameter
+- Creates parent directories automatically
+- Blocks dangerous paths (/dev/, /proc/, /sys/, /etc/passwd, etc.)
+- Returns bytes written for confirmation
+- Requires `filesystem` capability (runs in sandbox with fs access)
+
+**Why dynamic instead of built-in:**
+- No special access needed (sandbox already grants filesystem capability)
+- Easier to iterate without core changes
+- Follows "build tools, not core" philosophy
+- User correctly challenged: "Why is this built-in rather than dynamic?"
+
+**Verification:**
+- Wrote file with special chars: ✅ No shell escaping issues
+- Append mode: ✅ Works correctly
+- Safety guards: ✅ Blocks /etc/passwd
+- Directory creation: ✅ Creates nested paths automatically
+
+**Expected impact:**
+- Eliminate heredoc/echo escaping failures
+- Reduce tokens per file write (no shell command wrapping)
+- Improve reliability for tool/skill creation during maintenance
+- Addresses BACKLOG #6 (write_file built-in) — but as dynamic tool instead
+
+**Success criteria**: 
+- Reduce run_command usage for file writes to near-zero
+- No escaping-related failures in tool/skill generation
+- Maintenance passes use write_file for all .mjs/.md creation
+
+## 2026-02-23 — Post-Turn Self-Improvement Architecture
+
+**Hypothesis**: The "knowing vs. doing" gap for self-improvement exists because LLMs have persistent tunnel vision—recent context dominates attention. The "build it now" directive in the system prompt gets lost 5000+ tokens back. A structural checkpoint after each turn will trigger self-improvement reliably.
+
+**What I built:**
+1. **Self-improvement sub-agent** (`src/self-improve.ts`):
+   - Triggers automatically after each assistant turn
+   - Runs on errors (tool failures) OR corrections (user friction signals)
+   - Uses micro tier model (claude-haiku-3-5 by default)
+   - Limited to 5 iterations and subset of tools (write_file, safe_read, reload_tools, search_code, log_learning_event)
+   - Can fix tools, create tools, or log learning events immediately
+
+2. **Config changes** (`src/config.ts`):
+   - Added `models.micro` tier (default: claude-haiku-3-5)
+   - Added `context.micro` budget (200K tokens, 2K headroom)
+   - Added `selfImprovement` config section with `enabled`, `onErrors`, `onCorrections` flags
+
+3. **Agent loop integration** (`src/agent-loop.ts`):
+   - Post-turn checkpoint: after text-only response (when returning to user)
+   - Builds subset registry for sub-agent (prevents recursive/dangerous tool access)
+   - Heuristic pre-filter: detects correction signals ("no", "actually", "I prefer")
+   - Passes context to sub-agent: failed tool name, error message, user message, assistant response
+
+**Why this works:**
+- **Structural, not behavioral**: Doesn't rely on LLM "remembering" to self-improve
+- **Fresh context**: Sub-agent only sees the failed turn, not buried under 5000 tokens
+- **Cheap & fast**: Uses micro tier, only triggers on errors/corrections
+- **Safe**: Limited tool subset, limited iterations, visible in TUI
+
+**Verification:**
+- Compiles successfully
+- Sub-agent has access to: write_file, safe_read, reload_tools, search_code, log_learning_event
+- Triggers on tool errors AND user correction signals
+- Config defaults to enabled (can disable with `selfImprovement.enabled: false`)
+
+**Expected impact:**
+- Self-improvement happens **during** sessions, not just maintenance
+- Fixes broken tools immediately instead of deferring to OPPORTUNITIES.md
+- Captures learning events automatically when user corrects
+- Addresses blog insight: "The path to self-improvement is making it the primary task, not a background directive"
+
+**Success criteria**:
+- Runtime tool creation/fixes increase from ~2 total to >50% of improvements
+- Learning event capture increases from 0-10% to >50% of sessions
+- Tool failures trigger immediate fixes instead of repeated failures
+
+**Next steps (requires restart to test)**:
+- Trigger an error → verify sub-agent activates
+- Say "actually, no" → verify correction detection activates sub-agent
+- Measure: how many self-improvements happen at runtime vs. maintenance
+
