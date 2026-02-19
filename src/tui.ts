@@ -831,6 +831,7 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			defaultStatus: defaultStatus(),
 			toolCallRecords,
 			sessionId,
+			selfImproveConfig: config.selfImprovement,
 			onModelChange: (tier: ModelTier, model: string) => {
 				_lastUsedTier = tier;
 				lastUsedModel = model;
