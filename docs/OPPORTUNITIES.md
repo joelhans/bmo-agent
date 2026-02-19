@@ -170,3 +170,36 @@ Both todo items are M-effort. No new S-effort opportunities identified.
 
 ### No S-effort items acted on this pass
 Both existing todo items are M-effort. No new S-effort opportunities identified.
+## 2026-02-20 Maintenance Pass 10 Findings
+
+### Updated Telemetry (from system prompt)
+
+| Metric | Previous | Current | Target | Status |
+|--------|----------|---------|--------|--------|
+| run_command success | 84% | 91% | ≥95% | ⬆️ Improving |
+| run_command latency | 310ms | 379ms | ≤300ms | ⚠️ Above target |
+| safe_read success | 87% | 91% | ≥95% | ⬆️ Improving |
+| search_code success | 93% | 97% | maintain | ✅ On target |
+| code_snippet success | -- | 100% | maintain | ✅ Excellent |
+| Reflection coverage | uncertain | 60% | ≥90% | ⚠️ Below target |
+| Learning event capture | 3 total | 3 total | ≥50% sessions | ❌ Critical gap |
+
+### Key Findings
+
+1. **run_command and safe_read recovering**: Both improved from 84%/87% to 91% — may be related to BMO_HOME env var fix taking effect.
+
+2. **Learning event capture remains at 0% for recent sessions**: Despite skill existing, no events logged in 10 analyzed sessions. This is behavioral, not technical — requires active intervention during sessions.
+
+3. **Reflection coverage dropped to 60%**: 4/10 recent sessions had null reflections. Appears to be quick exits rather than generation failures.
+
+4. **code_snippet tool validated**: 100% success, 30 calls — working well for targeted code reads.
+
+5. **run_command latency above target**: 379ms vs 300ms target. May be due to increased complexity of commands.
+
+### New Skill Created
+
+- **clarify-before-diving**: Patterns for asking clarifying questions early to avoid wasted investigation. Based on 3+ reflections citing "should have asked first" patterns.
+
+### No S-effort items acted on
+
+All remaining todo items are M-effort. No new S-effort opportunities identified.

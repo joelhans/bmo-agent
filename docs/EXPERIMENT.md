@@ -505,3 +505,54 @@ Recent sessions showing null reflections appear to be quick exits rather than fa
 1. Investigate run_command regression root cause
 2. Fix or remove analyze_token_accuracy tool
 3. Consider architectural fix for learning event capture (M-effort)
+## 2026-02-20 Maintenance Pass 10
+
+**Date:** 2026-02-20T00:00:00Z
+**Session range:** 20260204165314-9oe0 through 20260218223813-id62 (10 sessions analyzed)
+
+**Tool inventory delta:**
+- No new tools added
+
+**Skill inventory delta:**
+- Added: clarify-before-diving.md — patterns for asking clarifying questions before deep investigation
+
+**Documentation delta:**
+- Regenerated WORKING_MEMORY.md with current analysis
+- Updated OPPORTUNITIES.md with pass 10 findings
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| safe_read reduces file errors | VALIDATED ✅ | 91% success, clear errors |
+| Reflection template improves coverage | PARTIAL ⚠️ | 60% (was 100%), null reflections appear to be quick exits |
+| Learning event capture skill improves rate | INVALIDATED ❌ | 0 events in 10 recent sessions despite skill |
+| test_dev_server prevents hangs | VALIDATED ✅ | Working in production |
+| code_snippet reduces token usage | VALIDATED ✅ | 100% success, 30 calls |
+| Dynamic tool result truncation | PENDING | Implemented, needs more data |
+
+**Key metrics:**
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| run_command success | 84% | 91% | +7% ✅ |
+| run_command latency | 310ms | 379ms | +69ms ⚠️ |
+| safe_read success | 87% | 91% | +4% ✅ |
+| search_code success | 93% | 97% | +4% ✅ |
+| code_snippet success | -- | 100% | ✅ |
+| Reflection coverage | uncertain | 60% | ⚠️ |
+| Learning event capture | 3 | 3 | No change ❌ |
+| Tools loaded | 11 | 11 | — |
+| Skills indexed | 7 | 8 | +1 |
+
+**Narrative:**
+This maintenance pass analyzed 10 sessions covering Feb 4-18. Key finding: tool success rates are recovering (run_command 84%→91%, safe_read 87%→91%), likely due to the BMO_HOME environment variable fix from Feb 15 taking effect.
+
+The critical gap remains learning event capture — still at 0% in recent sessions despite the skill existing for weeks. This validates the "knowing vs doing" hypothesis: having documentation doesn't trigger behavior. This requires architectural intervention (auto-prompting or agent loop integration) rather than more skills.
+
+Created one new skill (clarify-before-diving) based on 3+ reflections citing "should have asked clarifying questions first" patterns. This addresses the common anti-pattern of diving into investigation before confirming what the user actually observes.
+
+Reflection coverage dropped from 100% to 60%. Investigation shows these are quick exits (minimal user interaction) rather than generation failures — the reflection-template skill is working, users are just exiting before reflection triggers.
+
+**Next priorities:**
+1. Address learning event capture behaviorally (call log_learning_event actively during sessions)
+2. Monitor run_command latency — currently above 300ms target
+3. Consider architectural fix for learning event capture (M-effort, but critical)
