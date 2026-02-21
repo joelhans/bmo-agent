@@ -448,3 +448,21 @@ await new Promise((resolve) => setTimeout(resolve, 2000));
 - Say "actually, no" → verify correction detection activates sub-agent
 - Measure: how many self-improvements happen at runtime vs. maintenance
 
+## 2026-02-24 — Maintenance Pass 11 Validations
+
+### write_file tool validation
+- **Status**: VALIDATED ✅
+- **Evidence**: 96% success rate (25 calls), 102ms avg latency. Tested with special characters ($ ` ' " \ && || < > []) — all handled correctly. No escaping issues.
+- **Impact**: Eliminates heredoc escaping failures for tool/skill creation. Recommended for all file writes.
+
+### Post-turn self-improvement architecture
+- **Status**: PENDING (requires restart)
+- **What**: Sub-agent triggers on tool errors or user corrections, can fix tools immediately
+- **Hypothesis**: Will increase runtime tool creation/fixes from ~0% to >50%
+- **Note**: Code committed, awaiting production validation after restart
+
+### Reflection coverage regression
+- **Status**: INVESTIGATED — Not a bug
+- **Finding**: 40% reflection coverage (4/10 sessions) appears to be user behavior (quick exits), not system failure
+- **Evidence**: Sessions with null reflections are short sessions with minimal interaction
+- **Action**: No fix needed; may consider prompting reflection earlier in short sessions (M-effort, deferred)

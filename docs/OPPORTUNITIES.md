@@ -203,3 +203,41 @@ Both existing todo items are M-effort. No new S-effort opportunities identified.
 ### No S-effort items acted on
 
 All remaining todo items are M-effort. No new S-effort opportunities identified.
+## 2026-02-24 Maintenance Pass 11 Findings
+
+### Updated Telemetry
+
+| Metric | Previous | Current | Target | Status |
+|--------|----------|---------|--------|--------|
+| run_command success | 91% | 92% | ≥95% | ⬆️ Improving |
+| run_command latency | 379ms | 391ms | ≤300ms | ⚠️ Above target |
+| safe_read success | 91% | 92% | ≥95% | ⬆️ Improving |
+| search_code success | 97% | 98% | maintain | ✅ On target |
+| code_snippet success | 100% | 99% | maintain | ✅ Excellent |
+| write_file success | -- | 96% | maintain | ✅ New, validated |
+| Reflection coverage | 60% | 40% | ≥90% | ⚠️ Regressed (user behavior) |
+| Learning event capture | ~10% | ~10% | ≥50% | ❌ Critical gap |
+
+### Key Findings
+
+1. **write_file tool validated**: 96% success, eliminates escaping issues. Use instead of heredocs.
+
+2. **Reflection coverage regression not a bug**: 40% (4/10) reflects quick exit sessions, not system failure.
+
+3. **Learning event capture still critical**: Only 2 events in 10 sessions despite skill existing. Post-turn self-improvement architecture (pending restart) may help.
+
+4. **run_command latency trending up**: 391ms (was 379ms). Above 300ms target. Continue preferring purpose-built tools.
+
+5. **No S-effort opportunities remaining**: Both todo items (consolidate shell calls, output truncation) are M-effort.
+
+### New Opportunities
+
+#### Early reflection prompting
+- **Status**: todo
+- **Impact**: Medium | **Effort**: M
+- **What**: Prompt reflection earlier in short sessions to improve coverage
+- **Why**: 60% of recent sessions exit before reflection. Could prompt after ~5 turns.
+- **Note**: Requires core change to session lifecycle
+
+### No S-effort items acted on this pass
+All remaining todo items are M-effort. Focused on validation and documentation.

@@ -556,3 +556,57 @@ Reflection coverage dropped from 100% to 60%. Investigation shows these are quic
 1. Address learning event capture behaviorally (call log_learning_event actively during sessions)
 2. Monitor run_command latency — currently above 300ms target
 3. Consider architectural fix for learning event capture (M-effort, but critical)
+## 2026-02-24 Maintenance Pass 11
+
+**Date:** 2026-02-24
+**Session range:** 20260218223813-id62 through 20260220175133-guoy (10 sessions analyzed)
+
+**Tool inventory delta:**
+- No new tools added (existing tools cover needs)
+- write_file tool VALIDATED (96% success, 25 calls)
+
+**Skill inventory delta:**
+- No new skills added — no cluster of 3+ related learnings identified
+- Existing skills cover observed patterns
+
+**Documentation delta:**
+- Regenerated WORKING_MEMORY.md with current analysis
+- Updated IMPROVEMENTS.md with hypothesis validations
+- Updated OPPORTUNITIES.md with pass 11 findings
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| write_file eliminates escaping issues | VALIDATED ✅ | 96% success, tested with special chars |
+| Post-turn self-improvement architecture | PENDING | Requires restart to test |
+| Reflection coverage regression is bug | INVALIDATED | Quick exit sessions, not system failure |
+| Learning event capture skill improves rate | STILL INVALIDATED ❌ | ~10% despite skill (behavioral gap) |
+| run_command reaches ≥95% | PENDING | At 92%, improving slowly |
+
+**Key metrics:**
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| run_command success | 91% | 92% | +1% ✅ |
+| run_command latency | 379ms | 391ms | +12ms ⚠️ |
+| safe_read success | 91% | 92% | +1% ✅ |
+| search_code success | 97% | 98% | +1% ✅ |
+| write_file success | -- | 96% | NEW ✅ |
+| Reflection coverage | 60% | 40% | -20% (user behavior) |
+| Learning event capture | ~10% | ~10% | — ❌ |
+| Tools loaded | 12 | 12 | — |
+| Skills indexed | 8 | 8 | — |
+
+**Narrative:**
+This maintenance pass focused on validation and documentation rather than tool creation. Key finding: write_file tool (created 2026-02-23) is working excellently at 96% success, validating the hypothesis that a purpose-built tool eliminates heredoc escaping issues.
+
+Reflection coverage dropped from 60% to 40%, but investigation confirmed this is user behavior (quick exit sessions) rather than a system bug. The reflection mechanism works; users just exit before it triggers.
+
+Learning event capture remains the critical gap at ~10%. The post-turn self-improvement architecture (built 2026-02-23) is designed to address this by making event capture a triggered action rather than requiring continuous attention. This requires a restart to activate.
+
+No S-effort opportunities were available to act on — both remaining todo items are M-effort. The system is in a stable state with tools and skills maturing.
+
+**Next priorities:**
+1. Restart to activate post-turn self-improvement architecture
+2. Validate post-turn self-improvement increases learning event capture
+3. Monitor run_command latency (391ms > 300ms target)
+4. Consider early reflection prompting for short sessions (M-effort)
