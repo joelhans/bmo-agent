@@ -466,3 +466,18 @@ await new Promise((resolve) => setTimeout(resolve, 2000));
 - **Finding**: 40% reflection coverage (4/10 sessions) appears to be user behavior (quick exits), not system failure
 - **Evidence**: Sessions with null reflections are short sessions with minimal interaction
 - **Action**: No fix needed; may consider prompting reflection earlier in short sessions (M-effort, deferred)
+## 2026-02-24 — Enhanced Learning Event Capture in System Prompt
+
+**Hypothesis**: Learning event capture is underutilized (10% of sessions) because the system prompt doesn't make it actionable enough. The skill document has detailed cues and examples, but only the one-line description appears in the prompt.
+
+**Changes**:
+- Moved "LEARNING CAPTURE" section to end of system prompt (recency bias)
+- Added concrete example call showing exact argument format
+- Made header prominent: "LEARNING CAPTURE — ACT IMMEDIATELY"
+- Condensed signal descriptions while keeping key triggers
+- Removed redundant checklist in favor of example-driven guidance
+
+**Rationale**: User observed that with only "Checklist for recognizing and logging learning events" in the prompt, there's no actionable guidance. The skill has 81 lines of detail, but requires manual loading. Inlining the most critical content (recognition cues + example call) makes it visible every turn.
+
+**Verification**: Will monitor learning event capture rate in next 10 sessions. Target: increase from ~10% to ≥50%.
+
