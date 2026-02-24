@@ -133,10 +133,12 @@ if [[ $DO_BINARY -eq 1 ]]; then
             info "Skipping binary install"
         else
             cp "$PROJECT_ROOT/dist/bmo" "$DEST"
+            codesign --force --sign - "$DEST" 2>/dev/null || true
             info "Binary installed to $DEST"
         fi
     else
         cp "$PROJECT_ROOT/dist/bmo" "$DEST"
+        codesign --force --sign - "$DEST" 2>/dev/null || true
         info "Binary installed to $DEST"
     fi
     
