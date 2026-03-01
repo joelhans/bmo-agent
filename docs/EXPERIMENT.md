@@ -610,3 +610,60 @@ No S-effort opportunities were available to act on — both remaining todo items
 2. Validate post-turn self-improvement increases learning event capture
 3. Monitor run_command latency (391ms > 300ms target)
 4. Consider early reflection prompting for short sessions (M-effort)
+## 2026-03-01 Maintenance Pass 12
+
+**Date:** 2026-03-01T21:00:00Z
+**Session range:** 20260221005356-405c through 20260301203209-aka1 (10 sessions since last pass)
+
+**Tool inventory delta:**
+- No new tools added
+- Identified smart_grep as candidate for removal (superseded by search_code)
+
+**Skill inventory delta:**
+- No new skills added — no cluster of 3+ related learnings warranted new skill
+- Existing 8 skills cover observed patterns
+
+**Documentation delta:**
+- Regenerated WORKING_MEMORY.md with current analysis
+- Updated OPPORTUNITIES.md with pass 12 findings
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| write_file eliminates escaping issues | VALIDATED ✅ | 98% success, 57 total calls |
+| Post-turn self-improvement architecture | STILL PENDING | Requires restart (built 2026-02-23) |
+| Reflection coverage drops are user behavior | VALIDATED ✅ | Null reflections correlate with quick exits |
+| Learning event capture skill improves rate | INVALIDATED ❌ | 0 events in 10 recent sessions despite skill |
+| search_code supersedes smart_grep | VALIDATED ✅ | 99% vs minimal usage |
+
+**Key metrics:**
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| run_command success | 92% | 92% | — stable |
+| run_command latency | 391ms | 409ms | +18ms ⚠️ |
+| safe_read success | 92% | 92% | — stable |
+| search_code success | 98% | 99% | +1% ✅ |
+| code_snippet success | 99% | 98% | -1% (noise) |
+| write_file success | 96% | 98% | +2% ✅ |
+| Reflection coverage | 40% | 60% | +20% ✅ |
+| Learning event capture | ~10% | ~0% | ⚠️ Regressed |
+| Tools loaded | 12 | 12 | — |
+| Skills indexed | 8 | 8 | — |
+
+**Narrative:**
+This maintenance pass focused on deep analysis rather than tool creation. The critical finding is that learning event capture has completely stopped — 0 events in the 10 most recent sessions, despite the learning-event-capture skill existing since Feb 5 and system prompt enhancements made Feb 24.
+
+This validates the architectural hypothesis: behavioral skills don't trigger action reliably. The post-turn self-improvement architecture (built 2026-02-23) is designed specifically to address this by making learning event capture a triggered action rather than requiring continuous vigilance. It requires a restart to activate.
+
+Reflection coverage improved from 40% to 60%. Investigation confirmed null reflections correlate with quick exit sessions (1-turn or minimal interaction), not system failures. The reflection mechanism works correctly.
+
+Tool telemetry shows stability: run_command and safe_read holding at 92% (below 95% target but stable), while search_code, code_snippet, and write_file all excellent (98-99%). run_command latency continues trending up (409ms), reinforcing the preference for purpose-built tools.
+
+No new skills were generated this pass — patterns from reflections (shell escaping, search-before-touch, path verification) are already covered by existing skills.
+
+**Next priorities:**
+1. Restart to activate post-turn self-improvement (will validate learning event capture hypothesis)
+2. Remove smart_grep (S-effort cleanup)
+3. Monitor run_command latency — consider more aggressive tool preferences
+4. Address M-effort items when bandwidth allows (shell consolidation, output truncation)
+

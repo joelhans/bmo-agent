@@ -241,3 +241,42 @@ All remaining todo items are M-effort. No new S-effort opportunities identified.
 
 ### No S-effort items acted on this pass
 All remaining todo items are M-effort. Focused on validation and documentation.
+## 2026-03-01 Maintenance Pass 12 Findings
+
+### Updated Telemetry
+
+| Metric | Previous | Current | Target | Status |
+|--------|----------|---------|--------|--------|
+| run_command success | 92% | 92% | ≥95% | ⚠️ Stable below target |
+| run_command latency | 391ms | 409ms | ≤300ms | ⚠️ Above target |
+| safe_read success | 92% | 92% | ≥95% | ⚠️ Stable below target |
+| search_code success | 98% | 99% | maintain | ✅ Excellent |
+| code_snippet success | 99% | 98% | maintain | ✅ Excellent |
+| write_file success | 96% | 98% | maintain | ✅ Excellent |
+| Reflection coverage | 40% | 60% | ≥90% | ⚠️ Improving (user behavior) |
+| Learning event capture | ~10% | ~0% | ≥50% | ❌ Critical - 0 in recent 10 |
+
+### Key Findings
+
+1. **Learning event capture at 0% in recent sessions**: Despite skill existing since Feb 5, no events logged in the 10 most recent session JSONs. The 5 historical events in telemetry are all from before Feb 21.
+
+2. **Reflection coverage recovering**: 6/10 sessions have reflections (60%), up from 40%. Null reflections correlate with quick exits or sessions without meaningful interaction.
+
+3. **Post-turn self-improvement still pending**: Built 2026-02-23, requires restart to activate. This architectural change may help with learning event capture.
+
+4. **run_command latency trending up**: 409ms (was 391ms). Consistently above 300ms target. Continue preferring purpose-built tools.
+
+5. **High-reliability tools validated**: write_file (98%), search_code (99%), code_snippet (98%) all excellent.
+
+### New Opportunity
+
+### Deprecate smart_grep in favor of search_code
+- **Status**: todo
+- **Impact**: Low | **Effort**: S
+- **What**: Remove smart_grep.mjs from tools/ since search_code supersedes it with better features and 99% success rate.
+- **Why**: Reduces tool inventory confusion. smart_grep barely used in telemetry.
+- **Risk**: Low — no sessions rely on it.
+
+### No S-effort items acted on this pass
+Identified smart_grep deprecation as S-effort but deferred to avoid scope creep during analysis-heavy pass.
+
