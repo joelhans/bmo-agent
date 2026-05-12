@@ -1,20 +1,20 @@
 # Contributing to bmo
 
-bmo is a self-improving agent — it builds tools and skills during normal use.
+bmo is a self-improving agent—it builds tools and skills during normal use.
 This guide explains how to configure bmo so those improvements flow back to your
 fork for contribution.
 
 ## The source sync mechanism
 
-bmo distinguishes between two locations:
+bmo distinguishes between two locations.
 
-- **BMO_HOME** — the runtime copy of tools, skills, and docs. Lives in
-  `~/.local/share/bmo/` by default (or wherever `$BMO_DATA` points). This is
-  where bmo reads from and writes to during sessions.
+`BMO_HOME` is the runtime copy of tools, skills, and docs. It lives in
+`~/.local/share/bmo/` by default (or wherever `$BMO_DATA` points). bmo reads
+from and writes to this location during sessions.
 
-- **sourceDir / BMO_SOURCE** — your git checkout of the bmo repository. When
-  configured, bmo automatically copies tools, skills, and docs from BMO_HOME to
-  this location and commits them.
+`sourceDir` (or the `BMO_SOURCE` environment variable) points at your git
+checkout of the bmo repository. When configured, bmo automatically copies
+tools, skills, and docs from `BMO_HOME` to this location and commits them.
 
 This separation lets you use bmo normally from any working directory while
 accumulating improvements in a git repo ready for pull requests.
@@ -84,32 +84,25 @@ This sets `BMO_HOME` to your checkout, so everything reads from and writes to
 your repo directly (no sync needed). However, you'll need to restart from the
 checkout directory each time.
 
-**We recommend the binary + sourceDir approach for most contributors** — it
-gives you the flexibility to use bmo from any project while improvements still
-flow back to your fork.
+For most contributors, use the binary + `sourceDir` approach. It gives you
+the flexibility to run bmo from any project while improvements still flow back
+to your fork.
 
 ## What gets synced
 
 When you call `reload_tools` (or press F5), bmo:
 
-1. **Copies tools** — All valid `.mjs` files from `BMO_HOME/tools/` to
-   `sourceDir/tools/`. Broken tools (syntax errors, missing exports) are
-   skipped.
+1. Copies all valid `.mjs` files from `BMO_HOME/tools/` to `sourceDir/tools/`.
+   Broken tools (syntax errors, missing exports) are skipped.
+2. Copies all `.md` files from `BMO_HOME/skills/` to `sourceDir/skills/`.
+3. Merges `IMPROVEMENTS.md`, `OPPORTUNITIES.md`, and `EXPERIMENT.md`
+   entry-by-entry (entries are `##` sections). Entries from `BMO_HOME` are
+   appended if they don't exist in source.
+4. Runs `git add` and `git commit` in your source repo if anything changed.
 
-2. **Copies skills** — All `.md` files from `BMO_HOME/skills/` to
-   `sourceDir/skills/`.
-
-3. **Merges docs** — `IMPROVEMENTS.md`, `OPPORTUNITIES.md`, and `EXPERIMENT.md`
-   are merged entry-by-entry (entries are `##` sections). Entries from BMO_HOME
-   are appended if they don't exist in source.
-
-4. **Commits** — If anything changed, bmo runs `git add` and `git commit` in
-   your source repo.
-
-Doc sync also happens:
-- **On startup** — pulls entries from source into BMO_HOME
-- **On exit** — pushes entries from BMO_HOME to source
-- **During maintenance** — bidirectional sync
+Doc sync also happens on startup (pulls entries from source into `BMO_HOME`),
+on exit (pushes entries from `BMO_HOME` to source), and during maintenance
+(bidirectional).
 
 ## Workflow example
 
@@ -189,7 +182,7 @@ Content loaded when the skill is invoked...
 ### Docs (IMPROVEMENTS.md, etc.)
 
 These track bmo's learning and hypotheses. Each entry is a `##` section. When
-syncing, entries are merged by heading — existing entries aren't overwritten.
+syncing, entries are merged by heading—existing entries aren't overwritten.
 
 If you want to contribute a fix based on an `OPPORTUNITIES.md` entry, reference
 it in your PR description.
@@ -212,13 +205,15 @@ bun run smoke             # Full smoke test
 
 ## Pull request guidelines
 
-1. **One improvement per PR** — easier to review and merge
-2. **Include context** — what limitation triggered this? Link to session
-   reflection if relevant
-3. **Test your changes** — run `bun run test` and `bun run smoke`
-4. **Keep tools focused** — single responsibility, clear error messages
-5. **Rebuild and test the binary** — `bun run build && bun run install`, then
-   use it from a test project
+Before opening a PR:
+
+1. Keep each PR to one improvement—easier to review and merge.
+2. Include context. What limitation triggered this? Link to a session
+   reflection if relevant.
+3. Run `bun run test` and `bun run smoke`.
+4. Keep tools focused: single responsibility, clear error messages.
+5. Rebuild and test the binary with `bun run build && bun run install`, then
+   use it from a test project.
 
 ## Troubleshooting
 
@@ -232,7 +227,7 @@ bun run smoke             # Full smoke test
 
 ### Broken tools not syncing
 
-By design — tools with syntax errors or missing exports are excluded to prevent
+By design—tools with syntax errors or missing exports are excluded to prevent
 committing broken code. Fix the tool first (check `~/.local/share/bmo/tools/`).
 
 ### Merge conflicts in docs
@@ -266,10 +261,10 @@ For contributing tools/skills, use the binary. For core changes, use dev mode.
 
 For deeper understanding:
 
-- `src/tool-loader.ts` — `syncToSource()` handles the copy and commit logic
-- `src/doc-sync.ts` — Entry-based merging for doc files
-- `src/paths.ts` — Resolution order for BMO_HOME, BMO_DATA, BMO_SOURCE
-- `CLAUDE.md` — Full architecture reference for AI assistants
+- `src/tool-loader.ts`: `syncToSource()` handles the copy and commit logic.
+- `src/doc-sync.ts`: entry-based merging for doc files.
+- `src/paths.ts`: resolution order for `BMO_HOME`, `BMO_DATA`, `BMO_SOURCE`.
+- `CLAUDE.md`: full architecture reference for AI assistants.
 
 ## Questions?
 

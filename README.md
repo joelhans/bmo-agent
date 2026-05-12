@@ -51,7 +51,7 @@ bun run install              # Build and install to ~/.local/bin
 bun run install --no-binary  # Just sync tools and skills to BMO_DATA
 ```
 
-You can also customize install locations:
+Customize install locations with environment variables:
 
 ```bash
 INSTALL_BIN=/usr/local/bin BMO_DATA=/opt/bmo bun run install
@@ -103,7 +103,7 @@ bmo key remove <provider>       # Remove a stored key
 
 ### Message flow
 
-1. **Tier selection.** bmo picks a model tier — `coding` (cheaper) or
+1. **Tier selection.** bmo picks a model tier: `coding` (cheaper) or
    `reasoning` (more capable). Keywords like "debug", "refactor", "why does",
    and "architect" trigger reasoning automatically, as does a failed previous
    response.
@@ -123,13 +123,13 @@ bmo key remove <provider>       # Remove a stored key
 
 ### Self-improvement
 
-bmo doesn't just execute tasks — it builds tools for tasks it encounters
+bmo doesn't just execute tasks—it builds tools for tasks it encounters
 repeatedly.
 
 **During sessions:**
 - When bmo encounters a limitation, it writes a new `.mjs` tool to `tools/`,
   calls `reload_tools` to register it, and immediately uses it.
-- It writes `.md` skill documents to `skills/` — reusable knowledge loaded into
+- It writes `.md` skill documents to `skills/`—reusable knowledge loaded into
   context on demand.
 - Learning events (corrections, preferences, patterns) are logged and
   accumulated.
@@ -239,7 +239,7 @@ bmo routes calls through the OpenAI SDK with configurable `baseURL`. Any OpenAI-
 
 ## Directory structure
 
-**BMO_HOME** — the agent's codebase (auto-detected, or set `$BMO_HOME`):
+**BMO_HOME**—the agent's codebase (auto-detected, or set `$BMO_HOME`):
 
 ```
 BMO_HOME/
@@ -251,7 +251,7 @@ BMO_HOME/
     EXPERIMENT.md
 ```
 
-**Data directory** — `~/.local/share/bmo` (or set `$BMO_DATA`):
+**Data directory**—`~/.local/share/bmo` (or set `$BMO_DATA`):
 
 ```
 ~/.local/share/bmo/
@@ -345,7 +345,7 @@ bun run install
   "sourceDir": "/Users/you/src/bmo"
 }
 
-# Use bmo from any project — tools and skills sync to your fork
+# Use bmo from any project—tools and skills sync to your fork
 cd ~/projects/my-app
 bmo
 ```
