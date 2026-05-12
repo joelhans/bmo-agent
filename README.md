@@ -14,25 +14,33 @@ library](https://github.com/badlogic/pi-mono/tree/main/packages/tui).
 ## Quick start
 
 ```bash
-# Install dependencies
+# Clone and build
+git clone https://github.com/yourusername/bmo.git ~/src/bmo
+cd ~/src/bmo
 bun install
+bun run build
 
-# Set an API key
-bun run dev -- key add openai <your-key>
+# Install the binary to ~/.local/bin
+bun run install
 
-# Or use environment variables
-export OPENAI_API_KEY=your-key
+# Add an API key
+bmo key add openai <your-key>
 
-# Start bmo
-bun run dev
+# Run bmo from any directory
+cd ~/projects/my-app
+bmo
 ```
 
-For a compiled binary:
+To sync self-improvements back to your repo, set `sourceDir` in
+`~/.local/share/bmo/config.json`:
 
-```bash
-bun run build        # Produces dist/bmo
-./dist/bmo           # Run directly
+```json
+{
+  "sourceDir": "/Users/you/src/bmo"
+}
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Installation
 
@@ -48,6 +56,17 @@ You can also customize install locations:
 ```bash
 INSTALL_BIN=/usr/local/bin BMO_DATA=/opt/bmo bun run install
 ```
+
+### Development mode
+
+For working on bmo's core:
+
+```bash
+cd ~/src/bmo
+bun run dev
+```
+
+This runs bmo from source with BMO_HOME set to your checkout.
 
 ## Usage
 
@@ -128,7 +147,7 @@ repeatedly.
   - Saves a state snapshot
 
 **Source sync:**
-- With `BMO_SOURCE` configured, `reload_tools` automatically copies tools and
+- With `sourceDir` configured, `reload_tools` automatically copies tools and
   skills to the source repo and commits.
 
 ### Dynamic tools
@@ -194,7 +213,10 @@ Config lives at `~/.local/share/bmo/config.json`:
   // Maintenance triggers
   "maintenance": {
     "threshold": 10
-  }
+  },
+
+  // Source sync for contributors (see CONTRIBUTING.md)
+  "sourceDir": null
 }
 ```
 
@@ -302,6 +324,30 @@ bun run lint         # Check with Biome
 bun run lint:fix     # Auto-fix lint issues
 bun run format       # Format with Biome
 bun run smoke        # Full smoke test
+```
+
+## Contributing
+
+bmo can sync self-improvements back to the source repo automatically. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup instructions.
+
+Quick version:
+
+```bash
+# Build and install from your fork
+cd ~/src/bmo
+bun run build
+bun run install
+
+# Point bmo at your checkout
+# Add to ~/.local/share/bmo/config.json:
+{
+  "sourceDir": "/Users/you/src/bmo"
+}
+
+# Use bmo from any project — tools and skills sync to your fork
+cd ~/projects/my-app
+bmo
 ```
 
 ## Architecture
