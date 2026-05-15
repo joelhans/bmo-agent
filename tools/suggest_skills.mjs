@@ -3,9 +3,6 @@
  * Scans message content and suggests skills that might help
  */
 
-import { readdir, readFile } from 'fs/promises';
-import { join } from 'path';
-
 export const description = 'Suggest skills to load based on task content';
 
 export const schema = {
@@ -19,31 +16,27 @@ export const schema = {
   required: ['taskDescription']
 };
 
-// Keyword triggers for each skill
+// Keyword triggers for each skill - use word boundaries via regex
 const SKILL_TRIGGERS = {
-  'safe-file-editing': ['refactor', 'edit', 'modify', 'change file', 'update code', 'fix bug', 'patch'],
-  'codebase-exploration': ['explore', 'unfamiliar', 'new codebase', 'understand', 'how does', 'architecture'],
-  'learning-event-capture': ['correction', 'wrong', 'not that', 'actually', 'prefer', 'always'],
-  'runtime-self-critique': ['improve', 'better way', 'optimize', 'self-improvement', 'maintenance'],
-  'session-kickoff': ['hello', 'hi', 'hey', 'start', 'greeting'],
-  'reflection-template': ['reflect', 'reflection', 'end session', 'wrap up'],
-  'regret-minimization': ['should I build', 'tool or', 'defer', 'later', 'opportunity']
+  'safe-file-editing': [/\brefactor/i, /\bedit\b/i, /\bmodify\b/i, /\bchange file/i, /\bupdate code/i, /\bfix bug/i, /\bpatch\b/i],
+  'codebase-exploration': [/\bexplore/i, /\bunfamiliar/i, /\bnew codebase/i, /\bunderstand\b/i, /\bhow does/i, /\barchitecture/i],
+  'learning-event-capture': [/\bcorrection/i, /\bwrong\b/i, /\bnot that\b/i, /\bactually\b/i, /\bprefer\b/i, /\balways\b/i],
+  'runtime-self-critique': [/\bimprove/i, /\bbetter way/i, /\boptimize/i, /\bself-improvement/i, /\bmaintenance/i],
+  'session-kickoff': [/^hello\b/i, /^hi\b/i, /^hey\b/i, /\bstart\b/i],
+  'reflection-template': [/\breflect/i, /\breflection/i, /\bend session/i, /\bwrap up/i],
+  'regret-minimization': [/\bshould I build/i, /\btool or\b/i, /\bdefer\b/i, /\blater\b/i, /\bopportunity/i]
 };
 
 export async function run({ taskDescription }) {
-  const bmoHome = process.env.BMO_HOME || join(process.env.HOME, '.local/share/bmo');
-  const skillsDir = join(bmoHome, 'skills');
-  
-  const taskLower = taskDescription.toLowerCase();
   const suggestions = [];
   
-  for (const [skillName, triggers] of Object.entries(SKILL_TRIGGERS)) {
-    const matchedTriggers = triggers.filter(t => taskLower.includes(t));
-    if (matchedTriggers.length > 0) {
+  for (const [skillName, patterns] of Object.entries(SKILL_TRIGGERS)) {
+    const matchedPatterns = patterns.filter(p => p.test(taskDescription));
+    if (matchedPatterns.length > 0) {
       suggestions.push({
         skill: skillName,
-        matchedKeywords: matchedTriggers,
-        confidence: matchedTriggers.length >= 2 ? 'high' : 'medium'
+        matchedKeywords: matchedPatterns.map(p => p.source.replace(/\\b/g, '').replace(/\^/g, '')),
+        confidence: matchedPatterns.length >= 2 ? 'high' : 'medium'
       });
     }
   }
