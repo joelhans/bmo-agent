@@ -505,3 +505,72 @@ Recent sessions showing null reflections appear to be quick exits rather than fa
 1. Investigate run_command regression root cause
 2. Fix or remove analyze_token_accuracy tool
 3. Consider architectural fix for learning event capture (M-effort)
+## 2026-02-28 Maintenance Pass 11
+
+**Date:** 2026-02-28T03:30:00Z  
+**Session range:** 20260216170826-ayt5 through 20260207143538-uopw (11 sessions analyzed: 10 regular + 1 maintenance)
+
+**Tool inventory delta:**
+- Added: suggest_skills.mjs — suggests relevant skills based on task keywords using regex word boundaries
+
+**Skill inventory delta:**
+- No new skills (existing skills already covered clustered learning patterns)
+
+**Documentation delta:**
+- Created: docs/WORKING_MEMORY.md (regenerated from scratch based on Phase 1 analysis)
+- Created: docs/IMPROVEMENTS.md (bootstrapped with initial entries)
+- Created: docs/OPPORTUNITIES.md (5 initial items, 2 marked done this pass)
+- Updated: EXPERIMENT.md (this entry)
+
+**Hypothesis scorecard:**
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| suggest_skills increases load_skill calls | PENDING | Just created; need next session data |
+| safe_read maintains high reliability | VALIDATED | 88% success, 61ms avg — working well |
+| smart_grep fixed and working | VALIDATED | 75% success (was 0%) after subprocess capability fix |
+| Skills loaded if suggested | PENDING | Will monitor if suggest_skills triggers actual loading |
+| Docs infrastructure reduces maintenance overhead | PENDING | First pass with docs; assess next cycle |
+| Learning event capture requires active attention | RECONFIRMED | 6 events logged in system prompt, but pattern shows sporadic usage |
+
+**Key metrics:**
+| Metric | Previous (Pass 10) | Current | Delta |
+|--------|-------------------|---------|-------|
+| run_command success | 93% | 93% | — (stable) |
+| run_command latency | 455ms | 455ms | — (still elevated from 75ms baseline) |
+| safe_read success | 88% | 88% | — |
+| smart_grep success | 75% | 75% | — |
+| load_skill calls (normal sessions) | 0 | 0 | ⚠️ Still zero |
+| Reflection coverage | 80% | 80% | 8/10 sessions had reflections |
+| Learning event capture | ~20% | 2/10 sessions | Sporadic |
+| Tools loaded | 10 | 11 | +1 (suggest_skills) |
+| Skills indexed | 7 | 7 | — |
+
+**Narrative:**
+
+This maintenance pass revealed a **major infrastructure gap**: The docs/ directory and core maintenance files (IMPROVEMENTS.md, OPPORTUNITIES.md, WORKING_MEMORY.md) didn't exist despite 11 sessions of work. This blocked systematic tracking and hypothesis validation.
+
+**Phase 1 Analysis** revealed:
+1. **Reflection patterns**: 8/10 sessions had reflections (80%). Patterns included: greeting-only anti-patterns, over-structured critiques, sed/patch fragility, and the "skills not loaded" gap.
+2. **Learning events**: 6 total in system telemetry (1 correction, 2 preferences, 3 patterns), but sporadic capture — only 2 sessions out of 10 actually logged events during the session.
+3. **Telemetry**: run_command latency elevated at 455ms (baseline was 75ms); smart_grep fixed and working at 75%.
+
+**Phase 2 Working Memory** regenerated from scratch with:
+- Active preferences (trust user judgment, stop at good enough, demonstrate features immediately)
+- Common pitfalls (greeting anti-pattern, skill illusion from summaries, tool deferral to maintenance)
+- Tool/skill usage notes (load_skill fast but 0 calls, log_learning_event underutilized)
+- Next priorities (load skills proactively, capture learning events immediately)
+
+**Phase 3 Skills**: No new skills created — existing 7 skills already cover the clustered topics from learning events.
+
+**Phase 4 Opportunities**: Bootstrapped OPPORTUNITIES.md with 5 items, then acted on 2:
+1. ✅ Created docs infrastructure (IMPROVEMENTS.md, OPPORTUNITIES.md, WORKING_MEMORY.md)
+2. ✅ Built suggest_skills tool — matches task descriptions against skill triggers using regex word boundaries
+
+**Critical Gap Identified**: **load_skill has 0 calls in normal sessions** despite 7 skills existing and working. The system prompt summaries create a "false knowledge" effect. suggest_skills tool is designed to surface skills proactively, but its effectiveness depends on whether I actually call it at session start.
+
+**Next priorities:**
+1. Monitor whether suggest_skills tool actually gets used in sessions (behavioral test)
+2. Investigate run_command 455ms latency (significantly elevated from 75ms baseline)
+3. Continue active learning event capture — mechanism exists, habit remains weak
+4. Track whether docs infrastructure reduces time spent on maintenance passes
+

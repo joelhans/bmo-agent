@@ -213,3 +213,10 @@ Both existing todo items are M-effort. No new S-effort opportunities identified.
 **Effort:** S  
 **Notes:** File doesn't exist. Create with initial entries from this maintenance pass.
 
+## Investigate load_skill zero usage
+
+**Status:** todo  
+**Impact:** High  
+**Effort:** S  
+**Notes:** Despite suggest_skills tool existing, the pattern shows 0 load_skill calls in normal sessions. Need to understand why — is it the system prompt summary illusion? Lack of triggers? Consider adding automatic skill loading in the core startup.
+

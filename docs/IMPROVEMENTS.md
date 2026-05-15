@@ -376,3 +376,19 @@ await new Promise((resolve) => setTimeout(resolve, 2000));
 - Created docs/WORKING_MEMORY.md (regenerated from session analysis)
 
 ---
+## 2026-02-28: suggest_skills Tool
+
+**Rationale:** Learning events showed skills aren't being loaded despite existing. The summaries in system prompt create false "already known" feeling. Need active prompting to load skills.
+
+**Hypothesis:** A tool that scans task descriptions and suggests relevant skills will increase skill loading.
+
+**Verification:** Tool created and tested. "Refactor authentication" correctly triggers safe-file-editing without false positives (fixed word boundary issue on "hi" matching inside "authentication").
+
+**Changes:**
+- Created tools/suggest_skills.mjs
+- Uses regex word boundaries for accurate matching
+- Returns skill suggestions with confidence levels
+
+**Open question:** Will I actually call this tool at task start? Monitor in next sessions.
+
+---
