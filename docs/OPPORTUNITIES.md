@@ -170,3 +170,46 @@ Both todo items are M-effort. No new S-effort opportunities identified.
 
 ### No S-effort items acted on this pass
 Both existing todo items are M-effort. No new S-effort opportunities identified.
+## Auto-load critical skills at session start
+
+**Status:** todo  
+**Impact:** High  
+**Effort:** M  
+**Notes:** Skills exist but aren't loaded. System prompt summaries create illusion of knowledge. Could modify core to auto-inject certain skills, or build a tool that loads them on demand.
+
+---
+
+## TypeScript AST-aware editing tool
+
+**Status:** todo  
+**Impact:** Medium  
+**Effort:** L  
+**Notes:** sed/patch for TS edits is fragile. Need a tool that understands AST for function signature changes, import additions. Requires ts-morph or similar dependency.
+
+---
+
+## run_command latency investigation
+
+**Status:** todo  
+**Impact:** Medium  
+**Effort:** S  
+**Notes:** run_command avg latency increased from 75ms to 455ms. Worth investigating if this is measurement change or actual slowdown. Could be session size, shell startup, or timeout changes.
+
+---
+
+## Proactive skill loading trigger
+
+**Status:** todo  
+**Impact:** High  
+**Effort:** S  
+**Notes:** Build a tool or mechanism that suggests loading relevant skills based on task keywords. E.g., if message contains "refactor", suggest loading safe-file-editing.
+
+---
+
+## IMPROVEMENTS.md bootstrapping
+
+**Status:** todo  
+**Impact:** Low  
+**Effort:** S  
+**Notes:** File doesn't exist. Create with initial entries from this maintenance pass.
+

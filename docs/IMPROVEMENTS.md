@@ -362,3 +362,17 @@ await new Promise((resolve) => setTimeout(resolve, 2000));
 - Next maintenance session should show manageable output with `[truncated — N chars omitted]` markers
 
 **Impact**: Dynamic tools now respect the same 50KB truncation limit as `run_command`, dramatically reducing context bloat during maintenance sessions.
+## 2026-02-28: Maintenance Infrastructure Bootstrap
+
+**Rationale:** docs/ directory and IMPROVEMENTS.md, OPPORTUNITIES.md, WORKING_MEMORY.md didn't exist. Session telemetry showed 11 sessions since last maintenance but no docs infrastructure.
+
+**Hypothesis:** Creating these files will enable proper tracking of improvements and opportunities across maintenance cycles.
+
+**Verification:** Files created successfully. Future maintenance passes will append to this log.
+
+**Changes:**
+- Created docs/IMPROVEMENTS.md (this file)
+- Created docs/OPPORTUNITIES.md (5 initial items)
+- Created docs/WORKING_MEMORY.md (regenerated from session analysis)
+
+---
