@@ -14,7 +14,6 @@ import {
 import { runAgentLoop } from "./agent-loop.ts";
 import { type BmoConfig, saveConfig } from "./config.ts";
 import { createSessionTracker } from "./context.ts";
-import { pushDocsToSource } from "./doc-sync.ts";
 import { formatInventoryForPrompt, generateInventory, saveInventory } from "./inventory.ts";
 import type { ChatMessage, LlmClient } from "./llm.ts";
 import type { Logger } from "./logger.ts";
@@ -972,14 +971,6 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			logger.error(`Failed to save session: ${msg}`);
 		}
 
-		// Push docs to BMO_SOURCE before exit
-		if (paths.bmoSource) {
-			try {
-				await pushDocsToSource(paths.docsDir, paths.bmoSource);
-			} catch {
-				/* silent — don't block exit */
-			}
-		}
 
 		tui.stop();
 		await logger.flush();

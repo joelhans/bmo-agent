@@ -360,17 +360,6 @@ export function createReloadToolsTool(
 			const skillCount = skillsRegistry.list().length;
 			let summary = formatLoadResult(loadResult, skillCount);
 
-			// Auto-sync to BMO_SOURCE if configured (only valid tools)
-			if (opts?.skillsDir) {
-				const syncResult = await syncToSource(
-					toolsDir,
-					opts.skillsDir,
-					opts.bmoSource ?? null,
-					loadResult,
-					opts.docsDir,
-				);
-				if (syncResult) summary += `\n${syncResult}`;
-			}
 
 			return { output: summary };
 		},
