@@ -358,8 +358,7 @@ export function createReloadToolsTool(
 			});
 			await skillsRegistry.scan();
 			const skillCount = skillsRegistry.list().length;
-			let summary = formatLoadResult(loadResult, skillCount);
-
+			const summary = formatLoadResult(loadResult, skillCount);
 
 			return { output: summary };
 		},

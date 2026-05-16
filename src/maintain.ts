@@ -301,7 +301,6 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 		},
 		{ builtin: true },
 	);
-	}
 
 	// Generate inventory
 	let inventorySummary: string | undefined;
@@ -434,7 +433,6 @@ export async function runMaintenance(opts: MaintenanceOptions): Promise<Maintena
 			logger.error(`Failed to save telemetry: ${msg}`);
 		}
 	}
-
 
 	return {
 		success: !result.lastResponseWasError && maintenanceSummary !== "",
