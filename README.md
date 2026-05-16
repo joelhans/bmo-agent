@@ -127,9 +127,11 @@ repeatedly.
   - Updates `OPPORTUNITIES.md` with actionable findings
   - Saves a state snapshot
 
-**Source sync:**
-- With `BMO_SOURCE` configured, `reload_tools` automatically copies tools and
-  skills to the source repo and commits.
+**Contributing tools and skills:**
+- Local tools/skills in BMO_HOME are personal to your instance
+- Use `bmo_status` to see what's local vs shared in the repo
+- Use `bmo_contribute` to share a local tool or skill back to the repo
+- Personal learning docs (IMPROVEMENTS.md, OPPORTUNITIES.md) stay local
 
 ### Dynamic tools
 

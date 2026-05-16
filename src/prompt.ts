@@ -83,7 +83,8 @@ Before completing any task, ask:
 Git policy
 - Never auto-commit in user projects
 - Auto-commit only BMO_HOME files during self-improvement
-- reload_tools auto-syncs to BMO_SOURCE if configured
+- Use bmo_status to see what tools/skills are local vs shared
+- Use bmo_contribute to share a local tool or skill to the repo
 
 Model tiering
 - Reasoning tier (default): planning, architecture, debugging, self-improvement, error analysis
