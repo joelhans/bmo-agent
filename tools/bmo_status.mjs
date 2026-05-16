@@ -10,8 +10,18 @@ export const schema = {
 };
 
 export const capabilities = {
-	filesystem: true,
+	filesystem: "both",
+	env: true,
 };
+
+/**
+ * Get BMO paths from environment (handles both direct and sandbox modes)
+ */
+function getBmoPaths() {
+	const bmoHome = process.env.BMO_HOME || process.env.BMO_SANDBOX_BMO_HOME;
+	const bmoSource = process.env.BMO_SOURCE;
+	return { bmoHome, bmoSource };
+}
 
 /**
  * Compare files in two directories and return differences
@@ -40,15 +50,14 @@ async function compareDirs(localDir, repoDir, extension) {
 	const onlyLocal = localFiles.filter(f => !repoSet.has(f));
 	const onlyRepo = repoFiles.filter(f => !localSet.has(f));
 
-	return { onlyLocal, onlyRepo };
+	return { onlyLocal, onlyRepo, localCount: localFiles.length, repoCount: repoFiles.length };
 }
 
 export async function run(args) {
-	const bmoHome = process.env.BMO_HOME;
-	const bmoSource = process.env.BMO_SOURCE;
+	const { bmoHome, bmoSource } = getBmoPaths();
 
 	if (!bmoHome) {
-		return { ok: false, error: "BMO_HOME environment variable not set" };
+		return { ok: false, error: "BMO_HOME not available in environment" };
 	}
 
 	if (!bmoSource) {
@@ -56,6 +65,7 @@ export async function run(args) {
 			ok: true,
 			result: {
 				message: "BMO_SOURCE not configured. All tools/skills are local-only.",
+				hasRepo: false,
 				localTools: [],
 				localSkills: [],
 				repoTools: [],
@@ -75,28 +85,43 @@ export async function run(args) {
 	const hasLocalChanges = tools.onlyLocal.length > 0 || skills.onlyLocal.length > 0;
 	const hasRepoChanges = tools.onlyRepo.length > 0 || skills.onlyRepo.length > 0;
 
-	let message = "";
+	let summary = "";
 	if (!hasLocalChanges && !hasRepoChanges) {
-		message = "✓ Your bmo is in sync with the repo.";
+		summary = "✓ In sync with repo";
 	} else {
 		const parts = [];
-		if (hasLocalChanges) {
-			parts.push("You have local changes not in the repo.");
+		if (tools.onlyLocal.length > 0) {
+			parts.push(`${tools.onlyLocal.length} local-only tool(s)`);
 		}
-		if (hasRepoChanges) {
-			parts.push("The repo has updates you haven't pulled.");
+		if (skills.onlyLocal.length > 0) {
+			parts.push(`${skills.onlyLocal.length} local-only skill(s)`);
 		}
-		message = parts.join(" ");
+		if (tools.onlyRepo.length > 0) {
+			parts.push(`${tools.onlyRepo.length} repo tool(s) not pulled`);
+		}
+		if (skills.onlyRepo.length > 0) {
+			parts.push(`${skills.onlyRepo.length} repo skill(s) not pulled`);
+		}
+		summary = parts.join(", ");
 	}
 
 	return {
 		ok: true,
 		result: {
-			message,
-			localTools: tools.onlyLocal,
-			localSkills: skills.onlyLocal,
-			repoTools: tools.onlyRepo,
-			repoSkills: skills.onlyRepo,
+			summary,
+			hasRepo: true,
+			tools: {
+				local: tools.localCount,
+				repo: tools.repoCount,
+				onlyLocal: tools.onlyLocal,
+				onlyRepo: tools.onlyRepo,
+			},
+			skills: {
+				local: skills.localCount,
+				repo: skills.repoCount,
+				onlyLocal: skills.onlyLocal,
+				onlyRepo: skills.onlyRepo,
+			},
 		},
 	};
 }

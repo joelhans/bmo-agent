@@ -1,5 +1,5 @@
 import { copyFile, readFile, stat } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 export const description = "Contribute a local tool or skill to the shared repo";
@@ -25,9 +25,19 @@ export const schema = {
 };
 
 export const capabilities = {
-	filesystem: true,
+	filesystem: "both",
 	subprocess: true,
+	env: true,
 };
+
+/**
+ * Get BMO paths from environment (handles both direct and sandbox modes)
+ */
+function getBmoPaths() {
+	const bmoHome = process.env.BMO_HOME || process.env.BMO_SANDBOX_BMO_HOME;
+	const bmoSource = process.env.BMO_SOURCE;
+	return { bmoHome, bmoSource };
+}
 
 /**
  * Run a git command and return stdout
@@ -48,11 +58,10 @@ async function git(cwd, ...args) {
 
 export async function run(args) {
 	const { type, name, message } = args;
-	const bmoHome = process.env.BMO_HOME;
-	const bmoSource = process.env.BMO_SOURCE;
+	const { bmoHome, bmoSource } = getBmoPaths();
 
 	if (!bmoHome) {
-		return { ok: false, error: "BMO_HOME environment variable not set" };
+		return { ok: false, error: "BMO_HOME not available in environment" };
 	}
 
 	if (!bmoSource) {
