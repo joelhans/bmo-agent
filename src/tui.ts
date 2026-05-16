@@ -971,7 +971,6 @@ export async function startTui(opts: StartTuiOptions): Promise<void> {
 			logger.error(`Failed to save session: ${msg}`);
 		}
 
-
 		tui.stop();
 		await logger.flush();
 		process.exit(0);
