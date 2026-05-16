@@ -14,10 +14,12 @@ export interface BmoConfig {
 	models: {
 		reasoning: string;
 		coding: string;
+		micro: string;
 	};
 	context: {
 		reasoning: { maxTokens: number; responseHeadroom: number };
 		coding: { maxTokens: number; responseHeadroom: number };
+		micro: { maxTokens: number; responseHeadroom: number };
 	};
 	cost: {
 		sessionLimit: number | null;
@@ -36,6 +38,11 @@ export interface BmoConfig {
 		sessionsSinceLastMaintenance: number;
 		lastMaintenanceDate: string | null;
 	};
+	selfImprovement: {
+		enabled: boolean;
+		onErrors: boolean;
+		onCorrections: boolean;
+	};
 	toolResultTruncation: number;
 	sourceDir: string | null;
 }
@@ -50,10 +57,12 @@ export const DEFAULT_CONFIG: BmoConfig = {
 	models: {
 		reasoning: "openai/gpt-4o",
 		coding: "openai/gpt-4o-mini",
+		micro: "anthropic/claude-haiku-3-5",
 	},
 	context: {
 		reasoning: { maxTokens: 200_000, responseHeadroom: 8192 },
 		coding: { maxTokens: 200_000, responseHeadroom: 4096 },
+		micro: { maxTokens: 200_000, responseHeadroom: 2048 },
 	},
 	cost: {
 		sessionLimit: 2.0,
@@ -70,6 +79,11 @@ export const DEFAULT_CONFIG: BmoConfig = {
 		budgetLimit: 1.0,
 		sessionsSinceLastMaintenance: 0,
 		lastMaintenanceDate: null,
+	},
+	selfImprovement: {
+		enabled: true,
+		onErrors: true,
+		onCorrections: true,
 	},
 	toolResultTruncation: 50_000,
 	sourceDir: null,

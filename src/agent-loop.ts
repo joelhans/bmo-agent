@@ -1,6 +1,14 @@
+import type { BmoConfig } from "./config.ts";
 import { type SessionTracker, truncateToFit } from "./context.ts";
 import type { ChatMessage, LlmClient, ToolCallInfo } from "./llm.ts";
 import type { Logger } from "./logger.ts";
+import {
+	buildSelfImproveRegistry,
+	detectFrictionSignals,
+	runSelfImproveCheck,
+	type SelfImproveContext,
+	type SelfImproveDisplay,
+} from "./self-improve.ts";
 import type { ToolCallRecord } from "./telemetry.ts";
 import { type ModelTier, selectIterationTier } from "./tiering.ts";
 import type { ToolRegistry } from "./tools.ts";
@@ -31,10 +39,11 @@ export interface AgentLoopOptions {
 	registry: ToolRegistry;
 	messages: ChatMessage[];
 	session: SessionTracker;
-	models: { reasoning: string; coding: string };
+	models: { reasoning: string; coding: string; micro?: string };
 	contextConfig: {
 		reasoning: { maxTokens: number; responseHeadroom: number };
 		coding: { maxTokens: number; responseHeadroom: number };
+		micro?: { maxTokens: number; responseHeadroom: number };
 	};
 	defaultTier: ModelTier;
 	display: AgentDisplay;
@@ -42,6 +51,8 @@ export interface AgentLoopOptions {
 	toolCallRecords?: ToolCallRecord[];
 	sessionId?: string;
 	onModelChange?: (tier: ModelTier, model: string) => void;
+	// Self-improvement options
+	selfImproveConfig?: BmoConfig["selfImprovement"];
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +72,14 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 	let lastAssistantText = "";
 	let hadError = false;
 	let currentTier = defaultTier;
+
+	// Track error info for self-improvement
+	let lastFailedTool: string | undefined;
+	let lastFailedArgs: string | undefined;
+	let lastErrorMessage: string | undefined;
+
+	// Get the user message (last user message in the conversation)
+	const userMessage = findLastUserMessage(messages);
 
 	try {
 		for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
@@ -125,10 +144,21 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 			// Update state for next iteration's tier selection
 			lastAssistantText = textContent;
 
-			// No tool calls — text-only response
+			// No tool calls — text-only response, turn complete
 			if (toolCalls.size === 0) {
 				messages.push({ role: "assistant", content: textContent || null });
 				logger.info(`assistant: ${(textContent || "").slice(0, 200)}${(textContent || "").length > 200 ? "..." : ""}`);
+
+				// === Self-improvement check on turn complete ===
+				await maybeSelfImprove(opts, {
+					hadError,
+					lastFailedTool,
+					lastFailedArgs,
+					lastErrorMessage,
+					userMessage,
+					assistantResponse: textContent,
+				});
+
 				return { lastResponseWasError: false };
 			}
 
@@ -149,6 +179,9 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 			// Execute each tool call and track success/failure for next iteration
 			lastToolCalls = [];
 			hadError = false;
+			lastFailedTool = undefined;
+			lastFailedArgs = undefined;
+			lastErrorMessage = undefined;
 
 			for (const tc of toolCallInfos) {
 				const summary = formatToolCallSummary(tc.function.name, tc.function.arguments);
@@ -180,6 +213,9 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 					});
 					lastToolCalls.push({ name: tc.function.name, success: false });
 					hadError = true;
+					lastFailedTool = tc.function.name;
+					lastFailedArgs = tc.function.arguments;
+					lastErrorMessage = errorMsg;
 					continue;
 				}
 
@@ -199,6 +235,9 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 					});
 					lastToolCalls.push({ name: tc.function.name, success: false });
 					hadError = true;
+					lastFailedTool = tc.function.name;
+					lastFailedArgs = tc.function.arguments;
+					lastErrorMessage = errorMsg;
 					continue;
 				}
 
@@ -218,6 +257,9 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 					lastToolCalls.push({ name: tc.function.name, success: !result.isError });
 					if (result.isError) {
 						hadError = true;
+						lastFailedTool = tc.function.name;
+						lastFailedArgs = tc.function.arguments;
+						lastErrorMessage = result.output;
 					}
 				} catch (err: unknown) {
 					const durationMs = Math.round(performance.now() - startMs);
@@ -233,6 +275,9 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 					});
 					lastToolCalls.push({ name: tc.function.name, success: false });
 					hadError = true;
+					lastFailedTool = tc.function.name;
+					lastFailedArgs = tc.function.arguments;
+					lastErrorMessage = errorMsg;
 				}
 			}
 
@@ -253,4 +298,79 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<{ lastRespon
 		display.setInputEnabled(true);
 		display.setStatus(defaultStatus);
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function findLastUserMessage(messages: ChatMessage[]): string {
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const msg = messages[i];
+		if (msg.role === "user" && typeof msg.content === "string") {
+			return msg.content;
+		}
+	}
+	return "";
+}
+
+interface SelfImproveCheckContext {
+	hadError: boolean;
+	lastFailedTool?: string;
+	lastFailedArgs?: string;
+	lastErrorMessage?: string;
+	userMessage: string;
+	assistantResponse: string;
+}
+
+async function maybeSelfImprove(opts: AgentLoopOptions, ctx: SelfImproveCheckContext): Promise<void> {
+	const { selfImproveConfig, registry, llm, models, display, logger, toolCallRecords } = opts;
+
+	// Check if self-improvement is enabled and micro model is available
+	if (!selfImproveConfig?.enabled || !models.micro) {
+		return;
+	}
+
+	// Determine if we should trigger self-improvement
+	const shouldTriggerOnError = selfImproveConfig.onErrors && ctx.hadError;
+	const shouldTriggerOnCorrection = selfImproveConfig.onCorrections && detectFrictionSignals(ctx.userMessage);
+
+	if (!shouldTriggerOnError && !shouldTriggerOnCorrection) {
+		return;
+	}
+
+	logger.info(`self-improve: triggered (error=${shouldTriggerOnError}, correction=${shouldTriggerOnCorrection})`);
+
+	// Build subset registry for self-improvement agent
+	const selfImproveRegistry = buildSelfImproveRegistry(registry);
+
+	// Build context for self-improvement agent
+	const improveContext: SelfImproveContext = {
+		failedToolName: ctx.lastFailedTool,
+		failedToolArgs: ctx.lastFailedArgs,
+		errorMessage: ctx.lastErrorMessage,
+		userMessage: ctx.userMessage,
+		assistantResponse: ctx.assistantResponse,
+		toolInventory: selfImproveRegistry.listNames(),
+	};
+
+	// Create display adapter for self-improvement
+	const improveDisplay: SelfImproveDisplay = {
+		addMessage: (role, content) => display.addMessage(role, content),
+		addToolCall: (summary) => display.addToolCall(summary),
+		addToolResult: (result, isError) => display.addToolResult(result, isError),
+	};
+
+	// Run self-improvement check
+	const result = await runSelfImproveCheck(
+		llm,
+		models.micro,
+		selfImproveRegistry,
+		improveContext,
+		improveDisplay,
+		logger,
+		toolCallRecords,
+	);
+
+	logger.info(`self-improve: ${result.action} — ${result.description}`);
 }

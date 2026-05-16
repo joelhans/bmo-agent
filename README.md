@@ -14,25 +14,33 @@ library](https://github.com/badlogic/pi-mono/tree/main/packages/tui).
 ## Quick start
 
 ```bash
-# Install dependencies
+# Clone and build
+git clone https://github.com/yourusername/bmo.git ~/src/bmo
+cd ~/src/bmo
 bun install
+bun run build
 
-# Set an API key
-bun run dev -- key add openai <your-key>
+# Install the binary to ~/.local/bin
+bun run install
 
-# Or use environment variables
-export OPENAI_API_KEY=your-key
+# Add an API key
+bmo key add openai <your-key>
 
-# Start bmo
-bun run dev
+# Run bmo from any directory
+cd ~/projects/my-app
+bmo
 ```
 
-For a compiled binary:
+To sync self-improvements back to your repo, set `sourceDir` in
+`~/.local/share/bmo/config.json`:
 
-```bash
-bun run build        # Produces dist/bmo
-./dist/bmo           # Run directly
+```json
+{
+  "sourceDir": "/Users/you/src/bmo"
+}
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Installation
 
@@ -43,11 +51,22 @@ bun run install              # Build and install to ~/.local/bin
 bun run install --no-binary  # Just sync tools and skills to BMO_DATA
 ```
 
-You can also customize install locations:
+Customize install locations with environment variables:
 
 ```bash
 INSTALL_BIN=/usr/local/bin BMO_DATA=/opt/bmo bun run install
 ```
+
+### Development mode
+
+For working on bmo's core:
+
+```bash
+cd ~/src/bmo
+bun run dev
+```
+
+This runs bmo from source with BMO_HOME set to your checkout.
 
 ## Usage
 
@@ -84,7 +103,7 @@ bmo key remove <provider>       # Remove a stored key
 
 ### Message flow
 
-1. **Tier selection.** bmo picks a model tier — `coding` (cheaper) or
+1. **Tier selection.** bmo picks a model tier: `coding` (cheaper) or
    `reasoning` (more capable). Keywords like "debug", "refactor", "why does",
    and "architect" trigger reasoning automatically, as does a failed previous
    response.
@@ -104,13 +123,13 @@ bmo key remove <provider>       # Remove a stored key
 
 ### Self-improvement
 
-bmo doesn't just execute tasks — it builds tools for tasks it encounters
+bmo doesn't just execute tasks—it builds tools for tasks it encounters
 repeatedly.
 
 **During sessions:**
 - When bmo encounters a limitation, it writes a new `.mjs` tool to `tools/`,
   calls `reload_tools` to register it, and immediately uses it.
-- It writes `.md` skill documents to `skills/` — reusable knowledge loaded into
+- It writes `.md` skill documents to `skills/`—reusable knowledge loaded into
   context on demand.
 - Learning events (corrections, preferences, patterns) are logged and
   accumulated.
@@ -196,7 +215,10 @@ Config lives at `~/.local/share/bmo/config.json`:
   // Maintenance triggers
   "maintenance": {
     "threshold": 10
-  }
+  },
+
+  // Source sync for contributors (see CONTRIBUTING.md)
+  "sourceDir": null
 }
 ```
 
@@ -219,7 +241,7 @@ bmo routes calls through the OpenAI SDK with configurable `baseURL`. Any OpenAI-
 
 ## Directory structure
 
-**BMO_HOME** — the agent's codebase (auto-detected, or set `$BMO_HOME`):
+**BMO_HOME**—the agent's codebase (auto-detected, or set `$BMO_HOME`):
 
 ```
 BMO_HOME/
@@ -231,7 +253,7 @@ BMO_HOME/
     EXPERIMENT.md
 ```
 
-**Data directory** — `~/.local/share/bmo` (or set `$BMO_DATA`):
+**Data directory**—`~/.local/share/bmo` (or set `$BMO_DATA`):
 
 ```
 ~/.local/share/bmo/
@@ -304,6 +326,30 @@ bun run lint         # Check with Biome
 bun run lint:fix     # Auto-fix lint issues
 bun run format       # Format with Biome
 bun run smoke        # Full smoke test
+```
+
+## Contributing
+
+bmo can sync self-improvements back to the source repo automatically. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup instructions.
+
+Quick version:
+
+```bash
+# Build and install from your fork
+cd ~/src/bmo
+bun run build
+bun run install
+
+# Point bmo at your checkout
+# Add to ~/.local/share/bmo/config.json:
+{
+  "sourceDir": "/Users/you/src/bmo"
+}
+
+# Use bmo from any project—tools and skills sync to your fork
+cd ~/projects/my-app
+bmo
 ```
 
 ## Architecture
