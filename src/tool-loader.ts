@@ -1,6 +1,5 @@
-import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { DOC_FILES, mergeMarkdownEntries } from "./doc-sync.ts";
 import { executeSandboxed, resolveCapabilities, type SandboxConfig, type ToolCapabilities } from "./sandbox.ts";
 import type { SkillsRegistry } from "./skills.ts";
 import type { ToolDefinition, ToolRegistry, ToolResult } from "./tools.ts";
@@ -200,137 +199,6 @@ export function formatLoadResult(result: LoadResult, skillCount: number): string
 }
 
 // ---------------------------------------------------------------------------
-// Sync to BMO_SOURCE — auto-persist tools and skills to version control
-// ---------------------------------------------------------------------------
-
-/**
- * Copy tools and skills from BMO_HOME dirs to BMO_SOURCE and git commit
- * if anything changed. Only syncs tools that passed validation (loaded or
- * unavailable due to missing deps). Tools with errors are excluded to
- * prevent committing broken code to BMO_SOURCE.
- *
- * Returns a status line for the reload summary, or null if BMO_SOURCE is
- * not set.
- */
-export async function syncToSource(
-	toolsDir: string,
-	skillsDir: string,
-	bmoSource: string | null,
-	loadResult?: LoadResult,
-	docsDir?: string,
-): Promise<string | null> {
-	if (!bmoSource) return null;
-
-	const destToolsDir = join(bmoSource, "tools");
-	const destSkillsDir = join(bmoSource, "skills");
-	await mkdir(destToolsDir, { recursive: true });
-	await mkdir(destSkillsDir, { recursive: true });
-
-	let copied = 0;
-	const skipped: string[] = [];
-
-	// Build allowlist of valid tools (loaded + unavailable-but-valid)
-	// If no loadResult provided, fall back to syncing everything (backwards compat)
-	const validToolNames = loadResult
-		? new Set([...loadResult.loaded, ...loadResult.unavailable.map((u) => u.name)])
-		: null;
-
-	// Copy .mjs tool files (only validated ones)
-	try {
-		const toolFiles = (await readdir(toolsDir)).filter((f) => f.endsWith(".mjs"));
-		for (const file of toolFiles) {
-			const toolName = file.replace(/\.mjs$/, "");
-			if (validToolNames && !validToolNames.has(toolName)) {
-				skipped.push(toolName);
-				continue;
-			}
-			await copyFile(join(toolsDir, file), join(destToolsDir, file));
-			copied++;
-		}
-	} catch {
-		// toolsDir may not exist yet
-	}
-
-	// Copy .md skill files
-	try {
-		const skillFiles = (await readdir(skillsDir)).filter((f) => f.endsWith(".md"));
-		for (const file of skillFiles) {
-			await copyFile(join(skillsDir, file), join(destSkillsDir, file));
-			copied++;
-		}
-	} catch {
-		// skillsDir may not exist yet
-	}
-
-	// Merge doc files (IMPROVEMENTS.md, OPPORTUNITIES.md, EXPERIMENT.md)
-	if (docsDir) {
-		const destDocsDir = join(bmoSource, "docs");
-		await mkdir(destDocsDir, { recursive: true });
-		for (const file of DOC_FILES) {
-			try {
-				const localContent = await readFile(join(docsDir, file), "utf-8");
-				let sourceContent: string | null = null;
-				try {
-					sourceContent = await readFile(join(destDocsDir, file), "utf-8");
-				} catch {
-					// source doesn't exist — copy local
-				}
-				if (sourceContent === null) {
-					await writeFile(join(destDocsDir, file), localContent);
-					copied++;
-				} else {
-					const merged = mergeMarkdownEntries(sourceContent, localContent);
-					if (merged !== null) {
-						await writeFile(join(destDocsDir, file), merged);
-						copied++;
-					}
-				}
-			} catch {
-				// local file doesn't exist — skip
-			}
-		}
-	}
-
-	if (copied === 0) return null;
-
-	// Git add + commit (only if there are actual changes)
-	try {
-		const add = Bun.spawn(["git", "-C", bmoSource, "add", "tools/", "skills/", "docs/"], {
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await add.exited;
-
-		// Check if there's anything staged
-		const diff = Bun.spawn(["git", "-C", bmoSource, "diff", "--cached", "--quiet"], {
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		const diffExit = await diff.exited;
-
-		if (diffExit !== 0) {
-			// There are staged changes — commit them
-			const commit = Bun.spawn(["git", "-C", bmoSource, "commit", "-m", "sync tools, skills, and docs from BMO_HOME"], {
-				stdout: "pipe",
-				stderr: "pipe",
-			});
-			await commit.exited;
-			let msg = "Synced to BMO_SOURCE and committed.";
-			if (skipped.length > 0) {
-				msg += ` Skipped broken tool(s): ${skipped.join(", ")}`;
-			}
-			return msg;
-		}
-		if (skipped.length > 0) {
-			return `No changes to sync. Skipped broken tool(s): ${skipped.join(", ")}`;
-		}
-		return null; // nothing changed
-	} catch {
-		return "Synced files to BMO_SOURCE but git commit failed.";
-	}
-}
-
-// ---------------------------------------------------------------------------
 // reload_tools tool
 // ---------------------------------------------------------------------------
 
@@ -358,19 +226,7 @@ export function createReloadToolsTool(
 			});
 			await skillsRegistry.scan();
 			const skillCount = skillsRegistry.list().length;
-			let summary = formatLoadResult(loadResult, skillCount);
-
-			// Auto-sync to BMO_SOURCE if configured (only valid tools)
-			if (opts?.skillsDir) {
-				const syncResult = await syncToSource(
-					toolsDir,
-					opts.skillsDir,
-					opts.bmoSource ?? null,
-					loadResult,
-					opts.docsDir,
-				);
-				if (syncResult) summary += `\n${syncResult}`;
-			}
+			const summary = formatLoadResult(loadResult, skillCount);
 
 			return { output: summary };
 		},

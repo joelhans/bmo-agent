@@ -1,25 +1,25 @@
 # Contributing to bmo
 
 bmo is a self-improving agent—it builds tools and skills during normal use.
-This guide explains how to configure bmo so those improvements flow back to your
-fork for contribution.
+This guide explains how your improvements can flow back to the project.
 
-## The source sync mechanism
+## Philosophy: Personal vs Shared
 
-bmo distinguishes between two locations.
+bmo separates **personal learning** from **shared capabilities**:
 
-`BMO_HOME` is the runtime copy of tools, skills, and docs. It lives in
-`~/.local/share/bmo/` by default (or wherever `$BMO_DATA` points). bmo reads
-from and writes to this location during sessions.
+**Personal (stays in your BMO_HOME):**
+- Learning docs (IMPROVEMENTS.md, OPPORTUNITIES.md, EXPERIMENT.md)
+- Session history and reflections
+- Working memory (your preferences and patterns)
 
-`sourceDir` (or the `BMO_SOURCE` environment variable) points at your git
-checkout of the bmo repository. When configured, bmo automatically copies
-tools, skills, and docs from `BMO_HOME` to this location and commits them.
+**Shared (contributed back to repo):**
+- Tools (`.mjs` files) - capabilities
+- Skills (`.md` files) - reusable knowledge
 
-This separation lets you use bmo normally from any working directory while
-accumulating improvements in a git repo ready for pull requests.
+This prevents your personal learning patterns from biasing other users' bmo
+instances while still enabling contribution of useful tools and skills.
 
-## Setup for contributors
+## Quick start for contributors
 
 ### 1. Fork and clone
 
@@ -32,18 +32,10 @@ bun install
 
 ### 2. Build and install the binary
 
-Build bmo and install it to your PATH. This lets you use bmo from any directory
-while improvements still sync back to your fork:
-
 ```bash
 cd ~/src/bmo
 bun run build        # Creates dist/bmo
-
-# Option A: Install to ~/.local/bin (recommended)
-bun run install
-
-# Option B: Copy to another location in your PATH
-cp dist/bmo /usr/local/bin/bmo
+bun run install      # Install to ~/.local/bin
 ```
 
 ### 3. Configure sourceDir
@@ -56,7 +48,7 @@ Add `sourceDir` to your bmo config (`~/.local/share/bmo/config.json`):
 }
 ```
 
-Or use the environment variable (config takes precedence):
+Or use the environment variable:
 
 ```bash
 export BMO_SOURCE=/Users/you/src/bmo
@@ -67,77 +59,48 @@ export BMO_SOURCE=/Users/you/src/bmo
 ```bash
 cd ~/projects/my-app
 bmo
-# Tools and skills bmo creates will sync to ~/src/bmo automatically
-```
-
-### Alternative: Run from source (development mode)
-
-If you're actively working on bmo's core (not just contributing tools/skills),
-run directly from your checkout:
-
-```bash
-cd ~/src/bmo
-bun run dev
-```
-
-This sets `BMO_HOME` to your checkout, so everything reads from and writes to
-your repo directly (no sync needed). However, you'll need to restart from the
-checkout directory each time.
-
-For most contributors, use the binary + `sourceDir` approach. It gives you
-the flexibility to run bmo from any project while improvements still flow back
-to your fork.
-
-## What gets synced
-
-When you call `reload_tools` (or press F5), bmo:
-
-1. Copies all valid `.mjs` files from `BMO_HOME/tools/` to `sourceDir/tools/`.
-   Broken tools (syntax errors, missing exports) are skipped.
-2. Copies all `.md` files from `BMO_HOME/skills/` to `sourceDir/skills/`.
-3. Merges `IMPROVEMENTS.md`, `OPPORTUNITIES.md`, and `EXPERIMENT.md`
-   entry-by-entry (entries are `##` sections). Entries from `BMO_HOME` are
-   appended if they don't exist in source.
-4. Runs `git add` and `git commit` in your source repo if anything changed.
-
-Doc sync also happens on startup (pulls entries from source into `BMO_HOME`),
-on exit (pushes entries from `BMO_HOME` to source), and during maintenance
-(bidirectional).
-
-## Workflow example
-
-```bash
-# 1. Configure sourceDir (one time)
-echo '{"sourceDir": "/Users/you/src/bmo"}' > ~/.local/share/bmo/config.json
-
-# 2. Build and install (after each core change)
-cd ~/src/bmo
-bun run build
-bun run install
-
-# 3. Use bmo from any project
-cd ~/projects/my-website
-bmo
-
-# 4. Ask bmo to do something that triggers a new tool
-> search for all TODO comments in this codebase
-
-# 5. bmo builds a tool (e.g., search_code.mjs), writes it, calls reload_tools
-
-# 6. Check your source repo
-cd ~/src/bmo
-git log --oneline -3
-# abc1234 sync tools, skills, and docs from BMO_HOME
-# ...
-
-# 7. Review and push
-git diff HEAD~1
-git push origin main
-
-# 8. Open a pull request on GitHub
+# Tools and skills bmo creates will be local-only until you explicitly contribute them
 ```
 
 ## Contributing improvements
+
+### Check what you've built locally
+
+```bash
+# In a bmo session
+> bmo status
+
+# Or ask naturally
+> What tools have I built that aren't in the repo yet?
+```
+
+This shows:
+- Tools/skills only in your BMO_HOME (local)
+- Tools/skills only in the repo (not pulled)
+
+### Contribute a tool or skill
+
+When you've built something useful:
+
+```bash
+# Explicit
+> bmo contribute tool my_awesome_tool
+
+# Or natural language
+> This search_api_docs tool is solid, let's contribute it to the repo
+```
+
+bmo will:
+1. Copy the file from BMO_HOME to your fork
+2. Git add + commit with a meaningful message
+3. Tell you to `git push`
+
+Then:
+```bash
+cd ~/src/bmo
+git push origin main
+# Open a PR on GitHub
+```
 
 ### Tools
 
@@ -158,10 +121,11 @@ export async function run(args) {
 }
 ```
 
-Before submitting:
+Before contributing:
 - Test the tool manually (invoke it in a session)
 - Check for lint issues (`cd ~/src/bmo && bun run lint`)
 - Ensure it handles errors gracefully
+- Use `bmo contribute tool <name>` to copy to repo
 
 ### Skills
 
@@ -179,13 +143,29 @@ triggers: [keyword1, keyword2]
 Content loaded when the skill is invoked...
 ```
 
-### Docs (IMPROVEMENTS.md, etc.)
+Contribute with `bmo contribute skill <name>`.
 
-These track bmo's learning and hypotheses. Each entry is a `##` section. When
-syncing, entries are merged by heading—existing entries aren't overwritten.
+### Learning docs (IMPROVEMENTS.md, OPPORTUNITIES.md)
 
-If you want to contribute a fix based on an `OPPORTUNITIES.md` entry, reference
-it in your PR description.
+These stay **local** to your BMO_HOME. They track your personal journey and
+hypotheses. They don't sync to the repo.
+
+If you discover something useful from your docs (e.g., "we should add a
+validate_json tool"), build the tool and contribute it—but the doc entry stays
+yours.
+
+## Alternative: Run from source (development mode)
+
+If you're working on bmo's core (not just tools/skills), run directly from your
+checkout:
+
+```bash
+cd ~/src/bmo
+bun run dev
+```
+
+This sets `BMO_HOME` to your checkout, so everything reads from and writes to
+your repo directly. For most contributors, use the binary + `sourceDir` approach.
 
 ## Running tests
 
@@ -217,42 +197,20 @@ Before opening a PR:
 
 ## Troubleshooting
 
-### Sync not happening
+### Contribution not appearing in fork
 
-- Check `sourceDir` is set: `cat ~/.local/share/bmo/config.json | grep sourceDir`
-- Ensure the path exists and is a git repo
-- Look for sync messages after `reload_tools` (or press F5 in the UI)
-- Verify you're running the installed binary, not `bun run dev` from a
-  different directory
+If you used `bmo contribute` but don't see changes:
 
-### Broken tools not syncing
-
-By design—tools with syntax errors or missing exports are excluded to prevent
-committing broken code. Fix the tool first (check `~/.local/share/bmo/tools/`).
-
-### Merge conflicts in docs
-
-Doc files use entry-based merging. If you see conflicts:
-```bash
-cd ~/src/bmo
-git status
-# Resolve manually, then commit
-```
-
-### Changes not appearing in my fork
-
-If you created a tool but don't see it in your fork:
-
-1. Check the tool was created: `ls ~/.local/share/bmo/tools/`
-2. Press F5 or call `reload_tools` to trigger sync
-3. Check git status: `cd ~/src/bmo && git status`
-4. Look for sync messages in bmo's output
+1. Check the tool exists: `ls ~/.local/share/bmo/tools/`
+2. Verify the commit: `cd ~/src/bmo && git log --oneline -1`
+3. Check `bmo contribute` output for errors
+4. Ensure BMO_SOURCE is configured: `echo $BMO_SOURCE`
 
 ### Which mode am I in?
 
-| Command | BMO_HOME | Sync behavior | Use case |
-|---------|----------|---------------|----------|
-| `bmo` (binary) | `~/.local/share/bmo` | Via sourceDir → fork | **Recommended**: Use from any project |
+| Command | BMO_HOME | Contribution flow | Use case |
+|---------|----------|-------------------|----------|
+| `bmo` (binary) | `~/.local/share/bmo` | Explicit via `bmo contribute` | **Recommended** |
 | `cd ~/src/bmo && bun run dev` | Your checkout | Direct writes | Core development |
 
 For contributing tools/skills, use the binary. For core changes, use dev mode.
@@ -261,10 +219,10 @@ For contributing tools/skills, use the binary. For core changes, use dev mode.
 
 For deeper understanding:
 
-- `src/tool-loader.ts`: `syncToSource()` handles the copy and commit logic.
-- `src/doc-sync.ts`: entry-based merging for doc files.
-- `src/paths.ts`: resolution order for `BMO_HOME`, `BMO_DATA`, `BMO_SOURCE`.
-- `CLAUDE.md`: full architecture reference for AI assistants.
+- `tools/bmo_status.mjs`: Shows local vs shared divergence
+- `tools/bmo_contribute.mjs`: Explicit contribution mechanism
+- `src/paths.ts`: Resolution order for BMO_HOME, BMO_DATA, BMO_SOURCE
+- `CLAUDE.md`: Full architecture reference
 
 ## Questions?
 
