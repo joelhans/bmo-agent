@@ -1,5 +1,5 @@
 import { copyFile, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import { spawn } from "node:child_process";
 
 export const description = "Contribute a local tool or skill to the shared repo";
@@ -40,6 +40,26 @@ function getBmoPaths() {
 }
 
 /**
+ * Validate that a name doesn't contain path traversal attempts
+ */
+function validateName(name) {
+	// Strip extension if present for validation
+	const baseName = name.replace(/\.(mjs|md)$/, "");
+	
+	// Reject if name contains path separators or parent directory references
+	if (baseName.includes("/") || baseName.includes("\\") || baseName.includes("..")) {
+		return { valid: false, error: "Name cannot contain path separators or '..'" };
+	}
+	
+	// Ensure the basename is the same as the input (no hidden path components)
+	if (basename(baseName) !== baseName) {
+		return { valid: false, error: "Invalid name format" };
+	}
+	
+	return { valid: true };
+}
+
+/**
  * Run a git command and return stdout
  */
 async function git(cwd, ...args) {
@@ -68,6 +88,12 @@ export async function run(args) {
 		return { ok: false, error: "BMO_SOURCE not configured. Cannot contribute without a repo." };
 	}
 
+	// Validate name to prevent path traversal
+	const validation = validateName(name);
+	if (!validation.valid) {
+		return { ok: false, error: validation.error };
+	}
+
 	// Determine paths
 	const ext = type === "tool" ? ".mjs" : ".md";
 	const subdir = type === "tool" ? "tools" : "skills";
@@ -75,6 +101,7 @@ export async function run(args) {
 	
 	const localPath = join(bmoHome, subdir, filename);
 	const repoPath = join(bmoSource, subdir, filename);
+	const relPath = join(subdir, filename);
 
 	// Check local file exists
 	try {
@@ -91,6 +118,23 @@ export async function run(args) {
 		isNew = true;
 	}
 
+	// Check for unrelated staged changes before proceeding
+	try {
+		const stagedFiles = await git(bmoSource, "diff", "--cached", "--name-only");
+		if (stagedFiles) {
+			const stagedList = stagedFiles.split("\n").filter(f => f.trim());
+			const unrelatedStaged = stagedList.filter(f => f !== relPath);
+			if (unrelatedStaged.length > 0) {
+				return {
+					ok: false,
+					error: `Unrelated staged changes detected in BMO_SOURCE: ${unrelatedStaged.join(", ")}. Please commit or unstage them first.`,
+				};
+			}
+		}
+	} catch {
+		// No staged changes or git error — proceed
+	}
+
 	// Read local content for diff display
 	const content = await readFile(localPath, "utf-8");
 	const lineCount = content.split("\n").length;
@@ -98,18 +142,17 @@ export async function run(args) {
 	// Copy file to repo
 	await copyFile(localPath, repoPath);
 
-	// Git add
-	const relPath = join(subdir, filename);
+	// Git add only the specific file
 	try {
 		await git(bmoSource, "add", relPath);
 	} catch (err) {
 		return { ok: false, error: `git add failed: ${err.message}` };
 	}
 
-	// Check if there are staged changes
+	// Check if there are staged changes for this file
 	let hasChanges = false;
 	try {
-		await git(bmoSource, "diff", "--cached", "--quiet");
+		await git(bmoSource, "diff", "--cached", "--quiet", "--", relPath);
 	} catch {
 		hasChanges = true;
 	}
@@ -124,10 +167,10 @@ export async function run(args) {
 		};
 	}
 
-	// Commit
+	// Commit only the specific file using --only
 	const commitMsg = message || `Add ${type}: ${name}`;
 	try {
-		await git(bmoSource, "commit", "-m", commitMsg);
+		await git(bmoSource, "commit", "--only", relPath, "-m", commitMsg);
 	} catch (err) {
 		return { ok: false, error: `git commit failed: ${err.message}` };
 	}

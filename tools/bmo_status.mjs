@@ -37,11 +37,13 @@ async function compareDirs(localDir, repoDir, extension) {
 		// Directory doesn't exist or can't read
 	}
 
-	try {
-		const entries = await readdir(repoDir);
-		repoFiles = entries.filter(f => f.endsWith(extension)).map(f => basename(f));
-	} catch {
-		// Directory doesn't exist or can't read
+	if (repoDir) {
+		try {
+			const entries = await readdir(repoDir);
+			repoFiles = entries.filter(f => f.endsWith(extension)).map(f => basename(f));
+		} catch {
+			// Directory doesn't exist or can't read
+		}
 	}
 
 	const localSet = new Set(localFiles);
@@ -60,24 +62,10 @@ export async function run(args) {
 		return { ok: false, error: "BMO_HOME not available in environment" };
 	}
 
-	if (!bmoSource) {
-		return {
-			ok: true,
-			result: {
-				message: "BMO_SOURCE not configured. All tools/skills are local-only.",
-				hasRepo: false,
-				localTools: [],
-				localSkills: [],
-				repoTools: [],
-				repoSkills: [],
-			},
-		};
-	}
-
 	const localToolsDir = join(bmoHome, "tools");
-	const repoToolsDir = join(bmoSource, "tools");
 	const localSkillsDir = join(bmoHome, "skills");
-	const repoSkillsDir = join(bmoSource, "skills");
+	const repoToolsDir = bmoSource ? join(bmoSource, "tools") : null;
+	const repoSkillsDir = bmoSource ? join(bmoSource, "skills") : null;
 
 	const tools = await compareDirs(localToolsDir, repoToolsDir, ".mjs");
 	const skills = await compareDirs(localSkillsDir, repoSkillsDir, ".md");
@@ -86,7 +74,9 @@ export async function run(args) {
 	const hasRepoChanges = tools.onlyRepo.length > 0 || skills.onlyRepo.length > 0;
 
 	let summary = "";
-	if (!hasLocalChanges && !hasRepoChanges) {
+	if (!bmoSource) {
+		summary = "BMO_SOURCE not configured. All tools/skills are local-only.";
+	} else if (!hasLocalChanges && !hasRepoChanges) {
 		summary = "✓ In sync with repo";
 	} else {
 		const parts = [];
@@ -105,11 +95,12 @@ export async function run(args) {
 		summary = parts.join(", ");
 	}
 
+	// Consistent result shape regardless of BMO_SOURCE configuration
 	return {
 		ok: true,
 		result: {
 			summary,
-			hasRepo: true,
+			hasRepo: !!bmoSource,
 			tools: {
 				local: tools.localCount,
 				repo: tools.repoCount,
